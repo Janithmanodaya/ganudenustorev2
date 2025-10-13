@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 export default function AuthPage() {
   const navigate = useNavigate()
@@ -12,6 +12,7 @@ export default function AuthPage() {
   const [forgotStep, setForgotStep] = useState('request') // 'request' -> 'reset'
   const [result, setResult] = useState(null) // { ok: boolean, message?: string }
   const [submitting, setSubmitting] = useState(false)
+  const [agreePolicy, setAgreePolicy] = useState(false)
 
   useEffect(() => {
     // If already logged in, go to account page
@@ -23,6 +24,13 @@ export default function AuthPage() {
 
   async function submit(e) {
     e.preventDefault()
+
+    // Enforce policy agreement before sending registration OTP
+    if (mode === 'register' && registerStep === 'request' && !agreePolicy) {
+      setResult({ ok: false, message: 'Please agree to the Service Policy before continuing.' })
+      return
+    }
+
     setSubmitting(true)
 
     try {
@@ -172,8 +180,24 @@ export default function AuthPage() {
             <input className="input" placeholder="OTP" value={otp} onChange={e => setOtp(e.target.value)} disabled={submitting} />
           ) : null}
 
+          {/* Policy agreement for registration */}
+          {mode === 'register' && registerStep === 'request' && (
+            <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                id="agree"
+                type="checkbox"
+                checked={agreePolicy}
+                onChange={e => setAgreePolicy(e.target.checked)}
+                disabled={submitting}
+              />
+              <label htmlFor="agree" className="text-muted">
+                I agree to the <Link to="/policy">Service Policy</Link>.
+              </label>
+            </div>
+          )}
+
           <div>
-            <button className="btn primary" type="submit" disabled={submitting}>
+            <button className="btn primary" type="submit" disabled={submitting || (mode === 'register' && registerStep === 'request' && !agreePolicy)}>
               {submitting ? 'Please wait…' : (
                 <>
                   {mode === 'login' && 'Login'}
@@ -184,6 +208,13 @@ export default function AuthPage() {
             </button>
           </div>
         </form>
+
+        {/* Notice with a link to policy on the auth page */}
+        <div style={{ marginTop: 12 }}>
+          <small className="text-muted">
+            By using this website you acknowledge that we are a platform connecting buyers and sellers and we are not responsible for user actions. See our <Link to="/policy">Service Policy</Link>.
+          </small>
+        </div>
 
         {result && (
           <div style={{ marginTop: 12 }}>

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Routes, Route, Link, Navigate } from 'react-router-dom'
+import { Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom'
 import HomePage from './pages/HomePage.jsx'
 import ViewListingPage from './pages/ViewListingPage.jsx'
 import NewListingPage from './pages/NewListingPage.jsx'
@@ -13,14 +13,28 @@ import VerifyEmployeePage from './pages/VerifyEmployeePage.jsx'
 import MyAdsPage from './pages/MyAdsPage.jsx'
 import AccountPage from './pages/AccountPage.jsx'
 import JobSearchResultsPage from './pages/JobSearchResultsPage.jsx'
+import PolicyPage from './pages/PolicyPage.jsx'
 
 export default function App() {
+  const navigate = useNavigate()
+
   return (
     <div className="app light">
       <header className="topbar">
-        <div className="brand">
-          <Link to="/">Ganudenu</Link>
-          <span className="domain">Marketplace</span>
+        <div className="topbar-left">
+          <button
+            className="back-btn"
+            type="button"
+            aria-label="Back"
+            onClick={() => navigate(-1)}
+            title="Back"
+          >
+            ‹
+          </button>
+          <div className="brand">
+            <Link to="/">Ganudenu</Link>
+            <span className="domain">Marketplace</span>
+          </div>
         </div>
         <nav className="nav">
           <Link to="/">Home</Link>
@@ -45,11 +59,15 @@ export default function App() {
           <Route path="/jobs/search" element={<JobSearchResultsPage />} />
           <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
           <Route path="/search" element={<SearchResultsPage />} />
+          <Route path="/policy" element={<PolicyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <footer className="footer">
         <small>© {new Date().getFullYear()} Ganudenu Marketplace</small>
+        <div style={{ marginTop: 8 }}>
+          <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Service Policy</Link>
+        </div>
       </footer>
     </div>
   )
