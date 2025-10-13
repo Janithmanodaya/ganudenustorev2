@@ -599,25 +599,7 @@ export default function HomePage() {
                 <div className="text-muted">
                   Built for Sri Lanka with local insights<br/>and simplicity.
                 </div>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => navigate('/policy')}
-                  style={{
-                    marginTop: 8,
-                    borderRadius: 24,
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    background: 'rgba(18,22,31,0.55)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
-                    width: 'fit-content'
-                  }}
-                >
-                  Learn more
-                </button>
+                
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -626,25 +608,7 @@ export default function HomePage() {
                 <div className="text-muted">
                   Keep costs down while reaching more<br/>buyers and sellers.
                 </div>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => navigate('/new')}
-                  style={{
-                    marginTop: 8,
-                    borderRadius: 24,
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    background: 'rgba(18,22,31,0.55)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
-                    width: 'fit-content'
-                  }}
-                >
-                  Start now
-                </button>
+                
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -653,25 +617,7 @@ export default function HomePage() {
                 <div className="text-muted">
                   Auto-create and auto-share to your FB<br/>page after publish.
                 </div>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => navigate('/policy')}
-                  style={{
-                    marginTop: 8,
-                    borderRadius: 24,
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    background: 'rgba(18,22,31,0.55)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
-                    width: 'fit-content'
-                  }}
-                >
-                  Coming soon
-                </button>
+                
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -680,52 +626,13 @@ export default function HomePage() {
                 <div className="text-muted">
                   Everything you need to buy, sell, and hire —<br/>in one place.
                 </div>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                  style={{
-                    marginTop: 8,
-                    borderRadius: 24,
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    background: 'rgba(18,22,31,0.55)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
-                    width: 'fit-content'
-                  }}
-                >
-                  Explore
-                </button>
+                
               </div>
             </div>
           </div>
 
           {/* Floating nav buttons */}
-          <button
-            className="btn"
-            type="button"
-            aria-label="Scroll features left"
-            onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: -300, behavior: 'smooth' }) }}
-            style={{
-              position: 'absolute', top: '50%', left: 6, transform: 'translateY(-50%)',
-              borderRadius: '50%', width: 36, height: 36, display: 'grid', placeItems: 'center',
-              boxShadow: '0 6px 18px rgba(0,0,0,0.2)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)'
-            }}
-          >‹</button>
-          <button
-            className="btn"
-            type="button"
-            aria-label="Scroll features right"
-            onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: 300, behavior: 'smooth' }) }}
-            style={{
-              position: 'absolute', top: '50%', right: 6, transform: 'translateY(-50%)',
-              borderRadius: '50%', width: 36, height: 36, display: 'grid', placeItems: 'center',
-              boxShadow: '0 6px 18px rgba(0,0,0,0.2)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)'
-            }}
-          >›</button>
+          
 
           {/* Hide scrollbar styling */}
           <style>{`
