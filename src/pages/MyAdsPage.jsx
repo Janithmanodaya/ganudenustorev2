@@ -91,22 +91,23 @@ export default function MyAdsPage() {
                   {item.pricing_type ? ` • ${item.pricing_type}` : ''}
                   {expires ? ` • ${expires}` : ''}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                  <button
-                    onClick={(e) => handleDelete(e, item.id)}
-                    style={{
-                      background: '#f44336',
-                      color: 'white',
-                      border: 'none',
-                      padding: '6px 10px',
-                      borderRadius: 6,
-                      cursor: 'pointer',
-                      fontSize: 12
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
+                <button
+                  onClick={(e) => handleDelete(e, item.id)}
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    bottom: 8,
+                    background: '#f44336',
+                    color: 'white',
+                    border: 'none',
+                    padding: '6px 10px',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 12
+                  }}
+                >
+                  Delete
+                </button>
               </div>
             )
           })}
