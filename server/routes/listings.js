@@ -1009,6 +1009,40 @@ router.get('/suggestions', (req, res) => {
   }
 });
 
+// Get current user's listings (My Ads)
+router.get('/my', (req, res) => {
+  try {
+    const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
+    if (!email) return res.status(401).json({ error: 'Missing user email' });
+
+    const rows = db.prepare(`
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at
+      FROM listings
+      WHERE owner_email = ?
+      ORDER BY created_at DESC
+      LIMIT 200
+    `).all(email);
+
+    const firstImageStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
+    const listImagesStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
+    const results = rows.map(r => {
+      let thumbnail_url = filePathToUrl(r.thumbnail_path);
+      if (!thumbnail_url) {
+        const first = firstImageStmt.get(r.id);
+        thumbnail_url = filePathToUrl(first?.path);
+      }
+      const imgs = listImagesStmt.all(r.id);
+      const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.path)).filter(Boolean) : [];
+      return { ...r, thumbnail_url, small_images };
+    });
+
+    res.json({ results });
+  } catch (e) {
+    console.error('[listings] /my error:', e && e.message ? e.message : e);
+    res.status(500).json({ error: 'Failed to load your listings' });
+  }
+});
+
 // Get a single listing by ID
 router.get('/:id', (req, res) => {
   try {
