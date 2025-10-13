@@ -347,7 +347,7 @@ export default function HomePage() {
                   <option value="Job">Job</option>
                 </select>
                 <input
-                  className="input xl"
+                  className="input"
                   list="home-location-suggest"
                   placeholder="Location"
                   value={filterLocation}
@@ -356,8 +356,8 @@ export default function HomePage() {
                 <datalist id="home-location-suggest">
                   {locSuggestions.map(loc => <option key={loc} value={loc} />)}
                 </datalist>
-                <input className="input xl" type="number" placeholder="Min price" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
-                <input className="input xl" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
+                <input className="input" type="number" placeholder="Min price" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
+                <input className="input" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
 
                 {/* Dynamic sub_category/model and other keys */}
                 {filterCategory && filtersDef.keys.length > 0 && (
@@ -386,7 +386,7 @@ export default function HomePage() {
                             return (
                               <div key={key}>
                                 <input
-                                  className="input xl"
+                                  className="input"
                                   list={listId}
                                   placeholder={`${pretty(key)} (any)`}
                                   value={filters[key] || ''}

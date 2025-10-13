@@ -163,7 +163,7 @@ export default function SearchResultsPage() {
               <form onSubmit={onApplyAdvanced} className="filters-grid">
                 <div>
                   <input
-                    className="input xl"
+                    className="input"
                     list="location-suggest"
                     placeholder="Location"
                     value={location}
@@ -178,8 +178,8 @@ export default function SearchResultsPage() {
                   <option value="Fixed Price">Fixed Price</option>
                   <option value="Negotiable">Negotiable</option>
                 </select>
-                <input className="input xl" type="number" placeholder="Min price" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
-                <input className="input xl" type="number" placeholder="Max price" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
+                <input className="input" type="number" placeholder="Min price" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
+                <input className="input" type="number" placeholder="Max price" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
 
                 {/* Dynamic filters from structured_json */}
                 {category && filtersDef.keys.length > 0 && (
@@ -207,7 +207,7 @@ export default function SearchResultsPage() {
                             return (
                               <div key={key}>
                                 <input
-                                  className="input xl"
+                                  className="input"
                                   list={listId}
                                   placeholder={`${pretty(key)} (any)`}
                                   value={filters[key] || ''}
@@ -240,7 +240,7 @@ export default function SearchResultsPage() {
                 )}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <select className="select" value={sort} onChange={e => setSort(e.target.value)}>
+                  <select className="select xl" value={sort} onChange={e => setSort(e.target.value)}>
                     <option value="latest">Latest</option>
                     <option value="price_asc">Price: Low to High</option>
                     <option value="price_desc">Price: High to Low</option>
