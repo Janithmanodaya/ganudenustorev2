@@ -236,21 +236,20 @@ export default function VerifyListingPage() {
                   onChange={e => { const s = parseStruct(); const v = e.target.value; s.manufacture_year = v === '' ? '' : Number(v); patchStruct(s) }}
                 />
 
-                {String(draft?.main_category || '') === 'Vehicle' && (
-                  <>
-                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Vehicle Sub-category</label>
-                    <select
-                      className="select"
-                      value={subCategory}
-                      onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
-                    >
-                      <option value="">Vehicle Sub-category (required)</option>
-                      <option value="Bike">Bike</option>
-                      <option value="Car">Car</option>
-                      <option value="Van">Van</option>
-                      <option value="Bus">Bus</option>
-                    </select>
-                  </>
+                {/* Show Sub-category as a non-editable field for all categories */}
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
+                {String(draft?.main_category || '') === 'Vehicle' ? (
+                  <select className="select" value={subCategory} disabled>
+                    <option value="">Vehicle Sub-category</option>
+                    <option value="Bike">Bike</option>
+                    <option value="Car">Car</option>
+                    <option value="Van">Van</option>
+                    <option value="Bus">Bus</option>
+                  </select>
+                ) : (
+                  <select className="select" value={subCategory || ''} disabled>
+                    <option value="">{subCategory ? subCategory : 'None'}</option>
+                  </select>
                 )}
               </div>
             </div>
