@@ -217,7 +217,7 @@ async function callGemini(key, rolePrompt, userText) {
 
 // Classify the main category using Gemini based on title/description. Always return one of the allowed labels.
 async function classifyMainCategory(key, title, description) {
-  const allowed = ['Vehicle','Property','Job','Electronic','Mobile','Home Garden'];
+  const allowed = ['Vehicle','Property','Job','Electronic','Mobile','Home Garden','Other'];
   const role = [
     'Classify the following listing into exactly one main category from the allowed list.',
     'Allowed categories:',
@@ -246,7 +246,7 @@ async function classifyMainCategory(key, title, description) {
   if (/(phone|iphone|android|samsung|pixel|mobile)/i.test(t)) return 'Mobile';
   if (/(tv|television|fridge|refrigerator|washer|laptop|camera|electronic|speaker|headphone)/i.test(t)) return 'Electronic';
   if (/(garden|home|furniture|sofa|bed|kitchen|decor|lawn|tools)/i.test(t)) return 'Home Garden';
-  return 'Vehicle';
+  return 'Other';
 }
 
 // Normalize common Gemini extraction output variations to our canonical fields
@@ -925,8 +925,7 @@ router.get('/search', (req, res) => {
     if (sortVal === 'price_asc') query += ' ORDER BY price ASC, created_at DESC';
     else if (sortVal === 'price_desc') query += ' ORDER BY price DESC, created_at DESC';
     else if (sortVal === 'random') query += ' ORDER BY RANDOM()';
-    else query += ' ORDER BY created_at DE_codeSCnew'</;
-';
+    else query += ' ORDER BY created_at DESC';
 
     query += ' LIMIT ? OFFSET ?';
     params.push(lim, offset);
