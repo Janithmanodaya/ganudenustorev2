@@ -128,6 +128,21 @@ export default function HomePage() {
     return () => { clearTimeout(t); ctrl.abort() }
   }, [q])
 
+  // Location suggestions fetching (debounced) for Home filters
+  useEffect(() => {
+    const term = (locQuery || '').trim()
+    if (!term) { setLocSuggestions([]); return }
+    const ctrl = new AbortController()
+    const timer = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/listings/locations?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
+        const data = await r.json()
+        if (r.ok) setLocSuggestions(Array.isArray(data.results) ? data.results : [])
+      } catch (_) {}
+    }, 250)
+    return () => { ctrl.abort(); clearTimeout(timer) }
+  }, [locQuery])
+
   const [cardSlideIndex, setCardSlideIndex] = useState({})
   function nextImage(item) {
     const imgs = Array.isArray(item.small_images) ? item.small_images : []
@@ -234,13 +249,14 @@ export default function HomePage() {
   function resetHomeFilters() {
     try {
       setFilterCategory('');
-Location('')
-    setFilterPriceMin('')
-    setFilterPriceMax('')
-    setFilters({})
-    setShowFilters(false)
-    // Trigger reload of latest listings
-    setRefreshKey(k => k + 1)
+      setFilterLocation('');
+      setFilterPriceMin('');
+      setFilterPriceMax('');
+      setFilters({});
+      setShowFilters(false);
+      // Trigger reload of latest listings
+      setRefreshKey(k => k + 1)
+    } catch (_) {}
   }
 
   // Build pagination window (around 5 pages centered on current)
@@ -330,7 +346,16 @@ Location('')
                   <option value="Property">Property</option>
                   <option value="Job">Job</option>
                 </select>
-                <input className="input" placeholder="Location" value={filterLocation} onChange={e => setFilterLocation(e.target.value)} />
+                <input
+                  className="input"
+                  list="home-location-suggest"
+                  placeholder="Location"
+                  value={filterLocation}
+                  onChange={e => { setFilterLocation(e.target.value); setLocQuery(e.target.value) }}
+                />
+                <datalist id="home-location-suggest">
+                  {locSuggestions.map(loc => <option key={loc} value={loc} />)}
+                </datalist>
                 <input className="input" type="number" placeholder="Min price" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
                 <input className="input" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
 
@@ -351,22 +376,44 @@ Location('')
                         // Fallback: title-case underscores
                         return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
                       };
+                      const asInputKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
                       return filtersDef.keys
                         .filter(k => !['location','pricing_type','price'].includes(k))
-                        .map(key => (
-                          <select
-                            key={key}
-                            className="select"
-                            value={filters[key] || ''}
-                            onChange={e => updateFilter(key, e.target.value)}
-                            aria-label={key}
-                          >
-                            <option value="">{pretty(key)} (any)</option>
-                            {(filtersDef.valuesByKey[key] || []).map(v => (
-                              <option key={String(v)} value={String(v)}>{String(v)}</option>
-                            ))}
-                          </select>
-                        ));
+                        .map(key => {
+                          const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
+                          if (asInputKeys.has(key)) {
+                            const listId = `home-filter-${key}-list`;
+                            return (
+                              <div key={key}>
+                                <input
+                                  className="input"
+                                  list={listId}
+                                  placeholder={`${pretty(key)} (any)`}
+                                  value={filters[key] || ''}
+                                  onChange={e => updateFilter(key, e.target.value)}
+                                  aria-label={key}
+                                />
+                                <datalist id={listId}>
+                                  {values.map(v => <option key={v} value={v} />)}
+                                </datalist>
+                              </div>
+                            );
+                          }
+                          return (
+                            <select
+                              key={key}
+                              className="select"
+                              value={filters[key] || ''}
+                              onChange={e => updateFilter(key, e.target.value)}
+                              aria-label={key}
+                            >
+                              <option value="">{pretty(key)} (any)</option>
+                              {values.map(v => (
+                                <option key={v} value={v}>{v}</option>
+                              ))}
+                            </select>
+                          );
+                        });
                     })()}
                   </>
                 )}
