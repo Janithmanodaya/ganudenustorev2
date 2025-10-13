@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
+import CustomSelect from '../components/CustomSelect.jsx'
+
 export default function HomePage() {
   const [q, setQ] = useState('')
   const [latest, setLatest] = useState([])
@@ -20,6 +22,7 @@ export default function HomePage() {
   const [filters, setFilters] = useState({})
   const [locQuery, setLocQuery] = useState('')
   const [locSuggestions, setLocSuggestions] = useState([])
+  const [sort, setSort] = useState('latest')
 
   // Global search suggestions
   const [searchSuggestions, setSearchSuggestions] = useState([])
@@ -228,7 +231,7 @@ export default function HomePage() {
       const params = new URLSearchParams()
       params.set('limit', String(limit))
       params.set('page', String(page))
-      params.set('sort', 'latest')
+      params.set('sort', String(sort || 'latest'))
       if (filterCategory) params.set('category', filterCategory)
       if (filterLocation) params.set('location', filterLocation)
       if (filterPriceMin) params.set('price_min', filterPriceMin)
@@ -340,12 +343,18 @@ export default function HomePage() {
           {showFilters && (
             <div className="card" style={{ padding: 12, marginBottom: 12 }}>
               <div className="grid two">
-                <select className="select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
-                  <option value="">Category (any)</option>
-                  <option value="Vehicle">Vehicle</option>
-                  <option value="Property">Property</option>
-                  <option value="Job">Job</option>
-                </select>
+                <CustomSelect
+                  value={filterCategory}
+                  onChange={v => setFilterCategory(v)}
+                  ariaLabel="Category"
+                  placeholder="Category (any)"
+                  options={[
+                    { value: '', label: 'Category (any)' },
+                    { value: 'Vehicle', label: 'Vehicle' },
+                    { value: 'Property', label: 'Property' },
+                    { value: 'Job', label: 'Job' },
+                  ]}
+                />
                 <input
                   className="input"
                   list="home-location-suggest"
@@ -360,82 +369,73 @@ export default function HomePage() {
                 <input className="input" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
 
                 {/* Dynamic sub_category/model and other keys */}
-                {filterCategory && filtersDef.keys.length > 0 && (
-                  <>
-                    {(() => {
-                      const pretty = (k) => {
-                        if (!k) return '';
-                        const map = {
-                          model: 'Model',
-                          model_name: 'Model',
-                          manufacture_year: 'Manufacture Year',
-                          sub_category: 'Sub-category',
-                          pricing_type: 'Pricing',
-                        };
-                        if (map[k]) return map[k];
-                        // Fallback: title-case underscores
-                        return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
-                      };
-                      const asInputKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
-                      return filtersDef.keys
-                        .filter(k => !['location','pricing_type','price'].includes(k))
-                        .map(key => {
-                          const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
-                          if (asInputKeys.has(key)) {
-                            const listId = `home-filter-${key}-list`;
-                            return (
-                              <div key={key}>
-                                <input
-                                  className="input"
-                                  list={listId}
-                                  placeholder={`${pretty(key)} (any)`}
-                                  value={filters[key] || ''}
-                                  onChange={e => updateFilter(key, e.target.value)}
-                                  aria-label={key}
-                                />
-                                <datalist id={listId}>
-                                  {values.map(v => <option key={v} value={v} />)}
-                                </datalist>
-                              </div>
-                            );
-                          }
-                          return (
-                            <select
-                              key={key}
-                              className="select"
+                {filterCategory && filtersDef.keys.length > 0 && (() => {
+                  const pretty = (k) => {
+                    if (!k) return '';
+                    const map = {
+                      model: 'Model',
+                      model_name: 'Model',
+                      manufacture_year: 'Manufacture Year',
+                      sub_category: 'Sub-category',
+                      pricing_type: 'Pricing',
+                    };
+                    if (map[k]) return map[k];
+                    // Fallback: title-case underscores
+                    return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+                  };
+                  const asInputKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
+                  return filtersDef.keys
+                    .filter(k => !['location','pricing_type','price'].includes(k))
+                    .map(key => {
+                      const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
+                      if (asInputKeys.has(key)) {
+                        const listId = `home-filter-${key}-list`;
+                        return (
+                          <div key={key}>
+                            <input
+                              className="input"
+                              list={listId}
+                              placeholder={`${pretty(key)} (any)`}
                               value={filters[key] || ''}
                               onChange={e => updateFilter(key, e.target.value)}
                               aria-label={key}
-                            >
-                              <option value="">{pretty(key)} (any)</option>
-                              {values.map(v => (
-                                <option key={v} value={v}>{v}</option>
-                              ))}
-                            </select>
-                          );
-                        });
-                    })()}
-                  </>
-                )}
+                            />
+                            <datalist id={listId}>
+                              {values.map(v => <option key={v} value={v} />)}
+                            </datalist>
+                          </div>
+                        );
+                      }
+                      return (
+                        <CustomSelect
+                          key={key}
+                          value={filters[key] || ''}
+                          onChange={val => updateFilter(key, val)}
+                          ariaLabel={key}
+                          placeholder={`${pretty(key)} (any)`}
+                          options={[{ value: '', label: `${pretty(key)} (any)` }, ...values.map(v => ({ value: v, label: v }))]}
+                        />
+                      );
+                    });
+                })()}
 
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => {
-                      setFilterLocation('')
-                      setFilterPriceMin('')
-                      setFilterPriceMax('')
-                      setFilters({})
-                    }}
-                  >
-                    Clear
-                  </button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <CustomSelect
+                    value={sort}
+                    onChange={v => setSort(v)}
+                    ariaLabel="Sort"
+                    placeholder="Sort"
+                    options={[
+                      { value: 'latest', label: 'Latest' },
+                      { value: 'price_asc', label: 'Price: Low to High' },
+                      { value: 'price_desc', label: 'Price: High to Low' },
+                    ]}
+                  />
                   <button className="btn accent" type="button" onClick={applyHomeFilters}>
                     Apply
                   </button>
-                  <button className="btn" type="button" onClick={() => navigate('/search')}>
-                    Advanced Search
+                  <button className="btn" type="button" onClick={resetHomeFilters}>
+                    Reset
                   </button>
                 </div>
               </div>

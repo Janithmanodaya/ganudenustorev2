@@ -171,6 +171,28 @@ body {
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgba(108,127,247,0.15);
 }
+/* Make native dropdown menus clearer without changing the input/select control size */
+.select option {
+  font-size: 15px;               /* slightly larger, improves readability */
+  line-height: 1.4;
+  padding: 10px 12px;            /* gives options breathing room */
+  background-color: #121824;     /* blends with app surface */
+  color: var(--text);
+}
+.select option:checked,
+.select option:hover {
+  background-color: #1a2332;     /* subtle highlight that matches theme */
+  color: var(--text);
+}
+/* On Windows/Edge, ensure option hover contrast */
+@media all and (-ms-high-contrast: none), (-ms-high-contrast: active) {
+  .select option:hover { background-color: #1a2332; }
+}
+/* Improve dropdown visibility on WebKit when menu is open */
+.select:focus {
+  outline: none;
+}
+/* Keep textarea behavior */
 .textarea { min-height: 140px; resize: vertical; }
 
 .btn {

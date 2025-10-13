@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
+import CustomSelect from '../components/CustomSelect.jsx'
 
 export default function SearchResultsPage() {
   const [sp, setSp] = useSearchParams()
@@ -173,78 +174,82 @@ export default function SearchResultsPage() {
                     {locSuggestions.map(loc => <option key={loc} value={loc} />)}
                   </datalist>
                 </div>
-                <select className="select" value={pricingType} onChange={e => setPricingType(e.target.value)}>
-                  <option value="">Pricing (any)</option>
-                  <option value="Fixed Price">Fixed Price</option>
-                  <option value="Negotiable">Negotiable</option>
-                </select>
+                <CustomSelect
+                  value={pricingType}
+                  onChange={v => setPricingType(v)}
+                  ariaLabel="Pricing"
+                  placeholder="Pricing (any)"
+                  options={[
+                    { value: '', label: 'Pricing (any)' },
+                    { value: 'Fixed Price', label: 'Fixed Price' },
+                    { value: 'Negotiable', label: 'Negotiable' },
+                  ]}
+                />
                 <input className="input" type="number" placeholder="Min price" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
                 <input className="input" type="number" placeholder="Max price" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
 
                 {/* Dynamic filters from structured_json */}
-                {category && filtersDef.keys.length > 0 && (
-                  <>
-                    {(() => {
-                      const pretty = (k) => {
-                        if (!k) return '';
-                        const map = {
-                          model: 'Model',
-                          model_name: 'Model',
-                          manufacture_year: 'Manufacture Year',
-                          sub_category: 'Sub-category',
-                          pricing_type: 'Pricing',
-                        };
-                        if (map[k]) return map[k];
-                        return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
-                      };
-                      const asInputKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
-                      return filtersDef.keys
-                        .filter(k => !['location','pricing_type','price'].includes(k))
-                        .map(key => {
-                          const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
-                          if (asInputKeys.has(key)) {
-                            const listId = `adv-filter-${key}-list`;
-                            return (
-                              <div key={key}>
-                                <input
-                                  className="input"
-                                  list={listId}
-                                  placeholder={`${pretty(key)} (any)`}
-                                  value={filters[key] || ''}
-                                  onChange={e => updateFilter(key, e.target.value)}
-                                  aria-label={key}
-                                />
-                                <datalist id={listId}>
-                                  {values.map(v => <option key={v} value={v} />)}
-                                </datalist>
-                              </div>
-                            );
-                          }
-                          return (
-                            <select
-                              key={key}
-                              className="select"
+                {category && filtersDef.keys.length > 0 && (() => {
+                  const pretty = (k) => {
+                    if (!k) return '';
+                    const map = {
+                      model: 'Model',
+                      model_name: 'Model',
+                      manufacture_year: 'Manufacture Year',
+                      sub_category: 'Sub-category',
+                      pricing_type: 'Pricing',
+                    };
+                    if (map[k]) return map[k];
+                    return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+                  };
+                  const asInputKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
+                  return filtersDef.keys
+                    .filter(k => !['location','pricing_type','price'].includes(k))
+                    .map(key => {
+                      const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
+                      if (asInputKeys.has(key)) {
+                        const listId = `adv-filter-${key}-list`;
+                        return (
+                          <div key={key}>
+                            <input
+                              className="input"
+                              list={listId}
+                              placeholder={`${pretty(key)} (any)`}
                               value={filters[key] || ''}
                               onChange={e => updateFilter(key, e.target.value)}
                               aria-label={key}
-                            >
-                              <option value="">{pretty(key)} (any)</option>
-                              {values.map(v => (
-                                <option key={v} value={v}>{v}</option>
-                              ))}
-                            </select>
-                          );
-                        });
-                    })()}
-                  </>
-                )}
+                            />
+                            <datalist id={listId}>
+                              {values.map(v => <option key={v} value={v} />)}
+                            </datalist>
+                          </div>
+                        );
+                      }
+                      return (
+                        <CustomSelect
+                          key={key}
+                          value={filters[key] || ''}
+                          onChange={val => updateFilter(key, val)}
+                          ariaLabel={key}
+                          placeholder={`${pretty(key)} (any)`}
+                          options={[{ value: '', label: `${pretty(key)} (any)` }, ...values.map(v => ({ value: v, label: v }))]}
+                        />
+                      );
+                    });
+                })()}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <select className="select" value={sort} onChange={e => setSort(e.target.value)}>
-                    <option value="latest">Latest</option>
-                    <option value="price_asc">Price: Low to High</option>
-                    <option value="price_desc">Price: High to Low</option>
-                  </select>
+                  <CustomSelect
+                    value={sort}
+                    onChange={v => setSort(v)}
+                    ariaLabel="Sort"
+                    placeholder="Sort"
+                    options={[
+                      { value: 'latest', label: 'Latest' },
+                      { value: 'price_asc', label: 'Price: Low to High' },
+                      { value: 'price_desc', label: 'Price: High to Low' },
+                    ]}
+                  />
                   <button className="btn accent" type="submit">Apply</button>
                   <button className="btn" type="button" onClick={resetAdvancedFilters}>Reset</button>
                 </div>
