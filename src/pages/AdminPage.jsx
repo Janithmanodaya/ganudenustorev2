@@ -20,6 +20,17 @@ export default function AdminPage() {
   const [banners, setBanners] = useState([])
   const fileRef = useRef(null)
 
+  // Dashboard metrics
+  const [metrics, setMetrics] = useState(null)
+
+  // Users management
+  const [users, setUsers] = useState([])
+  const [userQuery, setUserQuery] = useState('')
+
+  // Reports management
+  const [reports, setReports] = useState([])
+  const [reportFilter, setReportFilter] = useState('pending')
+
   async function fetchConfig() {
     try {
       const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail } })
@@ -160,6 +171,96 @@ export default function AdminPage() {
     }
   }
 
+  async function loadMetrics() {
+    try {
+      const r = await fetch('/api/admin/metrics', { headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to load metrics')
+      setMetrics(data)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function loadUsers(q = '') {
+    try {
+      const r = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to load users')
+      setUsers(data.results || [])
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function banUser(id) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}/ban`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to ban user')
+      loadUsers(userQuery)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function unbanUser(id) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}/unban`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to unban user')
+      loadUsers(userQuery)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function suspend7Days(id) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}/suspend7`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to suspend user')
+      loadUsers(userQuery)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function loadReports(filter = 'pending') {
+    try {
+      const r = await fetch(`/api/admin/reports?status=${encodeURIComponent(filter)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to load reports')
+      setReports(data.results || [])
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function resolveReport(id) {
+    try {
+      const r = await fetch(`/api/admin/reports/${id}/resolve`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to resolve report')
+      loadReports(reportFilter)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function deleteReport(id) {
+    const yes = window.confirm('Delete this report?')
+    if (!yes) return
+    try {
+      const r = await fetch(`/api/admin/reports/${id}`, { method: 'DELETE', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to delete report')
+      loadReports(reportFilter)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
   async function onUploadBanner(file) {
     if (!file) return
     try {
@@ -286,6 +387,100 @@ export default function AdminPage() {
           <button className="btn" onClick={testGemini}>Test API Key</button>
           <div className="text-muted" style={{ marginTop: 8 }}>
             Current key: {maskedKey || 'none'}
+          </div>
+        </div>
+
+        <div className="h2" style={{ marginTop: 16 }}>Dashboard</div>
+        {!metrics && <p className="text-muted">Loading analytics...</p>}
+        {metrics && (
+          <>
+            <div className="grid three">
+              <div className="card">
+                <div className="h2">Users</div>
+                <div className="text-muted">Total: {metrics.totals.totalUsers}</div>
+                <div className="text-muted">Banned: {metrics.totals.bannedUsers}</div>
+                <div className="text-muted">Suspended: {metrics.totals.suspendedUsers}</div>
+              </div>
+              <div className="card">
+                <div className="h2">Listings</div>
+                <div className="text-muted">Total: {metrics.totals.totalListings}</div>
+                <div className="text-muted">Active: {metrics.totals.activeListings}</div>
+                <div className="text-muted">Pending: {metrics.totals.pendingListings}</div>
+              </div>
+              <div className="card">
+                <div className="h2">Reports</div>
+                <div className="text-muted">Pending: {metrics.totals.reportPending}</div>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 12 }}>
+              <div className="h2">Signups (Last 7 days)</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
+                {metrics.signups7d.map((d, idx) => {
+                  const max = Math.max(1, ...metrics.signups7d.map(x => x.count))
+                  const h = Math.round((d.count / max) * 120)
+                  return (
+                    <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: '100%', background: 'linear-gradient(180deg,#6c7ff7,#5569e2)', height: h, borderRadius: 8 }} title={`${d.date}: ${d.count}`} />
+                      <small className="text-muted">{d.date.slice(5)}</small>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="h2" style={{ marginTop: 16 }}>User Management</div>
+        <div className="grid two">
+          <input className="input" placeholder="Search by email or username..." value={userQuery} onChange={e => setUserQuery(e.target.value)} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" onClick={() => loadUsers(userQuery)}>Search</button>
+            <button className="btn" onClick={() => { setUserQuery(''); loadUsers(''); }}>Reset</button>
+          </div>
+        </div>
+        <div className="grid two" style={{ marginTop: 8 }}>
+          <div className="card">
+            <div className="h2">Results</div>
+            {users.length === 0 && <p className="text-muted">No users.</p>}
+            {users.map(u => (
+              <div key={u.id} className="card" style={{ marginBottom: 8 }}>
+                <div><strong>{u.email}</strong> {u.username ? <span className="text-muted">• @{u.username}</span> : null}</div>
+                <div className="text-muted">ID: {u.id} • Admin: {u.is_admin ? 'Yes' : 'No'} • Created: {new Date(u.created_at).toLocaleString()}</div>
+                <div className="text-muted">
+                  Status: {u.is_banned ? 'Banned' : (u.suspended_until && u.suspended_until > new Date().toISOString() ? `Suspended until ${new Date(u.suspended_until).toLocaleString()}` : 'Active')}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  {!u.is_banned && <button className="btn" onClick={() => banUser(u.id)}>Ban</button>}
+                  {u.is_banned && <button className="btn" onClick={() => unbanUser(u.id)}>Unban</button>}
+                  <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend 7 days</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="card">
+            <div className="h2">Reports</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <select className="select" value={reportFilter} onChange={e => { setReportFilter(e.target.value); loadReports(e.target.value); }}>
+                <option value="pending">Pending</option>
+                <option value="resolved">Resolved</option>
+                <option value="">All</option>
+              </select>
+              <button className="btn" onClick={() => loadReports(reportFilter)}>Refresh</button>
+            </div>
+            {reports.length === 0 && <p className="text-muted">No reports.</p>}
+            {reports.map(r => (
+              <div key={r.id} className="card" style={{ marginBottom: 8 }}>
+                <div><strong>Listing #{r.listing_id}</strong> • <span className="text-muted">{new Date(r.ts).toLocaleString()}</span></div>
+                <div className="text-muted">Reporter: {r.reporter_email || 'anonymous'}</div>
+                <div style={{ marginTop: 6 }}>{r.reason}</div>
+                <div className="text-muted" style={{ marginTop: 6 }}>Status: {r.status || 'pending'}</div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Mark Resolved</button>}
+                  <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

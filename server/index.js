@@ -103,6 +103,15 @@ try {
   if (!hasPhoto) {
     db.prepare(`ALTER TABLE users ADD COLUMN profile_photo_path TEXT`).run();
   }
+  // Add moderation columns if missing
+  const hasIsBanned = cols.some(c => c.name === 'is_banned');
+  if (!hasIsBanned) {
+    db.prepare(`ALTER TABLE users ADD COLUMN is_banned INTEGER NOT NULL DEFAULT 0`).run();
+  }
+  const hasSuspendedUntil = cols.some(c => c.name === 'suspended_until');
+  if (!hasSuspendedUntil) {
+    db.prepare(`ALTER TABLE users ADD COLUMN suspended_until TEXT`).run();
+  }
 } catch (_) {}
 
 db.prepare(`

@@ -31,6 +31,23 @@ db.prepare(`
   )
 `).run();
 
+// Ensure new columns exist on reports for management
+try {
+  const cols = db.prepare(`PRAGMA table_info(reports)`).all();
+  const hasStatus = cols.some(c => c.name === 'status');
+  if (!hasStatus) {
+    db.prepare(`ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'`).run();
+  }
+  const hasHandledBy = cols.some(c => c.name === 'handled_by');
+  if (!hasHandledBy) {
+    db.prepare(`ALTER TABLE reports ADD COLUMN handled_by INTEGER`).run();
+  }
+  const hasHandledAt = cols.some(c => c.name === 'handled_at');
+  if (!hasHandledAt) {
+    db.prepare(`ALTER TABLE reports ADD COLUMN handled_at TEXT`).run();
+  }
+} catch (_) {}
+
 // Simple admin auth gate using a header "X-Admin-Email"
 function requireAdmin(req, res, next) {
   const adminEmail = req.header('X-Admin-Email');
@@ -226,10 +243,34 @@ router.post('/flag', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-// List reports
+// List reports with optional status filter
 router.get('/reports', requireAdmin, (req, res) => {
-  const rows = db.prepare(`SELECT * FROM reports ORDER BY id DESC LIMIT 200`).all();
+  const status = (req.query.status || '').toLowerCase();
+  let rows;
+  if (status === 'pending' || status === 'resolved') {
+    rows = db.prepare(`SELECT * FROM reports WHERE status = ? ORDER BY id DESC LIMIT 500`).all(status);
+  } else {
+    rows = db.prepare(`SELECT * FROM reports ORDER BY id DESC LIMIT 500`).all();
+  }
   res.json({ results: rows });
+});
+
+// Resolve a report
+router.post('/reports/:id/resolve', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare(`UPDATE reports SET status = 'resolved', handled_by = ?, handled_at = ? WHERE id = ?`).run(
+    req.admin.id,
+    new Date().toISOString(),
+    id
+  );
+  res.json({ ok: true });
+});
+
+// Delete a report
+router.delete('/reports/:id', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare(`DELETE FROM reports WHERE id = ?`).run(id);
+  res.json({ ok: true });
 });
 
 // Banner management (admin)
@@ -245,6 +286,81 @@ router.get('/banners', requireAdmin, (req, res) => {
   } catch (e) {
     res.status(500).json({ error: 'Failed to load banners' });
   }
+});
+
+// Admin metrics and analytics
+router.get('/metrics', requireAdmin, (req, res) => {
+  try {
+    const totalUsers = db.prepare(`SELECT COUNT(*) as c FROM users`).get().c || 0;
+    const bannedUsers = db.prepare(`SELECT COUNT(*) as c FROM users WHERE is_banned = 1`).get().c || 0;
+    const suspendedUsers = db.prepare(`SELECT COUNT(*) as c FROM users WHERE suspended_until IS NOT NULL AND suspended_until > ?`).get(new Date().toISOString()).c || 0;
+    const totalListings = db.prepare(`SELECT COUNT(*) as c FROM listings`).get().c || 0;
+    const activeListings = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE status = 'Approved' OR status = 'Active'`).get().c || 0;
+    const pendingListings = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE status = 'Pending Approval'`).get().c || 0;
+    const reportPending = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE status = 'pending'`).get().c || 0;
+
+    // Signups last 7 days
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const dayStart = new Date();
+      dayStart.setUTCHours(0,0,0,0);
+      dayStart.setUTCDate(dayStart.getUTCDate() - i);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setUTCDate(dayStart.getUTCDate() + 1);
+      const c = db.prepare(`SELECT COUNT(*) as c FROM users WHERE created_at >= ? AND created_at < ?`).get(dayStart.toISOString(), dayEnd.toISOString()).c || 0;
+      days.push({ date: dayStart.toISOString().slice(0,10), count: c });
+    }
+
+    res.json({
+      totals: { totalUsers, bannedUsers, suspendedUsers, totalListings, activeListings, pendingListings, reportPending },
+      signups7d: days
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load metrics' });
+  }
+});
+
+// User management
+router.get('/users', requireAdmin, (req, res) => {
+  const q = (req.query.q || '').toLowerCase();
+  const limit = Math.min(Number(req.query.limit) || 50, 200);
+  let rows;
+  if (q) {
+    rows = db.prepare(`
+      SELECT id, email, username, is_admin, is_banned, suspended_until, created_at
+      FROM users
+      WHERE LOWER(email) LIKE ? OR LOWER(COALESCE(username,'')) LIKE ?
+      ORDER BY id DESC
+      LIMIT ?
+    `).all(`%${q}%`, `%${q}%`, limit);
+  } else {
+    rows = db.prepare(`
+      SELECT id, email, username, is_admin, is_banned, suspended_until, created_at
+      FROM users
+      ORDER BY id DESC
+      LIMIT ?
+    `).all(limit);
+  }
+  res.json({ results: rows });
+});
+
+router.post('/users/:id/ban', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare(`UPDATE users SET is_banned = 1, suspended_until = NULL WHERE id = ?`).run(id);
+  res.json({ ok: true });
+});
+
+router.post('/users/:id/unban', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare(`UPDATE users SET is_banned = 0, suspended_until = NULL WHERE id = ?`).run(id);
+  res.json({ ok: true });
+});
+
+router.post('/users/:id/suspend7', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  db.prepare(`UPDATE users SET is_banned = 0, suspended_until = ? WHERE id = ?`).run(until, id);
+  res.json({ ok: true, suspended_until: until });
 });
 
 router.post('/banners', requireAdmin, upload.single('image'), (req, res) => {
