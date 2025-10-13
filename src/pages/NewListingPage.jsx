@@ -59,7 +59,7 @@ export default function NewListingPage() {
 
   useEffect(() => {
     const cat = sp.get('category')
-    if (cat && ['Vehicle', 'Property', 'Job'].includes(cat)) {
+    if (cat && ['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden'].includes(cat)) {
       setMainCategory(cat)
     }
   }, [sp])
@@ -218,6 +218,9 @@ export default function NewListingPage() {
             <option>Vehicle</option>
             <option>Property</option>
             <option>Job</option>
+            <option>Electronic</option>
+            <option>Mobile</option>
+            <option>Home Garden</option>
           </select>
           <input id="title" className="input" placeholder="Main Title" value={title} onChange={e => setTitle(e.target.value)} />
           <textarea id="description" className="textarea" placeholder="Description (free-form text)" value={description} onChange={e => setDescription(e.target.value)} />

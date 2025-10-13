@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
@@ -36,6 +36,10 @@ export default function HomePage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const limit = 10
 
+  // Ref for features mini-cards scroller
+  const featureRef = useRef(null)
+
+
   // Suggestions derived from filtersDef values
   const subCategoryOptions = useMemo(() => {
     const arr = (filtersDef.valuesByKey['sub_category'] || []).map(v => String(v))
@@ -60,8 +64,9 @@ export default function HomePage() {
     async function loadAll() {
       try {
         setLoading(true)
+        const initialSort = filterCategory ? 'latest' : 'random'
         const [lr, br] = await Promise.all([
-          fetch(`/api/listings/search?limit=${limit}&page=${page}&sort=latest`),
+          fetch(`/api/listings/search?limit=${limit}&page=${page}&sort=${initialSort}`),
           fetch('/api/banners')
         ])
         // listings
@@ -231,7 +236,8 @@ export default function HomePage() {
       const params = new URLSearchParams()
       params.set('limit', String(limit))
       params.set('page', String(page))
-      params.set('sort', String(sort || 'latest'))
+      const effectiveSort = filterCategory ? String(sort || 'latest') : 'random'
+      params.set('sort', effectiveSort)
       if (filterCategory) params.set('category', filterCategory)
       if (filterLocation) params.set('location', filterLocation)
       if (filterPriceMin) params.set('price_min', filterPriceMin)
@@ -280,7 +286,7 @@ export default function HomePage() {
         >
           <h1 className="h1" style={{ textAlign: 'center', marginBottom: 8 }}>Buy • Sell • Hire</h1>
           <p className="text-muted" style={{ textAlign: 'center', marginTop: 0 }}>
-            Discover great deals on vehicles, property, and jobs.
+            Discover great deals on vehicles, property, jobs, electronics, mobiles, and home &amp; garden.
           </p>
 
           <form onSubmit={onSearch} className="searchbar" style={{ margin: '16px auto 0', maxWidth: 720 }}>
@@ -293,18 +299,18 @@ export default function HomePage() {
               onChange={e => setQ(e.target.value)}
             />
             <datalist id="global-suggest">
-              {(function() {
-                // Inline render: suggestions computed via useEffect below
-                return (globalThis && Array.isArray(globalThis.__home_suggestions)) ? globalThis.__home_suggestions.map(s => <option key={s} value={s} />) : null
-              })()}
+              {Array.isArray(searchSuggestions) ? searchSuggestions.map(s => <option key={s} value={s} />) : null}
             </datalist>
             <button className="btn primary" type="submit">Search</button>
           </form>
 
-          <div className="quick-cats" style={{ marginTop: 16 }}>
-            <button className={`btn ${filterCategory === 'Vehicle' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Vehicle'); setShowFilters(true); }}>Vehicles</button>
-            <button className={`btn ${filterCategory === 'Property' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Property'); setShowFilters(true); }}>Property</button>
-            <button className={`btn ${filterCategory === 'Job' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Job'); setShowFilters(true); }}>Jobs</button>
+          <div className="quick-cats" style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className={`btn ${filterCategory === 'Vehicle' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Vehicle'); setShowFilters(true); }}>🚗 Vehicles</button>
+            <button className={`btn ${filterCategory === 'Property' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Property'); setShowFilters(true); }}>🏠 Property</button>
+            <button className={`btn ${filterCategory === 'Job' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Job'); setShowFilters(true); }}>💼 Jobs</button>
+            <button className={`btn ${filterCategory === 'Electronic' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Electronic'); setShowFilters(true); }}>🔌 Electronic</button>
+            <button className={`btn ${filterCategory === 'Mobile' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Mobile'); setShowFilters(true); }}>📱 Mobile</button>
+            <button className={`btn ${filterCategory === 'Home Garden' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Home Garden'); setShowFilters(true); }}>🏡 Home&nbsp;Garden</button>
           </div>
         </div>
 
@@ -353,6 +359,9 @@ export default function HomePage() {
                     { value: 'Vehicle', label: 'Vehicle' },
                     { value: 'Property', label: 'Property' },
                     { value: 'Job', label: 'Job' },
+                    { value: 'Electronic', label: 'Electronic' },
+                    { value: 'Mobile', label: 'Mobile' },
+                    { value: 'Home Garden', label: 'Home Garden' },
                   ]}
                 />
                 <input
@@ -529,6 +538,295 @@ export default function HomePage() {
           {status && <p style={{ marginTop: 8 }}>{status}</p>}
         </div>
       </div>
+
+      {/* Standalone Feature section (separate from main card) */}
+      <section style={{ marginTop: 18 }}>
+        <div className="card" style={{ margin: '0 auto', maxWidth: 1000 }}>
+          <div className="h2" style={{ marginTop: 0 }}>🇱🇰 100% Sri Lankan</div>
+          <p className="text-muted" style={{ marginTop: 6 }}>
+            All-in-one, AI-powered marketplace. AI category selection, AI description writing, advanced filters, futuristic design,
+            and proudly 100% Sri Lankan — all in one place. Coming soon: automatic Facebook page creation and auto-share after your
+            ad is published. Low cost. High impact.
+          </p>
+        </div>
+
+        {/* Feature mini-cards - horizontal slider with floating nav buttons and hidden scrollbar */}
+        <div style={{ position: 'relative', marginTop: 12 }}>
+          <div
+            ref={featureRef}
+            className="hide-scroll"
+            style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollBehavior: 'smooth' }}
+          >
+            <div style={{ display: 'flex', gap: 12, paddingBottom: 6, minWidth: 'max-content' }}>
+              <div className="card" style={{ minWidth: 180 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🤖 AI Categories
+                </div>
+                <div className="text-muted">
+                  AI auto-selects the best main category<br/>and sub-category for your ad.
+                </div>
+                              </div>
+              <div className="card" style={{ minWidth: 180 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  ✍️ AI Descriptions
+                </div>
+                <div className="text-muted">
+                  One-click, polished descriptions with bullets<br/>and emoji for clarity.
+                </div>
+                              </div>
+              <div className="card" style={{ minWidth: 180 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🧭 Advanced Filters
+                </div>
+                <div className="text-muted">
+                  Powerful, easy filters to find exactly what<br/>you need fast.
+                </div>
+                
+              </div>
+              <div className="card" style={{ minWidth: 180 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🚀 Futuristic UI
+                </div>
+                <div className="text-muted">
+                  Clean, modern, and fast experience<br/>across devices.
+                </div>
+                
+              </div>
+              <div className="card" style={{ minWidth: 180 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🇱🇰 100% Sri Lankan
+                </div>
+                <div className="text-muted">
+                  Built for Sri Lanka with local insights<br/>and simplicity.
+                </div>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => navigate('/policy')}
+                  style={{
+                    marginTop: 8,
+                    borderRadius: 24,
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    background: 'rgba(18,22,31,0.55)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    backdropFilter: 'blur(8px)',
+                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
+                    width: 'fit-content'
+                  }}
+                >
+                  Learn more
+                </button>
+              </div>
+              <div className="card" style={{ minWidth: 180 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  💸 Low Cost
+                </div>
+                <div className="text-muted">
+                  Keep costs down while reaching more<br/>buyers and sellers.
+                </div>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => navigate('/new')}
+                  style={{
+                    marginTop: 8,
+                    borderRadius: 24,
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    background: 'rgba(18,22,31,0.55)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    backdropFilter: 'blur(8px)',
+                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
+                    width: 'fit-content'
+                  }}
+                >
+                  Start now
+                </button>
+              </div>
+              <div className="card" style={{ minWidth: 180 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🔗 Auto Facebook (Soon)
+                </div>
+                <div className="text-muted">
+                  Auto-create and auto-share to your FB<br/>page after publish.
+                </div>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => navigate('/policy')}
+                  style={{
+                    marginTop: 8,
+                    borderRadius: 24,
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    background: 'rgba(18,22,31,0.55)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    backdropFilter: 'blur(8px)',
+                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
+                    width: 'fit-content'
+                  }}
+                >
+                  Coming soon
+                </button>
+              </div>
+              <div className="card" style={{ minWidth: 180 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🧩 All-in-one
+                </div>
+                <div className="text-muted">
+                  Everything you need to buy, sell, and hire —<br/>in one place.
+                </div>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  style={{
+                    marginTop: 8,
+                    borderRadius: 24,
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    background: 'rgba(18,22,31,0.55)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    backdropFilter: 'blur(8px)',
+                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
+                    width: 'fit-content'
+                  }}
+                >
+                  Explore
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Floating nav buttons */}
+          <button
+            className="btn"
+            type="button"
+            aria-label="Scroll features left"
+            onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: -300, behavior: 'smooth' }) }}
+            style={{
+              position: 'absolute', top: '50%', left: 6, transform: 'translateY(-50%)',
+              borderRadius: '50%', width: 36, height: 36, display: 'grid', placeItems: 'center',
+              boxShadow: '0 6px 18px rgba(0,0,0,0.2)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)'
+            }}
+          >‹</button>
+          <button
+            className="btn"
+            type="button"
+            aria-label="Scroll features right"
+            onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: 300, behavior: 'smooth' }) }}
+            style={{
+              position: 'absolute', top: '50%', right: 6, transform: 'translateY(-50%)',
+              borderRadius: '50%', width: 36, height: 36, display: 'grid', placeItems: 'center',
+              boxShadow: '0 6px 18px rgba(0,0,0,0.2)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)'
+            }}
+          >›</button>
+
+          {/* Hide scrollbar styling */}
+          <style>{`
+            .hide-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+            .hide-scroll::-webkit-scrollbar { display: none; }
+          `}</style>
+        </div>
+      </section>
+
+      {/* Floating CTA: Post your first ad */}
+      {(() => {
+        const [show, setShow] = [true, () => {}]; // statically visible for eye-catching CTA
+        return (
+          <div
+            role="dialog"
+            aria-live="polite"
+            style={{
+              position: 'fixed',
+              left: '50%',
+              bottom: 22,
+              transform: 'translateX(-50%)',
+              zIndex: 1100,
+              pointerEvents: 'none'
+            }}
+          >
+            <div
+              className="card"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/new')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/new'); } }}
+              style={{
+                pointerEvents: 'auto',
+                display: show ? 'flex' : 'none',
+                alignItems: 'center',
+                gap: 12,
+                padding: '10px 14px',
+                borderRadius: 16,
+                boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+                background:
+                  'radial-gradient(300px 120px at 20% 0%, rgba(108,127,247,0.25), transparent 60%), ' +
+                  'radial-gradient(300px 120px at 80% 100%, rgba(0,209,255,0.25), transparent 60%), ' +
+                  'linear-gradient(180deg, rgba(29,35,48,0.98), rgba(29,35,48,0.92))',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.06)',
+                animation: 'cta-pop 0.6s ease-out',
+                cursor: 'pointer'
+              }}
+            >
+              <div style={{ maxWidth: 420 }}>
+                <div style={{ fontWeight: 700 }}>Start making money!</div>
+              </div>
+              <button
+                className="btn primary"
+                onClick={() => navigate('/new')}
+                aria-label="Post your first ad"
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: '50%',
+                  padding: 0,
+                  fontSize: 24,
+                  display: 'grid',
+                  placeItems: 'center',
+                  background:
+                    'radial-gradient(120px 80px at 30% 0%, rgba(255,255,255,0.25), transparent 60%), ' +
+                    '#6c7ff7',
+                  boxShadow: '0 10px 25px rgba(108,127,247,0.55)',
+                  position: 'relative',
+                  overflow: 'visible'
+                }}
+                title="Post an ad"
+              >
+                +
+                <span
+                  aria-hidden="true"
+                  style={{
+                    content: '""',
+                    position: 'absolute',
+                    inset: -6,
+                    borderRadius: '50%',
+                    boxShadow: '0 0 0 0 rgba(108,127,247,0.6)',
+                    animation: 'pulse 1.6s ease-out infinite'
+                  }}
+                />
+              </button>
+              <style>{`
+                @keyframes pulse {
+                  0% { box-shadow: 0 0 0 0 rgba(108,127,247,0.6); }
+                  70% { box-shadow: 0 0 0 12px rgba(108,127,247,0); }
+                  100% { box-shadow: 0 0 0 0 rgba(108,127,247,0); }
+                }
+                @keyframes cta-pop {
+                  0% { transform: translateY(20px) scale(0.96); opacity: 0; }
+                  100% { transform: translateY(0) scale(1); opacity: 1; }
+                }
+              `}</style>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   )
 }
