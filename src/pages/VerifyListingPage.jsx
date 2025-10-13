@@ -299,65 +299,40 @@ export default function VerifyListingPage() {
 
             {urls.length > 0 ? (
               <div className="card" style={{ padding: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
-                    className="btn"
-                    type="button"
-                    aria-label="Previous image"
-                    onClick={() => setActiveIdx((idx) => (idx - 1 + urls.length) % urls.length)}
-                    disabled={urls.length <= 1}
-                  >
-                    ‹
-                  </button>
-                  <div style={{ flex: 1, textAlign: 'center' }}>
-                    {urls[activeIdx] ? (
-                      <img
-                        src={urls[activeIdx]}
-                        alt={`Image ${activeIdx + 1}`}
-                        style={{ maxHeight: 300, width: '100%', objectFit: 'cover', borderRadius: 12 }}
-                      />
-                    ) : (
-                      <div className="text-muted">No preview</div>
-                    )}
-                    <div className="text-muted" style={{ marginTop: 6 }}>
-                      {activeIdx + 1} / {urls.length}
-                    </div>
-                  </div>
-                  <button
-                    className="btn"
-                    type="button"
-                    aria-label="Next image"
-                    onClick={() => setActiveIdx((idx) => (idx + 1) % urls.length)}
-                    disabled={urls.length <= 1}
-                  >
-                    ›
-                  </button>
-                </div>
-
-                {urls.length > 1 && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 10, overflowX: 'auto' }}>
-                    {urls.map((u, i) => (
+                <div style={{ position: 'relative' }}>
+                  {urls[activeIdx] ? (
+                    <img
+                      src={urls[activeIdx]}
+                      alt={`Image ${activeIdx + 1}`}
+                      style={{ maxHeight: 300, width: '100%', objectFit: 'cover', borderRadius: 12 }}
+                    />
+                  ) : (
+                    <div className="text-muted">No preview</div>
+                  )}
+                  {urls.length > 1 && (
+                    <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
                       <button
-                        key={i}
-                        type="button"
                         className="btn"
-                        style={{
-                          padding: 0,
-                          borderRadius: 10,
-                          borderColor: i === activeIdx ? 'var(--primary)' : 'var(--border)',
-                          background: 'transparent'
-                        }}
-                        onClick={() => setActiveIdx(i)}
+                        type="button"
+                        aria-label="Previous image"
+                        onClick={() => setActiveIdx((idx) => (idx - 1 + urls.length) % urls.length)}
                       >
-                        <img
-                          src={u}
-                          alt={`thumb-${i}`}
-                          style={{ height: 54, width: 80, objectFit: 'cover', borderRadius: 10, display: 'block' }}
-                        />
+                        ‹
                       </button>
-                    ))}
-                  </div>
-                )}
+                      <button
+                        className="btn"
+                        type="button"
+                        aria-label="Next image"
+                        onClick={() => setActiveIdx((idx) => (idx + 1) % urls.length)}
+                      >
+                        ›
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="text-muted" style={{ marginTop: 6, textAlign: 'center' }}>
+                  {activeIdx + 1} / {urls.length}
+                </div>
               </div>
             ) : (
               <p className="text-muted">No images.</p>
