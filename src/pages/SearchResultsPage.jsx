@@ -234,6 +234,7 @@ export default function SearchResultsPage() {
               )
             })}
             {results.length === 0 && <p className="text-muted">No results yet.</p>}
+          </div>
           {/* Pagination */}
           <div className="pagination" style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
             <button className="btn page" onClick={() => setPage(Math.max(1, page - 1))} aria-label="Previous page">‹ Prev</button>
