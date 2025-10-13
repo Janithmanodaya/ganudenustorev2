@@ -117,6 +117,25 @@ export default function SearchResultsPage() {
     setSp(next, { replace: true })
   }
 
+  function resetAdvancedFilters() {
+    // Clear all advanced filters quickly and reload defaults
+    setLocation('')
+    setPricingType('')
+    setPriceMin('')
+    setPriceMax('')
+    setFilters({})
+    setSort('latest')
+    setPage(1)
+
+    const next = new URLSearchParams()
+    if (q) next.set('q', q)
+    if (category) next.set('category', category)
+    next.set('page', '1')
+    next.set('sort', 'latest')
+    next.set('limit', String(limit))
+    setSp(next, { replace: true })
+  }
+
   const heading = useMemo(() => {
     const base = 'Search Results'
     if (category) return `${base} • ${category}`
@@ -204,13 +223,14 @@ export default function SearchResultsPage() {
                   </>
                 )}
 
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <select className="select" value={sort} onChange={e => setSort(e.target.value)}>
                     <option value="latest">Latest</option>
                     <option value="price_asc">Price: Low to High</option>
                     <option value="price_desc">Price: High to Low</option>
                   </select>
                   <button className="btn accent" type="submit">Apply</button>
+                  <button className="btn" type="button" onClick={resetAdvancedFilters}>Reset</button>
                 </div>
               </form>
             </>

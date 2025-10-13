@@ -231,6 +231,17 @@ export default function HomePage() {
     }
   }
 
+  function resetHomeFilters() {
+    setFilterCategory('')
+    setFilterLocation('')
+    setFilterPriceMin('')
+    setFilterPriceMax('')
+    setFilters({})
+    setShowFilters(false)
+    // Trigger reload of latest listings
+    setRefreshKey(k => k + 1)
+  }
+
   // Build pagination window (around 5 pages centered on current)
   const pageWindow = [page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1)
 
