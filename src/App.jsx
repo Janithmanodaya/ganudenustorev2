@@ -68,8 +68,8 @@ export default function App() {
         </Routes>
       </main>
       <footer className="footer">
-        <small>© {new Date().getFullYear()} Ganudenu Marketplace</small>
-        <div style={{ marginTop: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, width: '100%' }}>
+          <small>© {new Date().getFullYear()} Ganudenu Marketplace</small>
           <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Service Policy</Link>
         </div>
       </footer>
