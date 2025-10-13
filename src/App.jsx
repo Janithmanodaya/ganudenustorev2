@@ -13,6 +13,7 @@ import VerifyEmployeePage from './pages/VerifyEmployeePage.jsx'
 import MyAdsPage from './pages/MyAdsPage.jsx'
 import AccountPage from './pages/AccountPage.jsx'
 import JobSearchResultsPage from './pages/JobSearchResultsPage.jsx'
+import PolicyPage from './pages/PolicyPage.jsx'
 
 export default function App() {
   const navigate = useNavigate()
@@ -58,11 +59,15 @@ export default function App() {
           <Route path="/jobs/search" element={<JobSearchResultsPage />} />
           <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
           <Route path="/search" element={<SearchResultsPage />} />
+          <Route path="/policy" element={<PolicyPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <footer className="footer">
         <small>© {new Date().getFullYear()} Ganudenu Marketplace</small>
+        <div style={{ marginTop: 8 }}>
+          <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Service Policy</Link>
+        </div>
       </footer>
     </div>
   )
