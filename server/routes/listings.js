@@ -228,6 +228,20 @@ function normalizeStructuredData(obj) {
   // Model name
   s.model_name = String(s.model_name ?? s.model ?? s.vehicle_model ?? '').trim();
 
+  // Sub-category (vehicle type) - normalize common keys to one canonical field
+  let subCat = String(
+    s.sub_category ?? s.subcategory ?? s.vehicle_subcategory ?? s.vehicle_type ?? s.type ?? ''
+  ).trim();
+  if (subCat) {
+    const low = subCat.toLowerCase();
+    if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(low)) subCat = 'Bike';
+    else if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(low)) subCat = 'Car';
+    else if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(low)) subCat = 'Van';
+    else if (/(^|\b)(bus|coach)(\b|$)/i.test(low)) subCat = 'Bus';
+    else subCat = subCat.charAt(0).toUpperCase() + subCat.slice(1).toLowerCase();
+  }
+  s.sub_category = subCat;
+
   // Manufacture year (coerce to integer if possible)
   let yearCandidate = s.manufacture_year ?? s.year ?? s.model_year ?? s.mfg_year;
   if (typeof yearCandidate === 'string') {
@@ -461,6 +475,24 @@ ${description}`;
       const inferredYear = extractYearFromText(rawText);
       if (inferredYear != null) {
         structuredObj.manufacture_year = inferredYear;
+      }
+    }
+
+    // Infer vehicle sub-category when category is Vehicle
+    function extractVehicleSubCategory(text) {
+      const t = String(text || '').toLowerCase();
+      if (/(^|\b)(bus|coach)(\b|$)/i.test(t)) return 'Bus';
+      if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(t)) return 'Van';
+      if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(t)) return 'Car';
+      if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(t)) return 'Bike';
+      return '';
+    }
+    if (String(main_category) === 'Vehicle') {
+      const valid = new Set(['Bike','Car','Van','Bus']);
+      const current = String(structuredObj.sub_category || '').trim();
+      if (!current || !valid.has(current)) {
+        const inferred = extractVehicleSubCategory(rawText);
+        if (inferred) structuredObj.sub_category = inferred;
       }
     }
 
