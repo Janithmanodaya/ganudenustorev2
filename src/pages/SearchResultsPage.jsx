@@ -160,10 +160,10 @@ export default function SearchResultsPage() {
           {showAdvanced && (
             <>
               <div className="h2" style={{ marginTop: 8 }}>Advanced</div>
-              <form onSubmit={onApplyAdvanced} className="grid two">
+              <form onSubmit={onApplyAdvanced} className="filters-grid">
                 <div>
                   <input
-                    className="input"
+                    className="input xl"
                     list="location-suggest"
                     placeholder="Location"
                     value={location}
@@ -173,13 +173,13 @@ export default function SearchResultsPage() {
                     {locSuggestions.map(loc => <option key={loc} value={loc} />)}
                   </datalist>
                 </div>
-                <select className="select" value={pricingType} onChange={e => setPricingType(e.target.value)}>
+                <select className="select xl" value={pricingType} onChange={e => setPricingType(e.target.value)}>
                   <option value="">Pricing (any)</option>
                   <option value="Fixed Price">Fixed Price</option>
                   <option value="Negotiable">Negotiable</option>
                 </select>
-                <input className="input" type="number" placeholder="Min price" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
-                <input className="input" type="number" placeholder="Max price" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
+                <input className="input xl" type="number" placeholder="Min price" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
+                <input className="input xl" type="number" placeholder="Max price" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
 
                 {/* Dynamic filters from structured_json */}
                 {category && filtersDef.keys.length > 0 && (
@@ -197,22 +197,44 @@ export default function SearchResultsPage() {
                         if (map[k]) return map[k];
                         return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
                       };
+                      const asInputKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
                       return filtersDef.keys
                         .filter(k => !['location','pricing_type','price'].includes(k))
-                        .map(key => (
-                          <select
-                            key={key}
-                            className="select"
-                            value={filters[key] || ''}
-                            onChange={e => updateFilter(key, e.target.value)}
-                            aria-label={key}
-                          >
-                            <option value="">{pretty(key)} (any)</option>
-                            {(filtersDef.valuesByKey[key] || []).map(v => (
-                              <option key={String(v)} value={String(v)}>{String(v)}</option>
-                            ))}
-                          </select>
-                        ));
+                        .map(key => {
+                          const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
+                          if (asInputKeys.has(key)) {
+                            const listId = `adv-filter-${key}-list`;
+                            return (
+                              <div key={key}>
+                                <input
+                                  className="input xl"
+                                  list={listId}
+                                  placeholder={`${pretty(key)} (any)`}
+                                  value={filters[key] || ''}
+                                  onChange={e => updateFilter(key, e.target.value)}
+                                  aria-label={key}
+                                />
+                                <datalist id={listId}>
+                                  {values.map(v => <option key={v} value={v} />)}
+                                </datalist>
+                              </div>
+                            );
+                          }
+                          return (
+                            <select
+                              key={key}
+                              className="select xl"
+                              value={filters[key] || ''}
+                              onChange={e => updateFilter(key, e.target.value)}
+                              aria-label={key}
+                            >
+                              <option value="">{pretty(key)} (any)</option>
+                              {values.map(v => (
+                                <option key={v} value={v}>{v}</option>
+                              ))}
+                            </select>
+                          );
+                        });
                     })()}
                   </>
                 )}
