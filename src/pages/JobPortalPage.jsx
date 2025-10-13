@@ -143,44 +143,7 @@ export default function JobPortalPage() {
             </div>
           )}
 
-          <div className="grid three" style={{ marginTop: 18 }}>
-            <div className="card" style={white}>
-              <div className="h2" style={{ marginTop: 0, ...white }}>For Talent</div>
-              <ul style={{ marginTop: 6, ...white }}>
-                <li>Showcase your skills and experience</li>
-                <li>Get discovered by top employers</li>
-                <li>Apply faster with your profile</li>
-              </ul>
-              <div style={{ marginTop: 10 }}>
-                <Link className="btn" to="/jobs/post-employee" style={white}>List Talent</Link>
-              </div>
-            </div>
-
-            <div className="card" style={white}>
-              <div className="h2" style={{ marginTop: 0, ...white }}>For Employers</div>
-              <ul style={{ marginTop: 6, ...white }}>
-                <li>List job vacancies in minutes</li>
-                <li>Discover candidates by skill and experience</li>
-                <li>Manage applications from one place</li>
-              </ul>
-              <div className="grid two" style={{ marginTop: 10 }}>
-                <button className="btn primary" onClick={() => navigate('/new?category=Job')} style={white}>List Vacancy</button>
-                <Link className="btn" to="/jobs/search" style={white}>Find Jobs</Link>
-              </div>
-            </div>
-
-            <div className="card" style={white}>
-              <div className="h2" style={{ marginTop: 0, ...white }}>How it works</div>
-              <ol style={{ marginTop: 6, paddingLeft: 18, ...white }}>
-                <li>List your talent or post a vacancy</li>
-                <li>Connect with employers or candidates</li>
-                <li>Interview and hire with confidence</li>
-              </ol>
-              <div style={{ marginTop: 10 }}>
-                <button className="btn accent" onClick={() => navigate('/jobs/post-employee')} style={white}>Get Started</button>
-              </div>
-            </div>
-          </div>
+          
         </div>
       </div>
     </div>
