@@ -130,8 +130,13 @@ export default function VerifyListingPage() {
       const ct = r.headers.get('content-type') || ''
       const data = ct.includes('application/json') && text ? JSON.parse(text) : {}
       if (!r.ok) throw new Error((data && data.error) || 'Failed to submit')
-      setSubmitted(data)
-      setStatus('Listing submitted.')
+      // Redirect to payment instructions page with listing ID
+      const listingId = data.listingId
+      if (listingId) {
+        window.location.href = `/payment/${encodeURIComponent(listingId)}`
+      } else {
+        setStatus('Submitted. Redirecting...')
+      }
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }

@@ -14,6 +14,7 @@ import MyAdsPage from './pages/MyAdsPage.jsx'
 import AccountPage from './pages/AccountPage.jsx'
 import JobSearchResultsPage from './pages/JobSearchResultsPage.jsx'
 import PolicyPage from './pages/PolicyPage.jsx'
+import PaymentPendingPage from './pages/PaymentPendingPage.jsx'
 
 export default function App() {
   const navigate = useNavigate()
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
           <Route path="/search" element={<SearchResultsPage />} />
           <Route path="/policy" element={<PolicyPage />} />
+          <Route path="/payment/:id" element={<PaymentPendingPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

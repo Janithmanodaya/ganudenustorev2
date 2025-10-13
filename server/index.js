@@ -117,9 +117,20 @@ try {
 db.prepare(`
   CREATE TABLE IF NOT EXISTS admin_config (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    gemini_api_key TEXT
+    gemini_api_key TEXT,
+    bank_details TEXT,
+    whatsapp_number TEXT
   )
 `).run();
+
+// Ensure new columns exist for older databases
+try {
+  const cols = db.prepare(`PRAGMA table_info(admin_config)`).all();
+  const hasBank = cols.some(c => c.name === 'bank_details');
+  if (!hasBank) db.prepare(`ALTER TABLE admin_config ADD COLUMN bank_details TEXT`).run();
+  const hasWhats = cols.some(c => c.name === 'whatsapp_number');
+  if (!hasWhats) db.prepare(`ALTER TABLE admin_config ADD COLUMN whatsapp_number TEXT`).run();
+} catch (_) {}
 
 db.prepare(`
   CREATE TABLE IF NOT EXISTS prompts (
