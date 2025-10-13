@@ -344,12 +344,16 @@ export default function HomePage() {
               <div className="grid two">
                 <CustomSelect
                   value={filterCategory}
-                  onChange={v => set.value)}>
-                  <option value="">Category (any)</option>
-                  <option value="Vehicle">Vehicle</option>
-                  <option value="Property">Property</option>
-                  <option value="Job">Job</option>
-                </select>
+                  onChange={v => setFilterCategory(v)}
+                  ariaLabel="Category"
+                  placeholder="Category (any)"
+                  options={[
+                    { value: '', label: 'Category (any)' },
+                    { value: 'Vehicle', label: 'Vehicle' },
+                    { value: 'Property', label: 'Property' },
+                    { value: 'Job', label: 'Job' },
+                  ]}
+                />
                 <input
                   className="input"
                   list="home-location-suggest"
@@ -413,12 +417,6 @@ export default function HomePage() {
                       );
                     });
                 })()}
-                            </select>
-                          );
-                        });
-                    })()}
-                  </>
-                )}
 
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
