@@ -570,43 +570,57 @@ export default function HomePage() {
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   ✍️ AI Descriptions
                 </div>
-                <div className="text-muted">One-click, polished descriptions with bullets and emoji for clarity.</div>
+                <div className="text-muted">
+                  One-click, polished descriptions with bullets<br/>and emoji for clarity.
+                </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🧭 Advanced Filters
                 </div>
-                <div className="text-muted">Powerful, easy filters to find exactly what you need fast.</div>
+                <div className="text-muted">
+                  Powerful, easy filters to find exactly what<br/>you need fast.
+                </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🚀 Futuristic UI
                 </div>
-                <div className="text-muted">Clean, modern, and fast experience across devices.</div>
+                <div className="text-muted">
+                  Clean, modern, and fast experience<br/>across devices.
+                </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🇱🇰 100% Sri Lankan
                 </div>
-                <div className="text-muted">Built for Sri Lanka with local insights and simplicity.</div>
+                <div className="text-muted">
+                  Built for Sri Lanka with local insights<br/>and simplicity.
+                </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   💸 Low Cost
                 </div>
-                <div className="text-muted">Keep costs down while reaching more buyers and sellers.</div>
+                <div className="text-muted">
+                  Keep costs down while reaching more<br/>buyers and sellers.
+                </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🔗 Auto Facebook (Soon)
                 </div>
-                <div className="text-muted">Auto-create and auto-share to your FB page after publish.</div>
+                <div className="text-muted">
+                  Auto-create and auto-share to your FB<br/>page after publish.
+                </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🧩 All-in-one
                 </div>
-                <div className="text-muted">Everything you need to buy, sell, and hire — in one place.</div>
+                <div className="text-muted">
+                  Everything you need to buy, sell, and hire —<br/>in one place.
+                </div>
               </div>
             </div>
           </div>
