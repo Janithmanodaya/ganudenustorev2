@@ -233,8 +233,8 @@ export default function HomePage() {
 
   function resetHomeFilters() {
     try {
-     tegory('')
-    setFilterLocation('')
+      setFilterCategory('');
+Location('')
     setFilterPriceMin('')
     setFilterPriceMax('')
     setFilters({})
