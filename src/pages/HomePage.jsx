@@ -617,8 +617,8 @@ export default function HomePage() {
                   100% { box-shadow: 0 0 0 0 rgba(108,127,247,0); }
                 }
                 @keyframes cta-pop {
-                  0% { transform: translateX(-50%) translateY(20px) scale(0.96); opacity: 0; }
-                  100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+                  0% { transform: translateY(20px) scale(0.96); opacity: 0; }
+                  100% { transform: translateY(0) scale(1); opacity: 1; }
                 }
               `}</style>
             </div>
