@@ -636,6 +636,61 @@ router.post('/submit', async (req, res) => {
   }
 });
 
+// Generate a description for a draft (one-time on client side)
+router.post('/describe', async (req, res) => {
+  try {
+    const { draftId, structured_json } = req.body || {};
+    if (!draftId) return res.status(400).json({ error: 'draftId is required' });
+
+    const draft = db.prepare('SELECT * FROM listing_drafts WHERE id = ?').get(draftId);
+    if (!draft) return res.status(404).json({ error: 'Draft not found' });
+
+    const key = getGeminiKey();
+    if (!key) return res.status(400).json({ error: 'Gemini API key not configured' });
+
+    let finalStruct = {};
+    try { finalStruct = structured_json ? JSON.parse(structured_json) : {}; } catch (_) {}
+    finalStruct = normalizeStructuredData(finalStruct);
+
+    const rolePrompt =
+      (getPrompt('description_enhancement') || '') +
+      '\n\nConstraints:\n' +
+      '- Use clear Sinhala/English as appropriate and keep it concise.\n' +
+      '- Include relevant emojis to improve clarity and appeal.\n' +
+      '- Present key features and selling points as bullet points using • or - (not *).\n' +
+      '- Do NOT use * characters anywhere.\n' +
+      '- Keep it factual; avoid exaggerated claims.\n';
+
+    const userText = `Title: ${draft.title}
+Category: ${draft.main_category}
+Original Description:
+${draft.description || ''}
+
+Structured Fields:
+${JSON.stringify(finalStruct, null, 2)}
+`;
+
+    let out = '';
+    try {
+      out = await callGemini(key, rolePrompt, userText);
+    } catch (e) {
+      return res.status(500).json({ error: 'Failed to generate description' });
+    }
+    const text = String(out || '')
+      .replace(/^```(?:json|text)?\s*/i, '')
+      .replace(/```$/i, '')
+      .trim();
+
+    if (!text || text.length < 10) return res.status(500).json({ error: 'Generated description was empty' });
+
+    res.json({ ok: true, description: text });
+  } catch (e) {
+    console.error('[listings] /describe error:', e.message);
+    res.status(500).json({ error: 'Failed to generate description' });
+  }
+});
+
+
 // Get all listings with basic filtering
 router.get('/', (req, res) => {
   try {
@@ -685,74 +740,6 @@ router.get('/', (req, res) => {
     res.status(500).json({ error: 'Failed to fetch listings' });
   }
 });
-
-// Search listings with optional filters (used by HomePage and Search page)
-router.get('/search', (req, res) => {
-  try {
-    const {
-      q = '',
-      category = '',
-      location = '',
-      price_min = '',
-      price_max = '',
-      filters = '',
-      sort = 'latest',
-      page = '1',
-      limit = '12'
-    } = req.query;
-
-    const lim = Math.max(1, Math.min(100, parseInt(limit, 10) || 12));
-    const pg = Math.max(1, parseInt(page, 10) || 1);
-    const offset = (pg - 1) * lim;
-
-    let query = `
-      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at
-      FROM listings
-      WHERE status = 'Approved'
-    `;
-    const params = [];
-
-    if (category) { query += ' AND main_category = ?'; params.push(String(category)); }
-    if (location) { query += ' AND LOWER(location) LIKE ?'; params.push('%' + String(location).toLowerCase() + '%'); }
-    if (price_min) { query += ' AND price IS NOT NULL AND price >= ?'; params.push(Number(price_min)); }
-    if (price_max) { query += ' AND price IS NOT NULL AND price <= ?'; params.push(Number(price_max)); }
-    if (q) {
-      const term = '%' + String(q).toLowerCase() + '%';
-      query += ' AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(location) LIKE ?)';
-      params.push(term, term, term);
-    }
-
-    // Structured filters: exact match on keys inside structured_json
-    let filtersObj = {};
-    try { filtersObj = filters ? JSON.parse(String(filters)) : {}; } catch (_) { filtersObj = {}; }
-    if (filtersObj && Object.keys(filtersObj).length) {
-      // Apply post-filter after query since SQLite JSON1 may not be enabled
-    }
-
-    // Sorting
-    if (String(sort).toLowerCase() === 'price_asc') query += ' ORDER BY price ASC, created_at DESC';
-    else if (String(sort).toLowerCase() === 'price_desc') query += ' ORDER BY price DESC, created_at DESC';
-    else query += ' ORDER BY created_at DESC';
-
-    query += ' LIMIT ? OFFSET ?';
-    params.push(lim, offset);
-
-    const rows = db.prepare(query).all(params);
-
-    // Post-filter using structured_json
-    let results = rows;
-    if (filtersObj && Object.keys(filtersObj).length) {
-      results = rows.filter(r => {
-        try {
-          const sj = JSON.parse(r.structured_json || '{}');
-          for (const [k, v] of Object.entries(filtersObj)) {
-            if (!v) continue;
-            const key = k === 'model' ? 'model_name' : k;
-            if (String(sj[key] || '').toLowerCase() !== String(v).toLowerCase()) return false;
-          }
-          return true;
-        } catch (_) { return true; }
-      });
     }
 
     const firstImageStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');

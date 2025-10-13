@@ -16,11 +16,15 @@ export default function VerifyListingPage() {
   const [seoDescription, setSeoDescription] = useState('')
   const [seoKeywords, setSeoKeywords] = useState('')
 
-  // Description (enhanced preview, editable)
+  // Description (editable)
   const [descriptionText, setDescriptionText] = useState('')
 
   // Edit toggle: default read-only (user can enable editing)
   const [editMode, setEditMode] = useState(false)
+
+  // One-time generator controls
+  const [genBusy, setGenBusy] = useState(false)
+  const [genUsed, setGenUsed] = useState(false)
 
   // Convenience accessors for required fields in structuredJSON
   function parseStruct() {
@@ -63,6 +67,16 @@ export default function VerifyListingPage() {
     load();
   }, [draftId]);
 
+  // Init one-time flag from localStorage
+  useEffect(() => {
+    if (!draftId) return;
+    const key = `desc_gen_used_${draftId}`;
+    try {
+      const raw = localStorage.getItem(key);
+      setGenUsed(raw === '1');
+    } catch (_) {}
+  }, [draftId]);
+
   // Reset active index if images change size
   useEffect(() => {
     if (activeIdx >= images.length) setActiveIdx(0)
@@ -72,7 +86,7 @@ export default function VerifyListingPage() {
     // Use server-provided URL if available; fall back to filename extraction supporting Windows paths
     return images.map(img => {
       if (img.url) return img.url
-      const filename = String(img.path || '').split(/[\\/]/).pop()
+      const filename = String(img.path || '').split(/[\\\/]/).pop()
       return filename ? `/uploads/${filename}` : ''
     })
   }, [images])
@@ -114,6 +128,32 @@ export default function VerifyListingPage() {
       setStatus('Listing submitted.')
     } catch (e) {
       setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function generateDescription() {
+    if (genUsed || genBusy) return;
+    setGenBusy(true);
+    setStatus(null);
+    try {
+      const r = await fetch('/api/listings/describe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draftId, structured_json: structuredJSON })
+      });
+      const text = await r.text();
+      const ct = r.headers.get('content-type') || '';
+      const data = ct.includes('application/json') && text ? JSON.parse(text) : {};
+      if (!r.ok) throw new Error((data && data.error) || 'Failed to generate description');
+      const desc = String(data.description || '').trim();
+      if (!desc) throw new Error('Empty description');
+      setDescriptionText(desc);
+      setGenUsed(true);
+      try { localStorage.setItem(`desc_gen_used_${draftId}`, '1'); } catch (_) {}
+    } catch (e) {
+      setStatus(`Error: ${e.message}`);
+    } finally {
+      setGenBusy(false);
     }
   }
 
@@ -190,6 +230,36 @@ export default function VerifyListingPage() {
             </div>
 
             <div className="h2" style={{ marginTop: 12 }}>Description</div>
+
+            {!genUsed && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={generateDescription}
+                  disabled={genBusy}
+                  aria-label="Generate description"
+                >
+                  {genBusy ? 'Generating…' : 'Generate Description ✨'}
+                </button>
+                {genBusy && (
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: '50%',
+                      border: '3px solid rgba(108,127,247,0.2)',
+                      borderTopColor: '#6c7ff7',
+                      animation: 'spin 1s linear infinite'
+                    }}
+                  />
+                )}
+                <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                <small className="text-muted">One-time use. Adds emojis and bullet points for clarity.</small>
+              </div>
+            )}
+
             <textarea
               className="input"
               placeholder="Description (required)"
