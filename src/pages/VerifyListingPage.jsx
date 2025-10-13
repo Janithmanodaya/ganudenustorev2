@@ -192,7 +192,7 @@ export default function VerifyListingPage() {
             <div className="h2" style={{ marginTop: 12 }}>Description</div>
             <textarea
               className="input"
-              placeholder="Description (required, enhanced with emojis)"
+              placeholder="Description (required)"
               value={descriptionText}
               onChange={e => setDescriptionText(e.target.value)}
               rows={6}

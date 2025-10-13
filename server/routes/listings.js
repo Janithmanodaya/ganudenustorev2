@@ -543,7 +543,7 @@ router.get('/draft/:id', (req, res) => {
 // Submit a draft to create a real listing
 router.post('/submit', async (req, res) => {
   try {
-    const { draftId, structured_json } = req.body;
+    const { draftId, structured_json, description } = req.body;
     if (!draftId) return res.status(400).json({ error: 'draftId is required' });
 
     const draft = db.prepare('SELECT * FROM listing_drafts WHERE id = ?').get(draftId);
@@ -575,24 +575,14 @@ router.post('/submit', async (req, res) => {
       return res.status(400).json({ error: 'Manufacture year must be a valid year between 1950 and 2100' });
     }
 
+    // Use the exact description provided by the user on the verify page (fallback to original draft description)
+    const userDescription = String(description || draft.description || '').trim();
+    if (userDescription.length < 10) {
+      return res.status(400).json({ error: 'Description must be at least 10 characters' });
+    }
+
     const ts = new Date().toISOString();
     const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-    // Enhance description via Gemini (fallback to original if AI fails)
-    let enhancedDescription = draft.description || '';
-    try {
-      const descPrompt = getPrompt('description_enhancement') || 'Rewrite and enhance the following product listing description for clarity, completeness, and buyer appeal. Keep it factual and concise. Add 2-3 relevant emojis. Return plain text only.';
-      const descInput = `Title: ${draft.title}
-Original Description:
-${draft.description || ''}
-
-Key fields:
-${JSON.stringify(finalStruct)}`;
-      const out = await callGemini(getGeminiKey(), descPrompt, descInput);
-      if (out && typeof out === 'string') {
-        enhancedDescription = String(out).replace(/^```(?:text)?\s*/i, '').replace(/```$/i, '').trim();
-      }
-    } catch (_) {}
 
     let thumbPath = null;
     let mediumPath = null;
@@ -620,7 +610,7 @@ ${JSON.stringify(finalStruct)}`;
       'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, valid_until, status, created_at, model_name, manufacture_year) ' +
       'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
-      draft.main_category, draft.title, enhancedDescription, JSON.stringify(finalStruct), draft.seo_title, draft.seo_description, draft.seo_keywords,
+      draft.main_category, draft.title, userDescription, JSON.stringify(finalStruct), draft.seo_title, draft.seo_description, draft.seo_keywords,
       location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, validUntil, 'Approved', ts, model_name, manufacture_year
     );
     const listingId = result.lastInsertRowid;
