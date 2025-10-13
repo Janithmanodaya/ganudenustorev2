@@ -558,49 +558,49 @@ export default function HomePage() {
             style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollBehavior: 'smooth' }}
           >
             <div style={{ display: 'flex', gap: 12, paddingBottom: 6, minWidth: 'max-content' }}>
-              <div className="card" style={{ minWidth: 220 }}>
+              <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🤖 AI Categories
                 </div>
                 <div className="text-muted">Gemini auto-selects the best main category and sub-category for your ad.</div>
               </div>
-              <div className="card" style={{ minWidth: 220 }}>
+              <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   ✍️ AI Descriptions
                 </div>
                 <div className="text-muted">One-click, polished descriptions with bullets and emoji for clarity.</div>
               </div>
-              <div className="card" style={{ minWidth: 220 }}>
+              <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🧭 Advanced Filters
                 </div>
                 <div className="text-muted">Powerful, easy filters to find exactly what you need fast.</div>
               </div>
-              <div className="card" style={{ minWidth: 220 }}>
+              <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🚀 Futuristic UI
                 </div>
                 <div className="text-muted">Clean, modern, and fast experience across devices.</div>
               </div>
-              <div className="card" style={{ minWidth: 220 }}>
+              <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🇱🇰 100% Sri Lankan
                 </div>
                 <div className="text-muted">Built for Sri Lanka with local insights and simplicity.</div>
               </div>
-              <div className="card" style={{ minWidth: 220 }}>
+              <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   💸 Low Cost
                 </div>
                 <div className="text-muted">Keep costs down while reaching more buyers and sellers.</div>
               </div>
-              <div className="card" style={{ minWidth: 220 }}>
+              <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🔗 Auto Facebook (Soon)
                 </div>
                 <div className="text-muted">Auto-create and auto-share to your FB page after publish.</div>
               </div>
-              <div className="card" style={{ minWidth: 220 }}>
+              <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🧩 All-in-one
                 </div>
