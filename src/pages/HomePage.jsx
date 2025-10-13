@@ -364,56 +364,55 @@ export default function HomePage() {
                 <input className="input" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
 
                 {/* Dynamic sub_category/model and other keys */}
-                {filterCategory && filtersDef.keys.length > 0 && (
-                  <>
-                    {(() => {
-                      const pretty = (k) => {
-                        if (!k) return '';
-                        const map = {
-                          model: 'Model',
-                          model_name: 'Model',
-                          manufacture_year: 'Manufacture Year',
-                          sub_category: 'Sub-category',
-                          pricing_type: 'Pricing',
-                        };
-                        if (map[k]) return map[k];
-                        // Fallback: title-case underscores
-                        return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
-                      };
-                      const asInputKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
-                      return filtersDef.keys
-                        .filter(k => !['location','pricing_type','price'].includes(k))
-                        .map(key => {
-                          const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
-                          if (asInputKeys.has(key)) {
-                            const listId = `home-filter-${key}-list`;
-                            return (
-                              <div key={key}>
-                                <input
-                                  className="input"
-                                  list={listId}
-                                  placeholder={`${pretty(key)} (any)`}
-                                  value={filters[key] || ''}
-                                  onChange={e => updateFilter(key, e.target.value)}
-                                  aria-label={key}
-                                />
-                                <datalist id={listId}>
-                                  {values.map(v => <option key={v} value={v} />)}
-                                </datalist>
-                              </div>
-                            );
-                          }
-                          return (
-                           <<CustomSelect
-                              key={key}
-                              value={filters                             value={filters[key] || ''}
+                {filterCategory && filtersDef.keys.length > 0 && (() => {
+                  const pretty = (k) => {
+                    if (!k) return '';
+                    const map = {
+                      model: 'Model',
+                      model_name: 'Model',
+                      manufacture_year: 'Manufacture Year',
+                      sub_category: 'Sub-category',
+                      pricing_type: 'Pricing',
+                    };
+                    if (map[k]) return map[k];
+                    // Fallback: title-case underscores
+                    return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+                  };
+                  const asInputKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
+                  return filtersDef.keys
+                    .filter(k => !['location','pricing_type','price'].includes(k))
+                    .map(key => {
+                      const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
+                      if (asInputKeys.has(key)) {
+                        const listId = `home-filter-${key}-list`;
+                        return (
+                          <div key={key}>
+                            <input
+                              className="input"
+                              list={listId}
+                              placeholder={`${pretty(key)} (any)`}
+                              value={filters[key] || ''}
                               onChange={e => updateFilter(key, e.target.value)}
                               aria-label={key}
-                            >
-                              <option value="">{pretty(key)} (any)</option>
-                              {values.map(v => (
-                                <option key={v} value={v}>{v}</option>
-                              ))}
+                            />
+                            <datalist id={listId}>
+                              {values.map(v => <option key={v} value={v} />)}
+                            </datalist>
+                          </div>
+                        );
+                      }
+                      return (
+                        <CustomSelect
+                          key={key}
+                          value={filters[key] || ''}
+                          onChange={val => updateFilter(key, val)}
+                          ariaLabel={key}
+                          placeholder={`${pretty(key)} (any)`}
+                          options={[{ value: '', label: `${pretty(key)} (any)` }, ...values.map(v => ({ value: v, label: v }))]}
+                        />
+                      );
+                    });
+                })()}
                             </select>
                           );
                         });
