@@ -288,32 +288,101 @@ router.get('/banners', requireAdmin, (req, res) => {
   }
 });
 
-// Admin metrics and analytics
+// Admin metrics and analytics (expanded)
 router.get('/metrics', requireAdmin, (req, res) => {
   try {
+    const nowIso = new Date().toISOString();
+
     const totalUsers = db.prepare(`SELECT COUNT(*) as c FROM users`).get().c || 0;
     const bannedUsers = db.prepare(`SELECT COUNT(*) as c FROM users WHERE is_banned = 1`).get().c || 0;
-    const suspendedUsers = db.prepare(`SELECT COUNT(*) as c FROM users WHERE suspended_until IS NOT NULL AND suspended_until > ?`).get(new Date().toISOString()).c || 0;
-    const totalListings = db.prepare(`SELECT COUNT(*) as c FROM listings`).get().c || 0;
-    const activeListings = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE status = 'Approved' OR status = 'Active'`).get().c || 0;
-    const pendingListings = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE status = 'Pending Approval'`).get().c || 0;
-    const reportPending = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE status = 'pending'`).get().c || 0;
+    const suspendedUsers = db.prepare(`SELECT COUNT(*) as c FROM users WHERE suspended_until IS NOT NULL AND suspended_until > ?`).get(nowIso).c || 0;
 
-    // Signups last 7 days
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const dayStart = new Date();
-      dayStart.setUTCHours(0,0,0,0);
-      dayStart.setUTCDate(dayStart.getUTCDate() - i);
-      const dayEnd = new Date(dayStart);
-      dayEnd.setUTCDate(dayStart.getUTCDate() + 1);
-      const c = db.prepare(`SELECT COUNT(*) as c FROM users WHERE created_at >= ? AND created_at < ?`).get(dayStart.toISOString(), dayEnd.toISOString()).c || 0;
-      days.push({ date: dayStart.toISOString().slice(0,10), count: c });
+    const totalListings = db.prepare(`SELECT COUNT(*) as c FROM listings`).get().c || 0;
+    const activeListings = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE status IN ('Approved','Active')`).get().c || 0;
+    const pendingListings = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE status = 'Pending Approval'`).get().c || 0;
+    const rejectedListings = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE status = 'Rejected'`).get().c || 0;
+
+    const reportPending = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE status = 'pending'`).get().c || 0;
+    const reportResolved = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE status = 'resolved'`).get().c || 0;
+
+    // Time series helpers
+    function dayRangeDays(nDays) {
+      const days = [];
+      for (let i = nDays - 1; i >= 0; i--) {
+        const start = new Date();
+        start.setUTCHours(0, 0, 0, 0);
+        start.setUTCDate(start.getUTCDate() - i);
+        const end = new Date(start);
+        end.setUTCDate(start.getUTCDate() + 1);
+        days.push({ start, end });
+      }
+      return days;
     }
 
+    const win = dayRangeDays(14);
+
+    const signups14d = win.map(({ start, end }) => {
+      const c = db.prepare(`SELECT COUNT(*) as c FROM users WHERE created_at >= ? AND created_at < ?`)
+        .get(start.toISOString(), end.toISOString()).c || 0;
+      return { date: start.toISOString().slice(0, 10), count: c };
+    });
+
+    const listingsCreated14d = win.map(({ start, end }) => {
+      const c = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE created_at >= ? AND created_at < ?`)
+        .get(start.toISOString(), end.toISOString()).c || 0;
+      return { date: start.toISOString().slice(0, 10), count: c };
+    });
+
+    const approvals14d = win.map(({ start, end }) => {
+      const c = db.prepare(`SELECT COUNT(*) as c FROM admin_actions WHERE action = 'approve' AND ts >= ? AND ts < ?`)
+        .get(start.toISOString(), end.toISOString()).c || 0;
+      return { date: start.toISOString().slice(0, 10), count: c };
+    });
+
+    const rejections14d = win.map(({ start, end }) => {
+      const c = db.prepare(`SELECT COUNT(*) as c FROM admin_actions WHERE action = 'reject' AND ts >= ? AND ts < ?`)
+        .get(start.toISOString(), end.toISOString()).c || 0;
+      return { date: start.toISOString().slice(0, 10), count: c };
+    });
+
+    const reports14d = win.map(({ start, end }) => {
+      const c = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE ts >= ? AND ts < ?`)
+        .get(start.toISOString(), end.toISOString()).c || 0;
+      return { date: start.toISOString().slice(0, 10), count: c };
+    });
+
+    // Top categories among approved/active listings
+    const topCategories = db.prepare(`
+      SELECT main_category as category, COUNT(*) as cnt
+      FROM listings
+      WHERE status IN ('Approved','Active') AND main_category IS NOT NULL AND main_category <> ''
+      GROUP BY main_category
+      ORDER BY cnt DESC
+      LIMIT 8
+    `).all();
+
+    // Status breakdown
+    const statusBreakdown = [
+      { status: 'Active/Approved', count: activeListings },
+      { status: 'Pending Approval', count: pendingListings },
+      { status: 'Rejected', count: rejectedListings },
+    ];
+
     res.json({
-      totals: { totalUsers, bannedUsers, suspendedUsers, totalListings, activeListings, pendingListings, reportPending },
-      signups7d: days
+      totals: {
+        totalUsers, bannedUsers, suspendedUsers,
+        totalListings, activeListings, pendingListings, rejectedListings,
+        reportPending, reportResolved
+      },
+      series: {
+        signups14d,
+        listingsCreated14d,
+        approvals14d,
+        rejections14d,
+        reports14d
+      },
+      topCategories,
+      statusBreakdown
     });
   } catch (e) {
     res.status(500).json({ error: 'Failed to load metrics' });

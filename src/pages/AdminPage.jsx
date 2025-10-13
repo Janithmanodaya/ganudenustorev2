@@ -352,11 +352,90 @@ export default function AdminPage() {
     )
   }
 
+  function BarChart({ data, color = '#6c7ff7' }) {
+    if (!Array.isArray(data) || data.length === 0) return <p className="text-muted">No data</p>
+    const max = Math.max(1, ...data.map(d => d.count || 0))
+    return (
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
+        {data.map((d, idx) => {
+          const h = Math.round(((d.count || 0) / max) * 120)
+          return (
+            <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: '100%', background: color, height: h, borderRadius: 8, opacity: 0.9 }} title={`${d.date || d.label}: ${d.count || 0}`} />
+              <small className="text-muted">{(d.date || '').slice(5)}</small>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  function StackedBars({ a, b, aLabel = 'A', bLabel = 'B', aColor = '#34d399', bColor = '#ef4444' }) {
+    const len = Math.max(a?.length || 0, b?.length || 0)
+    const merged = Array.from({ length: len }, (_, i) => ({
+      date: a?.[i]?.date || b?.[i]?.date || '',
+      a: a?.[i]?.count || 0,
+      b: b?.[i]?.count || 0
+    }))
+    const max = Math.max(1, ...merged.map(x => x.a + x.b))
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(52,211,153,0.15)', color: '#a7f3d0' }}>
+            <span style={{ width: 10, height: 10, background: aColor, borderRadius: 2 }} /> {aLabel}
+          </span>
+          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(239,68,68,0.15)', color: '#fecaca' }}>
+            <span style={{ width: 10, height: 10, background: bColor, borderRadius: 2 }} /> {bLabel}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
+          {merged.map((d, idx) => {
+            const totalH = Math.round(((d.a + d.b) / max) * 120)
+            const aH = totalH > 0 ? Math.round((d.a / (d.a + d.b)) * totalH) : 0
+            const bH = totalH - aH
+            return (
+              <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: '100%', height: totalH, borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} title={`${d.date}: ${d.a} / ${d.b}`}>
+                  <div style={{ background: aColor, height: aH }} />
+                  <div style={{ background: bColor, height: bH }} />
+                </div>
+                <small className="text-muted">{(d.date || '').slice(5)}</small>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  function HorizontalBars({ items }) {
+    if (!Array.isArray(items) || items.length === 0) return <p className="text-muted">No data</p>
+    const max = Math.max(1, ...items.map(i => i.value || 0))
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {items.map((i, idx) => {
+          const w = Math.round(((i.value || 0) / max) * 100)
+          return (
+            <div key={idx}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div className="text-muted">{i.label}</div>
+                <div className="text-muted">{i.value}</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden', height: 10 }}>
+                <div style={{ width: `${w}%`, height: '100%', background: 'linear-gradient(90deg,#6c7ff7,#00d1ff)' }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <div className="center">
       <div className="card">
         <div className="h1">Admin Dashboard</div>
-        <p className="text-muted">Configure API access and review listings.</p>
+        <p className="text-muted">Configure, monitor, and manage users, listings, and reports.</p>
 
         <div className="h2" style={{ marginTop: 16 }}>Homepage Banners</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -406,26 +485,40 @@ export default function AdminPage() {
                 <div className="text-muted">Total: {metrics.totals.totalListings}</div>
                 <div className="text-muted">Active: {metrics.totals.activeListings}</div>
                 <div className="text-muted">Pending: {metrics.totals.pendingListings}</div>
+                <div className="text-muted">Rejected: {metrics.totals.rejectedListings}</div>
               </div>
               <div className="card">
                 <div className="h2">Reports</div>
                 <div className="text-muted">Pending: {metrics.totals.reportPending}</div>
+                <div className="text-muted">Resolved: {metrics.totals.reportResolved}</div>
               </div>
             </div>
 
-            <div className="card" style={{ marginTop: 12 }}>
-              <div className="h2">Signups (Last 7 days)</div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
-                {metrics.signups7d.map((d, idx) => {
-                  const max = Math.max(1, ...metrics.signups7d.map(x => x.count))
-                  const h = Math.round((d.count / max) * 120)
-                  return (
-                    <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                      <div style={{ width: '100%', background: 'linear-gradient(180deg,#6c7ff7,#5569e2)', height: h, borderRadius: 8 }} title={`${d.date}: ${d.count}`} />
-                      <small className="text-muted">{d.date.slice(5)}</small>
-                    </div>
-                  )
-                })}
+            <div className="grid three" style={{ marginTop: 12 }}>
+              <div className="card">
+                <div className="h2">Signups (14 days)</div>
+                <BarChart data={metrics.series.signups14d} color="#6c7ff7" />
+              </div>
+              <div className="card">
+                <div className="h2">Listings Created (14 days)</div>
+                <BarChart data={metrics.series.listingsCreated14d} color="#00d1ff" />
+              </div>
+              <div className="card">
+                <div className="h2">Reports (14 days)</div>
+                <BarChart data={metrics.series.reports14d} color="#e58e26" />
+              </div>
+            </div>
+
+            <div className="grid two" style={{ marginTop: 12 }}>
+              <div className="card">
+                <div className="h2">Approvals vs Rejections (14 days)</div>
+                <StackedBars a={metrics.series.approvals14d} b={metrics.series.rejections14d} aLabel="Approve" bLabel="Reject" aColor="#34d399" bColor="#ef4444" />
+              </div>
+              <div className="card">
+                <div className="h2">Top Categories</div>
+                <HorizontalBars items={metrics.topCategories.map(c => ({ label: c.category, value: c.cnt }))} />
+                <div className="h2" style={{ marginTop: 16 }}>Status Breakdown</div>
+                <HorizontalBars items={metrics.statusBreakdown.map(s => ({ label: s.status, value: s.count }))} />
               </div>
             </div>
           </>
