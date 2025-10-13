@@ -872,11 +872,30 @@ router.get('/filters', (req, res) => {
     if (!category) return res.status(400).json({ error: 'category is required' });
 
     const rows = db.prepare(`
-      SELECT structured_json
+      SELECT title, description, structured_json
       FROM listings
       WHERE status = 'Approved' AND main_category = ?
       ORDER BY id DESC LIMIT 500
     `).all(category);
+
+    function normalizeVehicleSubCategory(input) {
+      let subCat = String(input || '').trim();
+      if (!subCat) return '';
+      const low = subCat.toLowerCase();
+      if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(low)) return 'Bike';
+      if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(low)) return 'Car';
+      if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(low)) return 'Van';
+      if (/(^|\b)(bus|coach)(\b|$)/i.test(low)) return 'Bus';
+      return subCat.charAt(0).toUpperCase() + subCat.slice(1).toLowerCase();
+    }
+    function inferVehicleSubCategoryFromText(text) {
+      const t = String(text || '').toLowerCase();
+      if (/(^|\b)(bus|coach)(\b|$)/i.test(t)) return 'Bus';
+      if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(t)) return 'Van';
+      if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(t)) return 'Car';
+      if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(t)) return 'Bike';
+      return '';
+    }
 
     const valuesByKey = {};
     for (const row of rows) {
@@ -888,11 +907,25 @@ router.get('/filters', (req, res) => {
         let key = k;
         if (k === 'model_name') key = 'model'; // map to UI 'model'
         if (['location', 'pricing_type', 'price', 'phone'].includes(key)) continue; // skip base filters
-        const valStr = Array.isArray(v) ? v.map(x => String(x)).join('|') : String(v);
         const vals = Array.isArray(v) ? v.map(x => String(x)) : [String(v)];
         valuesByKey[key] = valuesByKey[key] || new Set();
         for (const s of vals) {
           if (s && s.length <= 60) valuesByKey[key].add(s);
+        }
+      }
+
+      // Ensure sub_category appears for Vehicle category even if older rows missed it
+      if (category === 'Vehicle') {
+        const fromStruct = normalizeVehicleSubCategory(sj.sub_category || sj.subcategory || sj.vehicle_type || sj.type || '');
+        let sub = fromStruct;
+        if (!sub) {
+          // Infer from title/description/model name if missing
+          const text = [row.title || '', row.description || '', String(sj.model_name || ''), String(sj.model || '')].join(' ');
+          sub = inferVehicleSubCategoryFromText(text);
+        }
+        if (sub) {
+          valuesByKey['sub_category'] = valuesByKey['sub_category'] || new Set();
+          valuesByKey['sub_category'].add(sub);
         }
       }
     }
