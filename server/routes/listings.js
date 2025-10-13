@@ -740,11 +740,18 @@ router.get('/', (req, res) => {
     res.status(500).json({ error: 'Failed to fetch listings' });
   }
 });
-    }
 
-    const firstImageStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
-    const listImagesStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
-    results = results.map(r => {
+// Search listings with optional filters (used by HomePage and Search page)
+router.get('/search', (req, res) => {
+  try {
+    const {
+      q = '',
+      category = '',
+      location = '',
+      price_min = '',
+      price_max = '',
+      filters = '',
+      sort = 'latest',
       let thumbnail_url = filePathToUrl(r.thumbnail_path);
       if (!thumbnail_url) {
         const first = firstImageStmt.get(r.id);
