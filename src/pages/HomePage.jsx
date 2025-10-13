@@ -581,25 +581,7 @@ export default function HomePage() {
                 <div className="text-muted">
                   Powerful, easy filters to find exactly what<br/>you need fast.
                 </div>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => navigate('/search')}
-                  style={{
-                    marginTop: 8,
-                    borderRadius: 24,
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    background: 'rgba(18,22,31,0.55)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
-                    width: 'fit-content'
-                  }}
-                >
-                  Explore
-                </button>
+                
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -608,25 +590,7 @@ export default function HomePage() {
                 <div className="text-muted">
                   Clean, modern, and fast experience<br/>across devices.
                 </div>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                  style={{
-                    marginTop: 8,
-                    borderRadius: 24,
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    background: 'rgba(18,22,31,0.55)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
-                    width: 'fit-content'
-                  }}
-                >
-                  Top
-                </button>
+                
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
