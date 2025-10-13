@@ -562,7 +562,9 @@ export default function HomePage() {
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🤖 AI Categories
                 </div>
-                <div className="text-muted">Gemini auto-selects the best main category and sub-category for your ad.</div>
+                <div className="text-muted">
+                  Gemini auto-selects the best main category<br/>and sub-category for your ad.
+                </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
