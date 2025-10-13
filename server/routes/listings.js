@@ -554,13 +554,16 @@ router.get('/draft/:id', (req, res) => {
     const ownerEmail = draft.owner_email || req.query.email;
     const tempExtract = readExtract(ownerEmail, draftId);
 
-    // If temp data has location/price/phone, merge it into structured_json for client-side hydration
+    // If temp data has location/price/phone/sub_category/model/year, merge it for client-side hydration
     if (tempExtract) {
       const s = draft.structured_json ? JSON.parse(draft.structured_json) : {};
       s.location = tempExtract.location || s.location || '';
       s.price = tempExtract.price != null ? tempExtract.price : (s.price != null ? s.price : '');
       s.pricing_type = tempExtract.pricing_type || s.pricing_type || 'Negotiable';
       s.phone = tempExtract.phone || s.phone || '';
+      if (tempExtract.sub_category) s.sub_category = tempExtract.sub_category;
+      if (tempExtract.model_name) s.model_name = tempExtract.model_name;
+      if (tempExtract.manufacture_year != null) s.manufacture_year = tempExtract.manufacture_year;
       draft.structured_json = JSON.stringify(s);
     }
 
