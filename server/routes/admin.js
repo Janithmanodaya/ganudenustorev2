@@ -288,10 +288,20 @@ router.get('/banners', requireAdmin, (req, res) => {
   }
 });
 
-// Admin metrics and analytics (expanded)
+// Admin metrics and analytics (expanded, with ranged filters)
 router.get('/metrics', requireAdmin, (req, res) => {
   try {
-    const nowIso = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    // Range param: days=7|30 (default 14)
+    let daysParam = Number(req.query.days);
+    if (!Number.isFinite(daysParam) || daysParam <= 0) daysParam = 14;
+    if (daysParam > 60) daysParam = 60; // sanity limit
+    const rangeStart = new Date(now);
+    rangeStart.setUTCHours(0, 0, 0, 0);
+    rangeStart.setUTCDate(rangeStart.getUTCDate() - (daysParam - 1)); // include today
+    const rangeStartIso = rangeStart.toISOString();
 
     const totalUsers = db.prepare(`SELECT COUNT(*) as c FROM users`).get().c || 0;
     const bannedUsers = db.prepare(`SELECT COUNT(*) as c FROM users WHERE is_banned = 1`).get().c || 0;
@@ -304,6 +314,13 @@ router.get('/metrics', requireAdmin, (req, res) => {
 
     const reportPending = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE status = 'pending'`).get().c || 0;
     const reportResolved = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE status = 'resolved'`).get().c || 0;
+
+    // Range-limited totals
+    const usersNewInRange = db.prepare(`SELECT COUNT(*) as c FROM users WHERE created_at >= ?`).get(rangeStartIso).c || 0;
+    const listingsNewInRange = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE created_at >= ?`).get(rangeStartIso).c || 0;
+    const approvalsInRange = db.prepare(`SELECT COUNT(*) as c FROM admin_actions WHERE action='approve' AND ts >= ?`).get(rangeStartIso).c || 0;
+    const rejectionsInRange = db.prepare(`SELECT COUNT(*) as c FROM admin_actions WHERE action='reject' AND ts >= ?`).get(rangeStartIso).c || 0;
+    const reportsInRange = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE ts >= ?`).get(rangeStartIso).c || 0;
 
     // Time series helpers
     function dayRangeDays(nDays) {
@@ -319,33 +336,33 @@ router.get('/metrics', requireAdmin, (req, res) => {
       return days;
     }
 
-    const win = dayRangeDays(14);
+    const win = dayRangeDays(daysParam);
 
-    const signups14d = win.map(({ start, end }) => {
+    const signups = win.map(({ start, end }) => {
       const c = db.prepare(`SELECT COUNT(*) as c FROM users WHERE created_at >= ? AND created_at < ?`)
         .get(start.toISOString(), end.toISOString()).c || 0;
       return { date: start.toISOString().slice(0, 10), count: c };
     });
 
-    const listingsCreated14d = win.map(({ start, end }) => {
+    const listingsCreated = win.map(({ start, end }) => {
       const c = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE created_at >= ? AND created_at < ?`)
         .get(start.toISOString(), end.toISOString()).c || 0;
       return { date: start.toISOString().slice(0, 10), count: c };
     });
 
-    const approvals14d = win.map(({ start, end }) => {
+    const approvals = win.map(({ start, end }) => {
       const c = db.prepare(`SELECT COUNT(*) as c FROM admin_actions WHERE action = 'approve' AND ts >= ? AND ts < ?`)
         .get(start.toISOString(), end.toISOString()).c || 0;
       return { date: start.toISOString().slice(0, 10), count: c };
     });
 
-    const rejections14d = win.map(({ start, end }) => {
+    const rejections = win.map(({ start, end }) => {
       const c = db.prepare(`SELECT COUNT(*) as c FROM admin_actions WHERE action = 'reject' AND ts >= ? AND ts < ?`)
         .get(start.toISOString(), end.toISOString()).c || 0;
       return { date: start.toISOString().slice(0, 10), count: c };
     });
 
-    const reports14d = win.map(({ start, end }) => {
+    const reports = win.map(({ start, end }) => {
       const c = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE ts >= ? AND ts < ?`)
         .get(start.toISOString(), end.toISOString()).c || 0;
       return { date: start.toISOString().slice(0, 10), count: c };
@@ -369,17 +386,25 @@ router.get('/metrics', requireAdmin, (req, res) => {
     ];
 
     res.json({
+      params: { days: daysParam, rangeStart: rangeStartIso },
       totals: {
         totalUsers, bannedUsers, suspendedUsers,
         totalListings, activeListings, pendingListings, rejectedListings,
         reportPending, reportResolved
       },
+      rangeTotals: {
+        usersNewInRange,
+        listingsNewInRange,
+        approvalsInRange,
+        rejectionsInRange,
+        reportsInRange
+      },
       series: {
-        signups14d,
-        listingsCreated14d,
-        approvals14d,
-        rejections14d,
-        reports14d
+        signups,
+        listingsCreated,
+        approvals,
+        rejections,
+        reports
       },
       topCategories,
       statusBreakdown
