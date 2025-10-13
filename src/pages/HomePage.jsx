@@ -541,66 +541,12 @@ export default function HomePage() {
       {/* Standalone Feature section (separate from main card) */}
       <section style={{ marginTop: 18 }}>
         <div className="card" style={{ margin: '0 auto', maxWidth: 1000 }}>
-          <div className="h2" style={{ marginTop: 0 }}>All-in-one, AI-powered marketplace</div>
+          <div className="h2" style={{ marginTop: 0 }}>Our features</div>
           <p className="text-muted" style={{ marginTop: 6 }}>
-            AI category selection, AI description writing, advanced filters, futuristic design, and proudly 100% Sri Lankan — all in one place.
-            Coming soon: automatic Facebook page creation and auto-share after your ad is published.
-            Low cost. High impact.
+            All-in-one, AI-powered marketplace. AI category selection, AI description writing, advanced filters, futuristic design,
+            and proudly 100% Sri Lankan — all in one place. Coming soon: automatic Facebook page creation and auto-share after your
+            ad is published. Low cost. High impact.
           </p>
-        </div>
-
-        {/* Feature mini-cards - horizontal slider */}
-        <div style={{ marginTop: 12, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div style={{ display: 'flex', gap: 12, paddingBottom: 6, minWidth: 'max-content' }}>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🤖 AI Categories
-              </div>
-              <div className="text-muted">Gemini auto-selects the best main category and sub-category for your ad.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                ✍️ AI Descriptions
-              </div>
-              <div className="text-muted">One-click, polished descriptions with bullets and emoji for clarity.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🧭 Advanced Filters
-              </div>
-              <div className="text-muted">Powerful, easy filters to find exactly what you need fast.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🚀 Futuristic UI
-              </div>
-              <div className="text-muted">Clean, modern, and fast experience across devices.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🇱🇰 100% Sri Lankan
-              </div>
-              <div className="text-muted">Built for Sri Lanka with local insights and simplicity.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                💸 Low Cost
-              </div>
-              <div className="text-muted">Keep costs down while reaching more buyers and sellers.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🔗 Auto Facebook (Soon)
-              </div>
-              <div className="text-muted">Auto-create and auto-share to your FB page after publish.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🧩 All-in-one
-              </div>
-              <div className="text-muted">Everything you need to buy, sell, and hire — in one place.</div>
-            </div>
-          </div>
         </div>
       </section>
 
