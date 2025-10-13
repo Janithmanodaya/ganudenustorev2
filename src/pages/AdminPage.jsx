@@ -342,7 +342,7 @@ export default function AdminPage() {
       loadReports(reportFilter)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, adminEm_codeainewl</])
+  }, [allowed, adminEmail])
 
   if (!allowed) {
     return (
