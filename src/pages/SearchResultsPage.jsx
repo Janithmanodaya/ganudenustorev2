@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
 export default function SearchResultsPage() {
@@ -210,10 +210,18 @@ export default function SearchResultsPage() {
                 const days = Math.max(0, Math.ceil(diff / (1000*60*60*24)))
                 expires = `Expires in ${days} day${days === 1 ? '' : 's'}`
               }
+              const imgs = Array.isArray(r.small_images) ? r.small_images : []
+              const hero = imgs.length ? imgs[0] : (r.thumbnail_url || null)
+
               return (
-                <div key={r.id} className="card">
-                  {r.thumbnail_url && (
-                    <img src={r.thumbnail_url} alt={r.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
+                <div
+                  key={r.id}
+                  className="card"
+                  onClick={() => navigate(`/listing/${r.id}`)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {hero && (
+                    <img src={hero} alt={r.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
                   )}
                   <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>
                   <div className="text-muted" style={{ marginBottom: 6 }}>
@@ -222,9 +230,11 @@ export default function SearchResultsPage() {
                     {r.price != null ? ` • ${String(r.price)}` : ''}
                     {expires ? ` • ${expires}` : ''}
                   </div>
-                  <p className="text-muted">{r.seo_description || r.description?.slice(0,160)}</p>
-                  <Link className="btn primary" to={`/listing/${r.id}`}>View</Link>
                 </div>
+              )
+            })}
+            {results.length === 0 && <p className="text-muted">No results yet.</p>}
+          </div>
               )
             })}
             {results.length === 0 && <p className="text-muted">No results yet.</p>}
