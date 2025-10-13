@@ -752,6 +752,67 @@ router.get('/search', (req, res) => {
       price_max = '',
       filters = '',
       sort = 'latest',
+      page = '1',
+      limit = '12'
+    } = req.query;
+
+    const lim = Math.max(1, Math.min(100, parseInt(limit, 10) || 12));
+    const pg = Math.max(1, parseInt(page, 10) || 1);
+    const offset = (pg - 1) * lim;
+
+    let query = `
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at
+      FROM listings
+      WHERE status = 'Approved'
+    `;
+    const params = [];
+
+    if (category) { query += ' AND main_category = ?'; params.push(String(category)); }
+    if (location) { query += ' AND LOWER(location) LIKE ?'; params.push('%' + String(location).toLowerCase() + '%'); }
+    if (price_min) { query += ' AND price IS NOT NULL AND price >= ?'; params.push(Number(price_min)); }
+    if (price_max) { query += ' AND price IS NOT NULL AND price <= ?'; params.push(Number(price_max)); }
+    if (q) {
+      const term = '%' + String(q).toLowerCase() + '%';
+      query += ' AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(location) LIKE ?)';
+      params.push(term, term, term);
+    }
+
+    // Structured filters: exact match on keys inside structured_json
+    let filtersObj = {};
+    try { filtersObj = filters ? JSON.parse(String(filters)) : {}; } catch (_) { filtersObj = {}; }
+    if (filtersObj && Object.keys(filtersObj).length) {
+      // Apply post-filter after query since SQLite JSON1 may not be enabled
+    }
+
+    // Sorting
+    if (String(sort).toLowerCase() === 'price_asc') query += ' ORDER BY price ASC, created_at DESC';
+    else if (String(sort).toLowerCase() === 'price_desc') query += ' ORDER BY price DESC, created_at DESC';
+    else query += ' ORDER BY created_at DESC';
+
+    query += ' LIMIT ? OFFSET ?';
+    params.push(lim, offset);
+
+    const rows = db.prepare(query).all(params);
+
+    // Post-filter using structured_json
+    let results = rows;
+    if (filtersObj && Object.keys(filtersObj).length) {
+      results = rows.filter(r => {
+        try {
+          const sj = JSON.parse(r.structured_json || '{}');
+          for (const [k, v] of Object.entries(filtersObj)) {
+            if (!v) continue;
+            const key = k === 'model' ? 'model_name' : k;
+            if (String(sj[key] || '').toLowerCase() !== String(v).toLowerCase()) return false;
+          }
+          return true;
+        } catch (_) { return true; }
+      });
+    }
+
+    const firstImageStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
+    const listImagesStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
+    results = results.map(r => {
       let thumbnail_url = filePathToUrl(r.thumbnail_path);
       if (!thumbnail_url) {
         const first = firstImageStmt.get(r.id);
