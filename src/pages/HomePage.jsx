@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
+import CustomSelect from '../components/CustomSelect.jsx'
+
 export default function HomePage() {
   const [q, setQ] = useState('')
   const [latest, setLatest] = useState([])
@@ -340,7 +342,9 @@ export default function HomePage() {
           {showFilters && (
             <div className="card" style={{ padding: 12, marginBottom: 12 }}>
               <div className="grid two">
-                <select className="select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+                <CustomSelect
+                  value={filterCategory}
+                  onChange={v => set.value)}>
                   <option value="">Category (any)</option>
                   <option value="Vehicle">Vehicle</option>
                   <option value="Property">Property</option>
@@ -400,10 +404,9 @@ export default function HomePage() {
                             );
                           }
                           return (
-                            <select
+                           <<CustomSelect
                               key={key}
-                              className="select"
-                              value={filters[key] || ''}
+                              value={filters                             value={filters[key] || ''}
                               onChange={e => updateFilter(key, e.target.value)}
                               aria-label={key}
                             >

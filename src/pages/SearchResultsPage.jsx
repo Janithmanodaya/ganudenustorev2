@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
+import CustomSelect from '../components/CustomSelect.jsx'
 
 export default function SearchResultsPage() {
   const [sp, setSp] = useSearchParams()
@@ -173,8 +174,10 @@ export default function SearchResultsPage() {
                     {locSuggestions.map(loc => <option key={loc} value={loc} />)}
                   </datalist>
                 </div>
-                <select className="select" value={pricingType} onChange={e => setPricingType(e.target.value)}>
-                  <option value="">Pricing (any)</option>
+                <CustomSelect
+                  value={pricingType}
+                  onChange={v => setPricingType(v)}
+         <option value="">Pricing (any)</option>
                   <option value="Fixed Price">Fixed Price</option>
                   <option value="Negotiable">Negotiable</option>
                 </select>
@@ -221,10 +224,9 @@ export default function SearchResultsPage() {
                             );
                           }
                           return (
-                            <select
+                           <<CustomSelect
                               key={key}
-                              className="select"
-                              value={filters[key] || ''}
+                              value={filters[key]                        value={filters[key] || ''}
                               onChange={e => updateFilter(key, e.target.value)}
                               aria-label={key}
                             >
@@ -240,8 +242,10 @@ export default function SearchResultsPage() {
                 )}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <select className="select" value={sort} onChange={e => setSort(e.target.value)}>
-                    <option value="latest">Latest</option>
+                  <CustomSelect
+                    value={sort}
+                    onChange={v => setSort(v)}
+                    ariaLabel>Latest</option>
                     <option value="price_asc">Price: Low to High</option>
                     <option value="price_desc">Price: High to Low</option>
                   </select>
