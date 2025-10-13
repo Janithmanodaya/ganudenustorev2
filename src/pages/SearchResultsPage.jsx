@@ -177,10 +177,14 @@ export default function SearchResultsPage() {
                 <CustomSelect
                   value={pricingType}
                   onChange={v => setPricingType(v)}
-         <option value="">Pricing (any)</option>
-                  <option value="Fixed Price">Fixed Price</option>
-                  <option value="Negotiable">Negotiable</option>
-                </select>
+                  ariaLabel="Pricing"
+                  placeholder="Pricing (any)"
+                  options={[
+                    { value: '', label: 'Pricing (any)' },
+                    { value: 'Fixed Price', label: 'Fixed Price' },
+                    { value: 'Negotiable', label: 'Negotiable' },
+                  ]}
+                />
                 <input className="input" type="number" placeholder="Min price" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
                 <input className="input" type="number" placeholder="Max price" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
 
@@ -233,21 +237,19 @@ export default function SearchResultsPage() {
                       );
                     });
                 })()}
-                            </select>
-                          );
-                        });
-                    })()}
-                  </>
-                )}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <CustomSelect
                     value={sort}
                     onChange={v => setSort(v)}
-                    ariaLabel>Latest</option>
-                    <option value="price_asc">Price: Low to High</option>
-                    <option value="price_desc">Price: High to Low</option>
-                  </select>
+                    ariaLabel="Sort"
+                    placeholder="Sort"
+                    options={[
+                      { value: 'latest', label: 'Latest' },
+                      { value: 'price_asc', label: 'Price: Low to High' },
+                      { value: 'price_desc', label: 'Price: High to Low' },
+                    ]}
+                  />
                   <button className="btn accent" type="submit">Apply</button>
                   <button className="btn" type="button" onClick={resetAdvancedFilters}>Reset</button>
                 </div>
