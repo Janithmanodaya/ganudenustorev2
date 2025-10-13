@@ -280,7 +280,7 @@ export default function HomePage() {
         >
           <h1 className="h1" style={{ textAlign: 'center', marginBottom: 8 }}>Buy • Sell • Hire</h1>
           <p className="text-muted" style={{ textAlign: 'center', marginTop: 0 }}>
-            Discover great deals on vehicles, property, and jobs.
+            Discover great deals on vehicles, property, jobs, electronics, mobiles, and home &amp; garden.
           </p>
 
           <form onSubmit={onSearch} className="searchbar" style={{ margin: '16px auto 0', maxWidth: 720 }}>
@@ -301,10 +301,13 @@ export default function HomePage() {
             <button className="btn primary" type="submit">Search</button>
           </form>
 
-          <div className="quick-cats" style={{ marginTop: 16 }}>
-            <button className={`btn ${filterCategory === 'Vehicle' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Vehicle'); setShowFilters(true); }}>Vehicles</button>
-            <button className={`btn ${filterCategory === 'Property' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Property'); setShowFilters(true); }}>Property</button>
-            <button className={`btn ${filterCategory === 'Job' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Job'); setShowFilters(true); }}>Jobs</button>
+          <div className="quick-cats" style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className={`btn ${filterCategory === 'Vehicle' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Vehicle'); setShowFilters(true); }}>🚗 Vehicles</button>
+            <button className={`btn ${filterCategory === 'Property' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Property'); setShowFilters(true); }}>🏠 Property</button>
+            <button className={`btn ${filterCategory === 'Job' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Job'); setShowFilters(true); }}>💼 Jobs</button>
+            <button className={`btn ${filterCategory === 'Electronic' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Electronic'); setShowFilters(true); }}>🔌 Electronic</button>
+            <button className={`btn ${filterCategory === 'Mobile' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Mobile'); setShowFilters(true); }}>📱 Mobile</button>
+            <button className={`btn ${filterCategory === 'Home Garden' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Home Garden'); setShowFilters(true); }}>🏡 Home&nbsp;Garden</button>
           </div>
         </div>
 
@@ -353,6 +356,9 @@ export default function HomePage() {
                     { value: 'Vehicle', label: 'Vehicle' },
                     { value: 'Property', label: 'Property' },
                     { value: 'Job', label: 'Job' },
+                    { value: 'Electronic', label: 'Electronic' },
+                    { value: 'Mobile', label: 'Mobile' },
+                    { value: 'Home Garden', label: 'Home Garden' },
                   ]}
                 />
                 <input

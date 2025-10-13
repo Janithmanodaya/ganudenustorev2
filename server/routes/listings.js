@@ -167,7 +167,7 @@ try {
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_owner ON listings(owner_email)").run();
 } catch (_) {}
 
-const CATEGORIES = new Set(['Vehicle', 'Property', 'Job']);
+const CATEGORIES = new Set(['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden']);
 function validateListingInputs({ main_category, title, description, files }) {
   if (!main_category || !CATEGORIES.has(String(main_category))) return 'Invalid main_category.';
   if (!title || String(title).trim().length < 3 || String(title).trim().length > 120) return 'Title must be between 3 and 120 characters.';
@@ -199,7 +199,6 @@ async function callGemini(key, rolePrompt, userText) {
   const url = 'https://generativelanguage.googleapis.com/v1/' + model + ':generateContent?key=' + encodeURIComponent(key);
   const body = {
     contents: [{ role: 'user', parts: [{ text: String(rolePrompt) + '\n\nUser Input:\n' + String(userText) }] }],
-    // response_mime_type is not supported in v1 REST generationConfig. Keep config minimal and standards-compliant.
     generationConfig: { temperature: 0, topK: 1, topP: 1, maxOutputTokens: 2048 }
   };
   const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -214,6 +213,40 @@ async function callGemini(key, rolePrompt, userText) {
     if (m) cleaned = m[1];
   }
   return cleaned;
+}
+
+// Classify the main category using Gemini based on title/description. Always return one of the allowed labels.
+async function classifyMainCategory(key, title, description) {
+  const allowed = ['Vehicle','Property','Job','Electronic','Mobile','Home Garden'];
+  const role = [
+    'Classify the following listing into exactly one main category from the allowed list.',
+    'Allowed categories:',
+    allowed.map(c => '- ' + c).join('\n'),
+    'Return ONLY the category label, nothing else.'
+  ].join('\n');
+  const input = `Title: ${String(title || '')}\nDescription:\n${String(description || '')}`;
+  try {
+    const out = await callGemini(key, role, input);
+    const raw = String(out || '').trim();
+    // Normalize and coerce to one of allowed
+    const low = raw.toLowerCase();
+    const match = allowed.find(c => c.toLowerCase() === low);
+    if (match) return match;
+    // Try fuzzy includes
+    const contains = allowed.find(c => low.includes(c.toLowerCase()));
+    if (contains) return contains;
+  } catch (e) {
+    console.warn('[ai] classifyMainCategory failed:', e && e.message ? e.message : e);
+  }
+  // Fallback: heuristic from text
+  const t = (String(title || '') + ' ' + String(description || '')).toLowerCase();
+  if (/(car|bike|motor|suv|van|bus|toyota|honda|nissan|kawasaki|yamaha)/i.test(t)) return 'Vehicle';
+  if (/(house|apartment|land|property|annex|room|rent|lease)/i.test(t)) return 'Property';
+  if (/(job|vacancy|hiring|position|salary|cv|resume)/i.test(t)) return 'Job';
+  if (/(phone|iphone|android|samsung|pixel|mobile)/i.test(t)) return 'Mobile';
+  if (/(tv|television|fridge|refrigerator|washer|laptop|camera|electronic|speaker|headphone)/i.test(t)) return 'Electronic';
+  if (/(garden|home|furniture|sofa|bed|kitchen|decor|lawn|tools)/i.test(t)) return 'Home Garden';
+  return 'Vehicle';
 }
 
 // Normalize common Gemini extraction output variations to our canonical fields
@@ -300,7 +333,15 @@ router.post('/draft', upload.array('images', 5), async (req, res) => {
     const ownerEmailBody = String(req.body?.owner_email || '').toLowerCase().trim();
     const ownerEmail = ownerEmailHeader || ownerEmailBody || null;
 
-    const validationError = validateListingInputs({ main_category, title, description, files });
+    const key = getGeminiKey();
+    if (!key) return res.status(400).json({ error: 'Gemini API key not configured.' });
+
+    // Always classify the category using Gemini; ignore user choice if it differs.
+    let predictedCategory = await classifyMainCategory(key, title, description);
+    if (!CATEGORIES.has(String(predictedCategory))) predictedCategory = 'Vehicle';
+
+    // Validate using the predicted category (so Job image rule applies correctly)
+    const validationError = validateListingInputs({ main_category: predictedCategory, title, description, files });
     if (validationError) return res.status(400).json({ error: validationError });
 
     for (const f of files) {
@@ -320,11 +361,9 @@ router.post('/draft', upload.array('images', 5), async (req, res) => {
       }
     }
 
-    const key = getGeminiKey();
-    if (!key) return res.status(400).json({ error: 'Gemini API key not configured.' });
     const listingPrompt = getPrompt('listing_extraction');
     const seoPrompt = getPrompt('seo_metadata');
-    const userContext = `Category: ${main_category}
+    const userContext = `Category: ${predictedCategory}
 Title: ${title}
 Description:
 ${description}`;
@@ -487,7 +526,7 @@ ${description}`;
       if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(t)) return 'Bike';
       return '';
     }
-    if (String(main_category) === 'Vehicle') {
+    if (String(predictedCategory) === 'Vehicle') {
       const valid = new Set(['Bike','Car','Van','Bus']);
       const current = String(structuredObj.sub_category || '').trim();
       if (!current || !valid.has(current)) {
@@ -510,7 +549,7 @@ ${description}`;
       'INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, owner_email, created_at) ' +
       'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
-      main_category,
+      predictedCategory,
       title,
       description,
       JSON.stringify(structuredObj),
