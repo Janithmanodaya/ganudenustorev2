@@ -20,6 +20,21 @@ export default function AdminPage() {
   const [banners, setBanners] = useState([])
   const fileRef = useRef(null)
 
+  // Dashboard metrics
+  const [metrics, setMetrics] = useState(null)
+  const [rangeDays, setRangeDays] = useState(7)
+
+  // Users management
+  const [users, setUsers] = useState([])
+  const [userQuery, setUserQuery] = useState('')
+
+  // Reports management
+  const [reports, setReports] = useState([])
+  const [reportFilter, setReportFilter] = useState('pending')
+
+  // Tabs
+  const [activeTab, setActiveTab] = useState('dashboard')
+
   async function fetchConfig() {
     try {
       const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail } })
@@ -160,6 +175,96 @@ export default function AdminPage() {
     }
   }
 
+  async function loadMetrics(days = rangeDays) {
+    try {
+      const r = await fetch(`/api/admin/metrics?days=${encodeURIComponent(days)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to load metrics')
+      setMetrics(data)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function loadUsers(q = '') {
+    try {
+      const r = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to load users')
+      setUsers(data.results || [])
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function banUser(id) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}/ban`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to ban user')
+      loadUsers(userQuery)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function unbanUser(id) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}/unban`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to unban user')
+      loadUsers(userQuery)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function suspend7Days(id) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}/suspend7`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to suspend user')
+      loadUsers(userQuery)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function loadReports(filter = 'pending') {
+    try {
+      const r = await fetch(`/api/admin/reports?status=${encodeURIComponent(filter)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to load reports')
+      setReports(data.results || [])
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function resolveReport(id) {
+    try {
+      const r = await fetch(`/api/admin/reports/${id}/resolve`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to resolve report')
+      loadReports(reportFilter)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function deleteReport(id) {
+    const yes = window.confirm('Delete this report?')
+    if (!yes) return
+    try {
+      const r = await fetch(`/api/admin/reports/${id}`, { method: 'DELETE', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to delete report')
+      loadReports(reportFilter)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
   async function onUploadBanner(file) {
     if (!file) return
     try {
@@ -232,6 +337,9 @@ export default function AdminPage() {
       fetchConfig()
       loadPending()
       loadBanners()
+      loadMetrics(rangeDays)
+      loadUsers('')
+      loadReports(reportFilter)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowed, adminEmail])
@@ -251,94 +359,400 @@ export default function AdminPage() {
     )
   }
 
+  function BarChart({ data, color = '#6c7ff7' }) {
+    if (!Array.isArray(data) || data.length === 0) return <p className="text-muted">No data</p>
+    const max = Math.max(1, ...data.map(d => d.count || 0))
+    return (
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
+        {data.map((d, idx) => {
+          const h = Math.round(((d.count || 0) / max) * 120)
+          return (
+            <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: '100%', background: color, height: h, borderRadius: 8, opacity: 0.9 }} title={`${d.date || d.label}: ${d.count || 0}`} />
+              <small className="text-muted">{(d.date || '').slice(5)}</small>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  function SparklineBars({ data, color = '#6c7ff7' }) {
+    if (!Array.isArray(data) || data.length === 0) return null
+    const max = Math.max(1, ...data.map(d => d.count || 0))
+    return (
+      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 40 }}>
+        {data.map((d, idx) => {
+          const h = Math.round(((d.count || 0) / max) * 36)
+          return <div key={idx} style={{ flex: 1, height: h, background: color, borderRadius: 4, opacity: 0.9 }} />
+        })}
+      </div>
+    )
+  }
+
+  function StackedBars({ a, b, aLabel = 'A', bLabel = 'B', aColor = '#34d399', bColor = '#ef4444' }) {
+    const len = Math.max(a?.length || 0, b?.length || 0)
+    const merged = Array.from({ length: len }, (_, i) => ({
+      date: a?.[i]?.date || b?.[i]?.date || '',
+      a: a?.[i]?.count || 0,
+      b: b?.[i]?.count || 0
+    }))
+    const max = Math.max(1, ...merged.map(x => x.a + x.b))
+    return (
+      <div>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(52,211,153,0.15)', color: '#a7f3d0' }}>
+            <span style={{ width: 10, height: 10, background: aColor, borderRadius: 2 }} /> {aLabel}
+          </span>
+          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(239,68,68,0.15)', color: '#fecaca' }}>
+            <span style={{ width: 10, height: 10, background: bColor, borderRadius: 2 }} /> {bLabel}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
+          {merged.map((d, idx) => {
+            const totalH = Math.round(((d.a + d.b) / max) * 120)
+            const aH = totalH > 0 ? Math.round((d.a / (d.a + d.b)) * totalH) : 0
+            const bH = totalH - aH
+            return (
+              <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: '100%', height: totalH, borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} title={`${d.date}: ${d.a} / ${d.b}`}>
+                  <div style={{ background: aColor, height: aH }} />
+                  <div style={{ background: bColor, height: bH }} />
+                </div>
+                <small className="text-muted">{(d.date || '').slice(5)}</small>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  function HorizontalBars({ items }) {
+    if (!Array.isArray(items) || items.length === 0) return <p className="text-muted">No data</p>
+    const max = Math.max(1, ...items.map(i => i.value || 0))
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {items.map((i, idx) => {
+          const w = Math.round(((i.value || 0) / max) * 100)
+          return (
+            <div key={idx}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div className="text-muted">{i.label}</div>
+                <div className="text-muted">{i.value}</div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden', height: 10 }}>
+                <div style={{ width: `${w}%`, height: '100%', background: 'linear-gradient(90deg,#6c7ff7,#00d1ff)' }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <div className="center">
       <div className="card">
         <div className="h1">Admin Dashboard</div>
-        <p className="text-muted">Configure API access and review listings.</p>
+        <p className="text-muted">Configure, monitor, and manage users, listings, and reports.</p>
 
-        <div className="h2" style={{ marginTop: 16 }}>Homepage Banners</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <button className="btn" onClick={() => fileRef.current?.click()}>Upload Banner</button>
-          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onUploadBanner(e.target.files?.[0] || null)} />
-          <small className="text-muted">Recommended wide ratio (e.g., 3:1). JPG or PNG, up to 5MB.</small>
-        </div>
-        <div className="grid three">
-          {banners.map(b => (
-            <div key={b.id} className="card">
-              {b.url && <img src={b.url} alt={`Banner ${b.id}`} style={{ width: '100%', borderRadius: 8, objectFit: 'cover' }} />}
-              <div className="text-muted" style={{ marginTop: 6 }}>Active: {b.active ? 'Yes' : 'No'}</div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button className="btn" onClick={() => toggleBanner(b.id, b.active)}>{b.active ? 'Deactivate' : 'Activate'}</button>
-                <button className="btn" onClick={() => deleteBanner(b.id)}>Delete</button>
-              </div>
-            </div>
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8, marginBottom: 8 }}>
+          {[
+            { key: 'dashboard', label: 'Dashboard' },
+            { key: 'users', label: 'Users' },
+            { key: 'reports', label: 'Reports' },
+            { key: 'banners', label: 'Banners' },
+            { key: 'ai', label: 'AI Config' },
+            { key: 'approvals', label: 'Approvals' }
+          ].map(t => (
+            <button
+              key={t.key}
+              className="btn"
+              onClick={() => setActiveTab(t.key)}
+              style={{
+                borderColor: 'var(--border)',
+                background: activeTab === t.key ? 'linear-gradient(180deg, var(--primary), #5569e2)' : 'rgba(22,28,38,0.7)',
+                color: activeTab === t.key ? '#fff' : 'var(--text)'
+              }}
+            >
+              {t.label}
+            </button>
           ))}
-          {banners.length === 0 && <p className="text-muted">No banners yet.</p>}
         </div>
 
-        <div className="h2" style={{ marginTop: 16 }}>AI API Configuration</div>
-        <div className="grid two">
-          <input className="input" placeholder="API Key" value={geminiApiKey} onChange={e => setGeminiApiKey(e.target.value)} />
-          <button className="btn primary" onClick={saveConfig}>Save Key</button>
-        </div>
-        <div style={{ marginTop: 8 }}>
-          <button className="btn" onClick={testGemini}>Test API Key</button>
-          <div className="text-muted" style={{ marginTop: 8 }}>
-            Current key: {maskedKey || 'none'}
-          </div>
-        </div>
+        {/* Dashboard */}
+        {activeTab === 'dashboard' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Dashboard</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+              <span className="text-muted">Range:</span>
+              <select className="select" style={{ maxWidth: 180 }} value={String(rangeDays)} onChange={e => { const v = Number(e.target.value); setRangeDays(v); loadMetrics(v); }}>
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+              </select>
+              <button className="btn" onClick={() => loadMetrics(rangeDays)}>Refresh</button>
+            </div>
 
-        <div className="h2" style={{ marginTop: 16 }}>Pending Approval Queue</div>
-        <div className="grid two">
-          <div>
-            <div className="h2">Items</div>
-            {pending.length === 0 && <p className="text-muted">No pending items.</p>}
-            {pending.map(item => (
-              <div key={item.id} className="card" style={{ marginBottom: 8 }}>
-                <div><strong>{item.title}</strong></div>
-                <div className="text-muted">Category: {item.main_category}</div>
-                <div className="text-muted">{item.seo_description || item.description?.slice(0,160)}</div>
-                <button className="btn" style={{ marginTop: 8 }} onClick={() => loadDetail(item.id)}>Review</button>
-              </div>
-            ))}
-          </div>
-          <div>
-            <div className="h2">Review & Edit</div>
-            {!detail && <p className="text-muted">Select an item to review.</p>}
-            {detail && (
+            {!metrics && <p className="text-muted">Loading analytics...</p>}
+            {metrics && (
               <>
-                <p className="text-muted">Title: {detail.listing.title} • Category: {detail.listing.main_category}</p>
-                <div className="grid two">
-                  <div>
-                    <div className="h2">Original User Input</div>
-                    <div className="card">
-                      <div><strong>Title</strong>: {detail.listing.title}</div>
-                      <div><strong>Description</strong>:</div>
-                      <p>{detail.listing.description}</p>
-                      {detail.listing.resume_file_url && (
-                        <div className="text-muted">Resume File: {detail.listing.resume_file_url}</div>
-                      )}
+                <div className="grid three">
+                  <div className="card">
+                    <div className="h2">Users</div>
+                    <div className="text-muted">Total: {metrics.totals.totalUsers}</div>
+                    <div className="text-muted">Banned: {metrics.totals.bannedUsers}</div>
+                    <div className="text-muted">Suspended: {metrics.totals.suspendedUsers}</div>
+                  </div>
+                  <div className="card">
+                    <div className="h2">Listings</div>
+                    <div className="text-muted">Total: {metrics.totals.totalListings}</div>
+                    <div className="text-muted">Active: {metrics.totals.activeListings}</div>
+                    <div className="text-muted">Pending: {metrics.totals.pendingListings}</div>
+                    <div className="text-muted">Rejected: {metrics.totals.rejectedListings}</div>
+                  </div>
+                  <div className="card">
+                    <div className="h2">Reports</div>
+                    <div className="text-muted">Pending: {metrics.totals.reportPending}</div>
+                    <div className="text-muted">Resolved: {metrics.totals.reportResolved}</div>
+                  </div>
+                </div>
+
+                <div className="grid three" style={{ marginTop: 12 }}>
+                  <div className="card">
+                    <div className="h2">New Users (last {metrics.params?.days}d): {metrics.rangeTotals.usersNewInRange}</div>
+                    <SparklineBars data={metrics.series.signups} color="#6c7ff7" />
+                  </div>
+                  <div className="card">
+                    <div className="h2">New Ads (last {metrics.params?.days}d): {metrics.rangeTotals.listingsNewInRange}</div>
+                    <SparklineBars data={metrics.series.listingsCreated} color="#00d1ff" />
+                  </div>
+                  <div className="card">
+                    <div className="h2">Reports (last {metrics.params?.days}d): {metrics.rangeTotals.reportsInRange}</div>
+                    <SparklineBars data={metrics.series.reports} color="#e58e26" />
+                  </div>
+                </div>
+
+                <div className="grid three" style={{ marginTop: 12 }}>
+                  <div className="card">
+                    <div className="h2">Signups (last {metrics.params?.days} days)</div>
+                    <BarChart data={metrics.series.signups} color="#6c7ff7" />
+                  </div>
+                  <div className="card">
+                    <div className="h2">Listings Created (last {metrics.params?.days} days)</div>
+                    <BarChart data={metrics.series.listingsCreated} color="#00d1ff" />
+                  </div>
+                  <div className="card">
+                    <div className="h2">Reports (last {metrics.params?.days} days)</div>
+                    <BarChart data={metrics.series.reports} color="#e58e26" />
+                  </div>
+                </div>
+
+                <div className="grid two" style={{ marginTop: 12 }}>
+                  <div className="card">
+                    <div className="h2">Approvals vs Rejections (last {metrics.params?.days} days)</div>
+                    <StackedBars a={metrics.series.approvals} b={metrics.series.rejections} aLabel="Approve" bLabel="Reject" aColor="#34d399" bColor="#ef4444" />
+                    <div className="text-muted" style={{ marginTop: 8 }}>
+                      Total approvals: {metrics.rangeTotals.approvalsInRange} • Total rejections: {metrics.rangeTotals.rejectionsInRange}
                     </div>
                   </div>
-                  <div>
-                    <div className="h2">Structured JSON</div>
-                    <textarea className="textarea" value={editStructured} onChange={e => setEditStructured(e.target.value)} />
+                  <div className="card">
+                    <div className="h2">Top Categories</div>
+                    <HorizontalBars items={metrics.topCategories.map(c => ({ label: c.category, value: c.cnt }))} />
+                    <div className="h2" style={{ marginTop: 16 }}>Status Breakdown</div>
+                    <HorizontalBars items={metrics.statusBreakdown.map(s => ({ label: s.status, value: s.count }))} />
                   </div>
-                </div>
-
-                <div style={{ marginTop: 8 }}>
-                  <button className="btn" onClick={saveEdits}>Save Edits</button>
-                  <button className="btn primary" onClick={approve} style={{ marginLeft: 8 }}>Approve</button>
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <input className="input" placeholder="Reject reason (required)" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
-                  <button className="btn" onClick={reject} style={{ marginTop: 6 }}>Reject</button>
                 </div>
               </>
             )}
-          </div>
-        </div>
+          </>
+        )}
+
+        {/* Users */}
+        {activeTab === 'users' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>User Management</div>
+            <div className="grid two">
+              <input className="input" placeholder="Search by email or username..." value={userQuery} onChange={e => setUserQuery(e.target.value)} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={() => loadUsers(userQuery)}>Search</button>
+                <button className="btn" onClick={() => { setUserQuery(''); loadUsers(''); }}>Reset</button>
+              </div>
+            </div>
+            <div className="grid two" style={{ marginTop: 8 }}>
+              <div className="card">
+                <div className="h2">Results</div>
+                {users.length === 0 && <p className="text-muted">No users.</p>}
+                {users.map(u => (
+                  <div key={u.id} className="card" style={{ marginBottom: 8 }}>
+                    <div><strong>{u.email}</strong> {u.username ? <span className="text-muted">• @{u.username}</span> : null}</div>
+                    <div className="text-muted">ID: {u.id} • Admin: {u.is_admin ? 'Yes' : 'No'} • Created: {new Date(u.created_at).toLocaleString()}</div>
+                    <div className="text-muted">
+                      Status: {u.is_banned ? 'Banned' : (u.suspended_until && u.suspended_until > new Date().toISOString() ? `Suspended until ${new Date(u.suspended_until).toLocaleString()}` : 'Active')}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                      {!u.is_banned && <button className="btn" onClick={() => banUser(u.id)}>Ban</button>}
+                      {u.is_banned && <button className="btn" onClick={() => unbanUser(u.id)}>Unban</button>}
+                      <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend 7 days</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="card">
+                <div className="h2">Reports</div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <select className="select" value={reportFilter} onChange={e => { setReportFilter(e.target.value); loadReports(e.target.value); }}>
+                    <option value="pending">Pending</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="">All</option>
+                  </select>
+                  <button className="btn" onClick={() => loadReports(reportFilter)}>Refresh</button>
+                </div>
+                {reports.length === 0 && <p className="text-muted">No reports.</p>}
+                {reports.map(r => (
+                  <div key={r.id} className="card" style={{ marginBottom: 8 }}>
+                    <div><strong>Listing #{r.listing_id}</strong> • <span className="text-muted">{new Date(r.ts).toLocaleString()}</span></div>
+                    <div className="text-muted">Reporter: {r.reporter_email || 'anonymous'}</div>
+                    <div style={{ marginTop: 6 }}>{r.reason}</div>
+                    <div className="text-muted" style={{ marginTop: 6 }}>Status: {r.status || 'pending'}</div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                      {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Mark Resolved</button>}
+                      <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Reports */}
+        {activeTab === 'reports' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Reports</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <select className="select" value={reportFilter} onChange={e => { setReportFilter(e.target.value); loadReports(e.target.value); }}>
+                <option value="pending">Pending</option>
+                <option value="resolved">Resolved</option>
+                <option value="">All</option>
+              </select>
+              <button className="btn" onClick={() => loadReports(reportFilter)}>Refresh</button>
+            </div>
+            {reports.length === 0 && <p className="text-muted">No reports.</p>}
+            {reports.map(r => (
+              <div key={r.id} className="card" style={{ marginBottom: 8 }}>
+                <div><strong>Listing #{r.listing_id}</strong> • <span className="text-muted">{new Date(r.ts).toLocaleString()}</span></div>
+                <div className="text-muted">Reporter: {r.reporter_email || 'anonymous'}</div>
+                <div style={{ marginTop: 6 }}>{r.reason}</div>
+                <div className="text-muted" style={{ marginTop: 6 }}>Status: {r.status || 'pending'}</div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Mark Resolved</button>}
+                  <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Banners */}
+        {activeTab === 'banners' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Homepage Banners</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <button className="btn" onClick={() => fileRef.current?.click()}>Upload Banner</button>
+              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onUploadBanner(e.target.files?.[0] || null)} />
+              <small className="text-muted">Recommended wide ratio (e.g., 3:1). JPG or PNG, up to 5MB.</small>
+            </div>
+            <div className="grid three">
+              {banners.map(b => (
+                <div key={b.id} className="card">
+                  {b.url && <img src={b.url} alt={`Banner ${b.id}`} style={{ width: '100%', borderRadius: 8, objectFit: 'cover' }} />}
+                  <div className="text-muted" style={{ marginTop: 6 }}>Active: {b.active ? 'Yes' : 'No'}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button className="btn" onClick={() => toggleBanner(b.id, b.active)}>{b.active ? 'Deactivate' : 'Activate'}</button>
+                    <button className="btn" onClick={() => deleteBanner(b.id)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+              {banners.length === 0 && <p className="text-muted">No banners yet.</p>}
+            </div>
+          </>
+        )}
+
+        {/* AI Config */}
+        {activeTab === 'ai' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>AI API Configuration</div>
+            <div className="grid two">
+              <input className="input" placeholder="API Key" value={geminiApiKey} onChange={e => setGeminiApiKey(e.target.value)} />
+              <button className="btn primary" onClick={saveConfig}>Save Key</button>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <button className="btn" onClick={testGemini}>Test API Key</button>
+              <div className="text-muted" style={{ marginTop: 8 }}>
+                Current key: {maskedKey || 'none'}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Approvals */}
+        {activeTab === 'approvals' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Pending Approval Queue</div>
+            <div className="grid two">
+              <div>
+                <div className="h2">Items</div>
+                {pending.length === 0 && <p className="text-muted">No pending items.</p>}
+                {pending.map(item => (
+                  <div key={item.id} className="card" style={{ marginBottom: 8 }}>
+                    <div><strong>{item.title}</strong></div>
+                    <div className="text-muted">Category: {item.main_category}</div>
+                    <div className="text-muted">{item.seo_description || item.description?.slice(0,160)}</div>
+                    <button className="btn" style={{ marginTop: 8 }} onClick={() => loadDetail(item.id)}>Review</button>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div className="h2">Review & Edit</div>
+                {!detail && <p className="text-muted">Select an item to review.</p>}
+                {detail && (
+                  <>
+                    <p className="text-muted">Title: {detail.listing.title} • Category: {detail.listing.main_category}</p>
+                    <div className="grid two">
+                      <div>
+                        <div className="h2">Original User Input</div>
+                        <div className="card">
+                          <div><strong>Title</strong>: {detail.listing.title}</div>
+                          <div><strong>Description</strong>:</div>
+                          <p>{detail.listing.description}</p>
+                          {detail.listing.resume_file_url && (
+                            <div className="text-muted">Resume File: {detail.listing.resume_file_url}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="h2">Structured JSON</div>
+                        <textarea className="textarea" value={editStructured} onChange={e => setEditStructured(e.target.value)} />
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 8 }}>
+                      <button className="btn" onClick={saveEdits}>Save Edits</button>
+                      <button className="btn primary" onClick={approve} style={{ marginLeft: 8 }}>Approve</button>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <input className="input" placeholder="Reject reason (required)" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
+                      <button className="btn" onClick={reject} style={{ marginTop: 6 }}>Reject</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {status && (
           <div className="card" style={{ marginTop: 12 }}>

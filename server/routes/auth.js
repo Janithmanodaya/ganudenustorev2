@@ -191,6 +191,62 @@ router.post('/login', async (req, res) => {
   if (!user) return res.status(401).json({ error: 'Invalid credentials.' });
   const match = await bcrypt.compare(password, user.password_hash);
   if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
+
+  // For admin accounts: require OTP after password is verified
+  if (user.is_admin) {
+    try {
+      const otp = generateOtp();
+      const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+      db.prepare('INSERT INTO otps (email, otp, expires_at) VALUES (?, ?, ?)').run(user.email.toLowerCase(), otp, expires);
+
+      const DEV_MODE = String(process.env.EMAIL_DEV_MODE || '').toLowerCase() === 'true';
+      if (DEV_MODE) {
+        console.log(`[otp:dev] Admin login OTP for ${email}: ${otp}`);
+        return res.json({ ok: true, otp_required: true, message: 'OTP required for admin login (dev mode).', otp });
+      }
+
+      const sent = await sendEmail(user.email, 'Admin Login OTP', `<p>Your admin login OTP is: <strong>${otp}</strong></p>`);
+      if (!sent?.ok) {
+        // cleanup
+        try { db.prepare('DELETE FROM otps WHERE email = ? AND otp = ?').run(user.email.toLowerCase(), otp); } catch (_) {}
+        return res.status(502).json({ error: 'Failed to send admin OTP email.' });
+      }
+
+      return res.json({ ok: true, otp_required: true, message: 'OTP sent to your email.' });
+    } catch (e) {
+      return res.status(500).json({ error: 'Failed to initiate admin OTP.' });
+    }
+  }
+
+  // Normal user login (no OTP required)
+  const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
+  return res.json({ ok: true, user: { id: user.id, email: user.email, username: user.username, is_admin: !!user.is_admin, photo_url } });
+});
+
+// Verify Admin Login OTP (second step)
+router.post('/verify-admin-login-otp', async (req, res) => {
+  const { email, password, otp } = req.body || {};
+  if (!email || !password || !otp) return res.status(400).json({ error: 'Email, password, and OTP are required.' });
+
+  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path FROM users WHERE email = ?').get(email.toLowerCase());
+  if (!user || !user.is_admin) return res.status(401).json({ error: 'Invalid credentials.' });
+
+  const match = await bcrypt.compare(password, user.password_hash);
+  if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
+
+  const otpRecord = db.prepare('SELECT * FROM otps WHERE email = ? AND otp = ? ORDER BY expires_at DESC').get(email.toLowerCase(), otp);
+  if (!otpRecord) return res.status(401).json({ error: 'Invalid OTP.' });
+
+  const now = new Date();
+  const expiresAt = new Date(otpRecord.expires_at);
+  if (now > expiresAt) {
+    db.prepare('DELETE FROM otps WHERE id = ?').run(otpRecord.id);
+    return res.status(401).json({ error: 'OTP has expired.' });
+  }
+
+  // OTP valid; consume it and log in
+  try { db.prepare('DELETE FROM otps WHERE id = ?').run(otpRecord.id); } catch (_) {}
+
   const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
   return res.json({ ok: true, user: { id: user.id, email: user.email, username: user.username, is_admin: !!user.is_admin, photo_url } });
 });

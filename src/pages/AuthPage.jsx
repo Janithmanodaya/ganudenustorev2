@@ -14,6 +14,9 @@ export default function AuthPage() {
   const [submitting, setSubmitting] = useState(false)
   const [agreePolicy, setAgreePolicy] = useState(false)
 
+  // Admin OTP login flow
+  const [loginStep, setLoginStep] = useState('password') // 'password' -> 'otp'
+
   useEffect(() => {
     // If already logged in, go to account page
     try {
@@ -38,8 +41,13 @@ export default function AuthPage() {
       let body = {}
 
       if (mode === 'login') {
-        url = '/api/auth/login'
-        body = { email, password }
+        if (loginStep === 'password') {
+          url = '/api/auth/login'
+          body = { email, password }
+        } else {
+          url = '/api/auth/verify-admin-login-otp'
+          body = { email, password, otp }
+        }
       } else if (mode === 'register') {
         if (registerStep === 'request') {
           url = '/api/auth/send-registration-otp'
@@ -88,6 +96,13 @@ export default function AuthPage() {
       }
 
       // Success flows with concise messages + redirects
+      if (mode === 'login' && loginStep === 'password' && data.otp_required) {
+        setLoginStep('otp')
+        setResult({ ok: true, message: data.message || 'OTP sent to your email. Enter it to continue.' })
+        setSubmitting(false)
+        return
+      }
+
       if (mode === 'register' && registerStep === 'request') {
         setRegisterStep('verify')
         setResult({ ok: true, message: 'OTP sent. Please check your email and enter the OTP.' })
@@ -166,7 +181,7 @@ export default function AuthPage() {
 
         <form onSubmit={submit} className="grid two">
           <input className="input" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} disabled={submitting} />
-          {(mode === 'login') || (mode === 'register') || (mode === 'forgot' && forgotStep === 'reset') ? (
+          {((mode === 'login' && loginStep === 'password') || (mode === 'register') || (mode === 'forgot' && forgotStep === 'reset')) ? (
             <input className="input" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} disabled={submitting} />
           ) : (
             <div />

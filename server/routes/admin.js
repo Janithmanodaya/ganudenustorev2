@@ -31,6 +31,23 @@ db.prepare(`
   )
 `).run();
 
+// Ensure new columns exist on reports for management
+try {
+  const cols = db.prepare(`PRAGMA table_info(reports)`).all();
+  const hasStatus = cols.some(c => c.name === 'status');
+  if (!hasStatus) {
+    db.prepare(`ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'`).run();
+  }
+  const hasHandledBy = cols.some(c => c.name === 'handled_by');
+  if (!hasHandledBy) {
+    db.prepare(`ALTER TABLE reports ADD COLUMN handled_by INTEGER`).run();
+  }
+  const hasHandledAt = cols.some(c => c.name === 'handled_at');
+  if (!hasHandledAt) {
+    db.prepare(`ALTER TABLE reports ADD COLUMN handled_at TEXT`).run();
+  }
+} catch (_) {}
+
 // Simple admin auth gate using a header "X-Admin-Email"
 function requireAdmin(req, res, next) {
   const adminEmail = req.header('X-Admin-Email');
@@ -226,10 +243,34 @@ router.post('/flag', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-// List reports
+// List reports with optional status filter
 router.get('/reports', requireAdmin, (req, res) => {
-  const rows = db.prepare(`SELECT * FROM reports ORDER BY id DESC LIMIT 200`).all();
+  const status = (req.query.status || '').toLowerCase();
+  let rows;
+  if (status === 'pending' || status === 'resolved') {
+    rows = db.prepare(`SELECT * FROM reports WHERE status = ? ORDER BY id DESC LIMIT 500`).all(status);
+  } else {
+    rows = db.prepare(`SELECT * FROM reports ORDER BY id DESC LIMIT 500`).all();
+  }
   res.json({ results: rows });
+});
+
+// Resolve a report
+router.post('/reports/:id/resolve', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare(`UPDATE reports SET status = 'resolved', handled_by = ?, handled_at = ? WHERE id = ?`).run(
+    req.admin.id,
+    new Date().toISOString(),
+    id
+  );
+  res.json({ ok: true });
+});
+
+// Delete a report
+router.delete('/reports/:id', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare(`DELETE FROM reports WHERE id = ?`).run(id);
+  res.json({ ok: true });
 });
 
 // Banner management (admin)
@@ -245,6 +286,175 @@ router.get('/banners', requireAdmin, (req, res) => {
   } catch (e) {
     res.status(500).json({ error: 'Failed to load banners' });
   }
+});
+
+// Admin metrics and analytics (expanded, with ranged filters)
+router.get('/metrics', requireAdmin, (req, res) => {
+  try {
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    // Range param: days=7|30 (default 14)
+    let daysParam = Number(req.query.days);
+    if (!Number.isFinite(daysParam) || daysParam <= 0) daysParam = 14;
+    if (daysParam > 60) daysParam = 60; // sanity limit
+    const rangeStart = new Date(now);
+    rangeStart.setUTCHours(0, 0, 0, 0);
+    rangeStart.setUTCDate(rangeStart.getUTCDate() - (daysParam - 1)); // include today
+    const rangeStartIso = rangeStart.toISOString();
+
+    const totalUsers = db.prepare(`SELECT COUNT(*) as c FROM users`).get().c || 0;
+    const bannedUsers = db.prepare(`SELECT COUNT(*) as c FROM users WHERE is_banned = 1`).get().c || 0;
+    const suspendedUsers = db.prepare(`SELECT COUNT(*) as c FROM users WHERE suspended_until IS NOT NULL AND suspended_until > ?`).get(nowIso).c || 0;
+
+    const totalListings = db.prepare(`SELECT COUNT(*) as c FROM listings`).get().c || 0;
+    const activeListings = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE status IN ('Approved','Active')`).get().c || 0;
+    const pendingListings = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE status = 'Pending Approval'`).get().c || 0;
+    const rejectedListings = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE status = 'Rejected'`).get().c || 0;
+
+    const reportPending = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE status = 'pending'`).get().c || 0;
+    const reportResolved = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE status = 'resolved'`).get().c || 0;
+
+    // Range-limited totals
+    const usersNewInRange = db.prepare(`SELECT COUNT(*) as c FROM users WHERE created_at >= ?`).get(rangeStartIso).c || 0;
+    const listingsNewInRange = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE created_at >= ?`).get(rangeStartIso).c || 0;
+    const approvalsInRange = db.prepare(`SELECT COUNT(*) as c FROM admin_actions WHERE action='approve' AND ts >= ?`).get(rangeStartIso).c || 0;
+    const rejectionsInRange = db.prepare(`SELECT COUNT(*) as c FROM admin_actions WHERE action='reject' AND ts >= ?`).get(rangeStartIso).c || 0;
+    const reportsInRange = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE ts >= ?`).get(rangeStartIso).c || 0;
+
+    // Time series helpers
+    function dayRangeDays(nDays) {
+      const days = [];
+      for (let i = nDays - 1; i >= 0; i--) {
+        const start = new Date();
+        start.setUTCHours(0, 0, 0, 0);
+        start.setUTCDate(start.getUTCDate() - i);
+        const end = new Date(start);
+        end.setUTCDate(start.getUTCDate() + 1);
+        days.push({ start, end });
+      }
+      return days;
+    }
+
+    const win = dayRangeDays(daysParam);
+
+    const signups = win.map(({ start, end }) => {
+      const c = db.prepare(`SELECT COUNT(*) as c FROM users WHERE created_at >= ? AND created_at < ?`)
+        .get(start.toISOString(), end.toISOString()).c || 0;
+      return { date: start.toISOString().slice(0, 10), count: c };
+    });
+
+    const listingsCreated = win.map(({ start, end }) => {
+      const c = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE created_at >= ? AND created_at < ?`)
+        .get(start.toISOString(), end.toISOString()).c || 0;
+      return { date: start.toISOString().slice(0, 10), count: c };
+    });
+
+    const approvals = win.map(({ start, end }) => {
+      const c = db.prepare(`SELECT COUNT(*) as c FROM admin_actions WHERE action = 'approve' AND ts >= ? AND ts < ?`)
+        .get(start.toISOString(), end.toISOString()).c || 0;
+      return { date: start.toISOString().slice(0, 10), count: c };
+    });
+
+    const rejections = win.map(({ start, end }) => {
+      const c = db.prepare(`SELECT COUNT(*) as c FROM admin_actions WHERE action = 'reject' AND ts >= ? AND ts < ?`)
+        .get(start.toISOString(), end.toISOString()).c || 0;
+      return { date: start.toISOString().slice(0, 10), count: c };
+    });
+
+    const reports = win.map(({ start, end }) => {
+      const c = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE ts >= ? AND ts < ?`)
+        .get(start.toISOString(), end.toISOString()).c || 0;
+      return { date: start.toISOString().slice(0, 10), count: c };
+    });
+
+    // Top categories among approved/active listings
+    const topCategories = db.prepare(`
+      SELECT main_category as category, COUNT(*) as cnt
+      FROM listings
+      WHERE status IN ('Approved','Active') AND main_category IS NOT NULL AND main_category <> ''
+      GROUP BY main_category
+      ORDER BY cnt DESC
+      LIMIT 8
+    `).all();
+
+    // Status breakdown
+    const statusBreakdown = [
+      { status: 'Active/Approved', count: activeListings },
+      { status: 'Pending Approval', count: pendingListings },
+      { status: 'Rejected', count: rejectedListings },
+    ];
+
+    res.json({
+      params: { days: daysParam, rangeStart: rangeStartIso },
+      totals: {
+        totalUsers, bannedUsers, suspendedUsers,
+        totalListings, activeListings, pendingListings, rejectedListings,
+        reportPending, reportResolved
+      },
+      rangeTotals: {
+        usersNewInRange,
+        listingsNewInRange,
+        approvalsInRange,
+        rejectionsInRange,
+        reportsInRange
+      },
+      series: {
+        signups,
+        listingsCreated,
+        approvals,
+        rejections,
+        reports
+      },
+      topCategories,
+      statusBreakdown
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load metrics' });
+  }
+});
+
+// User management
+router.get('/users', requireAdmin, (req, res) => {
+  const q = (req.query.q || '').toLowerCase();
+  const limit = Math.min(Number(req.query.limit) || 50, 200);
+  let rows;
+  if (q) {
+    rows = db.prepare(`
+      SELECT id, email, username, is_admin, is_banned, suspended_until, created_at
+      FROM users
+      WHERE LOWER(email) LIKE ? OR LOWER(COALESCE(username,'')) LIKE ?
+      ORDER BY id DESC
+      LIMIT ?
+    `).all(`%${q}%`, `%${q}%`, limit);
+  } else {
+    rows = db.prepare(`
+      SELECT id, email, username, is_admin, is_banned, suspended_until, created_at
+      FROM users
+      ORDER BY id DESC
+      LIMIT ?
+    `).all(limit);
+  }
+  res.json({ results: rows });
+});
+
+router.post('/users/:id/ban', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare(`UPDATE users SET is_banned = 1, suspended_until = NULL WHERE id = ?`).run(id);
+  res.json({ ok: true });
+});
+
+router.post('/users/:id/unban', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare(`UPDATE users SET is_banned = 0, suspended_until = NULL WHERE id = ?`).run(id);
+  res.json({ ok: true });
+});
+
+router.post('/users/:id/suspend7', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  db.prepare(`UPDATE users SET is_banned = 0, suspended_until = ? WHERE id = ?`).run(until, id);
+  res.json({ ok: true, suspended_until: until });
 });
 
 router.post('/banners', requireAdmin, upload.single('image'), (req, res) => {
