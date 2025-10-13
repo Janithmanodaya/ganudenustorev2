@@ -631,8 +631,53 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Floating nav buttons */}
-          
+          {/* Glass-morphism sliding buttons */}
+          <button
+            className="btn"
+            type="button"
+            aria-label="Scroll features left"
+            onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: -300, behavior: 'smooth' }) }}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: 10,
+              transform: 'translateY(-50%)',
+              borderRadius: '50%',
+              width: 40,
+              height: 40,
+              display: 'grid',
+              placeItems: 'center',
+              background: 'rgba(255,255,255,0.18)',
+              color: '#0b1220',
+              border: '1px solid rgba(255,255,255,0.28)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.25)'
+            }}
+          >‹</button>
+          <button
+            className="btn"
+            type="button"
+            aria-label="Scroll features right"
+            onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: 300, behavior: 'smooth' }) }}
+            style={{
+              position: 'absolute',
+              top: '50%',
+              right: 10,
+              transform: 'translateY(-50%)',
+              borderRadius: '50%',
+              width: 40,
+              height: 40,
+              display: 'grid',
+              placeItems: 'center',
+              background: 'rgba(255,255,255,0.18)',
+              color: '#0b1220',
+              border: '1px solid rgba(255,255,255,0.28)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.25)'
+            }}
+          >›</button>
 
           {/* Hide scrollbar styling */}
           <style>{`
