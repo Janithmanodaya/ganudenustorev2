@@ -556,6 +556,10 @@ export default function HomePage() {
           >
             <div
               className="card"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate('/new')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/new'); } }}
               style={{
                 pointerEvents: 'auto',
                 display: show ? 'flex' : 'none',
@@ -570,7 +574,8 @@ export default function HomePage() {
                   'linear-gradient(180deg, rgba(29,35,48,0.98), rgba(29,35,48,0.92))',
                 color: '#fff',
                 border: '1px solid rgba(255,255,255,0.06)',
-                animation: 'cta-pop 0.6s ease-out'
+                animation: 'cta-pop 0.6s ease-out',
+                cursor: 'pointer'
               }}
             >
               <div style={{ maxWidth: 420 }}>
