@@ -1,0 +1,385 @@
+import { Router } from 'express';
+import { db } from '../lib/db.js';
+import fetch from 'node-fetch';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import multer from 'multer';
+
+const router = Router();
+
+// Init audit table
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS admin_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id INTEGER NOT NULL,
+    listing_id INTEGER NOT NULL,
+    action TEXT NOT NULL,
+    reason TEXT,
+    ts TEXT NOT NULL
+  )
+`).run();
+
+// Reports table
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    listing_id INTEGER NOT NULL,
+    reporter_email TEXT,
+    reason TEXT NOT NULL,
+    ts TEXT NOT NULL
+  )
+`).run();
+
+// Simple admin auth gate using a header "X-Admin-Email"
+function requireAdmin(req, res, next) {
+  const adminEmail = req.header('X-Admin-Email');
+  if (!adminEmail) return res.status(401).json({ error: 'Missing admin credentials.' });
+  const user = db.prepare('SELECT id, is_admin FROM users WHERE email = ?').get(adminEmail.toLowerCase());
+  if (!user || !user.is_admin) return res.status(403).json({ error: 'Forbidden.' });
+  req.admin = { id: user.id, email: adminEmail.toLowerCase() };
+  next();
+}
+
+// Upload config
+const uploadsDir = path.resolve(process.cwd(), 'data', 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+const upload = multer({
+  dest: uploadsDir,
+  limits: { files: 1, fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!String(file.mimetype).startsWith('image/')) return cb(new Error('Only images are allowed'));
+    cb(null, true);
+  }
+});
+
+// Get current Gemini API key (masked)
+router.get('/config', requireAdmin, (req, res) => {
+  const row = db.prepare('SELECT gemini_api_key FROM admin_config WHERE id = 1').get();
+  const key = row?.gemini_api_key || null;
+  res.json({ gemini_api_key_masked: key ? `${key.slice(0, 4)}...${key.slice(-4)}` : null });
+});
+
+// Save Gemini API key
+router.post('/config', requireAdmin, (req, res) => {
+  const { geminiApiKey } = req.body || {};
+  if (!geminiApiKey || typeof geminiApiKey !== 'string') {
+    return res.status(400).json({ error: 'geminiApiKey is required.' });
+  }
+  db.prepare('UPDATE admin_config SET gemini_api_key = ? WHERE id = 1').run(geminiApiKey.trim());
+  res.json({ ok: true });
+});
+
+// Test Gemini API key by calling a lightweight public endpoint
+router.post('/test-gemini', requireAdmin, async (req, res) => {
+  const row = db.prepare('SELECT gemini_api_key FROM admin_config WHERE id = 1').get();
+  const key = row?.gemini_api_key;
+  if (!key) return res.status(400).json({ error: 'No Gemini API key configured.' });
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1/models?key=${encodeURIComponent(key)}`;
+    const r = await fetch(url, { method: 'GET' });
+    const ok = r.ok;
+    const data = await r.json().catch(() => ({}));
+    if (!ok) {
+      return res.status(r.status).json({ ok: false, error: data?.error || data });
+    }
+    return res.json({ ok: true, models_count: Array.isArray(data.models) ? data.models.length : 0 });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: 'Network or API error.' });
+  }
+});
+
+// Prompt management
+
+router.get('/prompts', requireAdmin, (req, res) => {
+  const rows = db.prepare('SELECT type, content FROM prompts').all();
+  const map = {};
+  for (const row of rows) map[row.type] = row.content;
+  res.json(map);
+});
+
+router.post('/prompts', requireAdmin, (req, res) => {
+  const { listing_extraction, seo_metadata, resume_extraction } = req.body || {};
+  const entries = [
+    ['listing_extraction', listing_extraction],
+    ['seo_metadata', seo_metadata],
+    ['resume_extraction', resume_extraction],
+  ];
+
+  for (const [type, content] of entries) {
+    if (typeof content !== 'string' || !content.trim()) {
+      return res.status(400).json({ error: `Prompt "${type}" is required.` });
+    }
+  }
+
+  const upsert = db.prepare(`
+    INSERT INTO prompts (type, content) VALUES (?, ?)
+    ON CONFLICT(type) DO UPDATE SET content = excluded.content
+  `);
+
+  for (const [type, content] of entries) {
+    upsert.run(type, content.trim());
+  }
+
+  res.json({ ok: true });
+});
+
+// Approval queue
+
+router.get('/pending', requireAdmin, (req, res) => {
+  const rows = db.prepare(`
+    SELECT id, main_category, title, description, seo_title, seo_description, created_at
+    FROM listings
+    WHERE status = 'Pending Approval'
+    ORDER BY created_at ASC
+  `).all();
+  res.json({ items: rows });
+});
+
+router.get('/pending/:id', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id.' });
+  const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
+  if (!listing) return res.status(404).json({ error: 'Listing not found.' });
+  const images = db.prepare('SELECT id, path, original_name FROM listing_images WHERE listing_id = ?').all(id);
+  const seo = listing.seo_json ? JSON.parse(listing.seo_json) : {
+    seo_title: listing.seo_title || '',
+    meta_description: listing.seo_description || '',
+    seo_keywords: listing.seo_keywords || ''
+  };
+  res.json({ listing, images, seo });
+});
+
+router.post('/pending/:id/update', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const { structured_json, seo_title, meta_description, seo_keywords } = req.body || {};
+  if (typeof structured_json !== 'string' || typeof seo_title !== 'string' || typeof meta_description !== 'string' || typeof seo_keywords !== 'string') {
+    return res.status(400).json({ error: 'Invalid payload.' });
+  }
+  // Validate structured_json is valid JSON
+  try { JSON.parse(structured_json); } catch (_) {
+    return res.status(400).json({ error: 'structured_json must be valid JSON.' });
+  }
+  const st = seo_title.slice(0, 60);
+  const sd = meta_description.slice(0, 160);
+  const sk = seo_keywords;
+
+  db.prepare(`
+    UPDATE listings
+    SET structured_json = ?, seo_title = ?, seo_description = ?, seo_keywords = ?, seo_json = ?
+    WHERE id = ?
+  `).run(structured_json.trim(), st.trim(), sd.trim(), sk.trim(), JSON.stringify({ seo_title: st, meta_description: sd, seo_keywords: sk }, null, 2), id);
+
+  db.prepare(`
+    INSERT INTO admin_actions (admin_id, listing_id, action, ts)
+    VALUES (?, ?, 'update', ?)
+  `).run(req.admin.id, id, new Date().toISOString());
+
+  res.json({ ok: true });
+});
+
+router.post('/pending/:id/approve', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  // Set status to 'Approved' to match public listing queries
+  db.prepare(`UPDATE listings SET status = 'Approved', reject_reason = NULL WHERE id = ?`).run(id);
+  db.prepare(`
+    INSERT INTO admin_actions (admin_id, listing_id, action, ts)
+    VALUES (?, ?, 'approve', ?)
+  `).run(req.admin.id, id, new Date().toISOString());
+  res.json({ ok: true });
+});
+
+router.post('/pending/:id/reject', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const { reason } = req.body || {};
+  if (!reason || typeof reason !== 'string' || !reason.trim()) {
+    return res.status(400).json({ error: 'Reject reason is required.' });
+  }
+  db.prepare(`UPDATE listings SET status = 'Rejected', reject_reason = ? WHERE id = ?`).run(reason.trim(), id);
+  db.prepare(`
+    INSERT INTO admin_actions (admin_id, listing_id, action, reason, ts)
+    VALUES (?, ?, 'reject', ?, ?)
+  `).run(req.admin.id, id, reason.trim(), new Date().toISOString());
+  res.json({ ok: true });
+});
+
+// Approve many
+router.post('/pending/approve_many', requireAdmin, (req, res) => {
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids array required' });
+  // Set status to 'Approved' to match public listing queries
+  const stmt = db.prepare(`UPDATE listings SET status = 'Approved', reject_reason = NULL WHERE id = ?`);
+  const audit = db.prepare(`INSERT INTO admin_actions (admin_id, listing_id, action, ts) VALUES (?, ?, 'approve', ?)`);
+  for (const id of ids) {
+    stmt.run(Number(id));
+    audit.run(req.admin.id, Number(id), new Date().toISOString());
+  }
+  res.json({ ok: true, count: ids.length });
+});
+
+// Flag listing
+router.post('/flag', requireAdmin, (req, res) => {
+  const { listing_id, reason } = req.body || {};
+  if (!listing_id || !reason) return res.status(400).json({ error: 'listing_id and reason required' });
+  db.prepare(`INSERT INTO admin_actions (admin_id, listing_id, action, reason, ts) VALUES (?, ?, 'flag', ?, ?)`)
+    .run(req.admin.id, Number(listing_id), String(reason).trim(), new Date().toISOString());
+  res.json({ ok: true });
+});
+
+// List reports
+router.get('/reports', requireAdmin, (req, res) => {
+  const rows = db.prepare(`SELECT * FROM reports ORDER BY id DESC LIMIT 200`).all();
+  res.json({ results: rows });
+});
+
+// Banner management (admin)
+router.get('/banners', requireAdmin, (req, res) => {
+  try {
+    const rows = db.prepare(`SELECT id, path, active, sort_order, created_at FROM banners ORDER BY sort_order ASC, id DESC`).all();
+    const items = rows.map(r => {
+      const filename = String(r.path || '').split('/').pop();
+      const url = filename ? `/uploads/${filename}` : null;
+      return { id: r.id, url, active: !!r.active, sort_order: r.sort_order, created_at: r.created_at };
+    });
+    res.json({ results: items });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load banners' });
+  }
+});
+
+router.post('/banners', requireAdmin, upload.single('image'), (req, res) => {
+  try {
+    const f = req.file;
+    if (!f) return res.status(400).json({ error: 'Image file required' });
+    // basic signature check
+    try {
+      const fd = fs.openSync(f.path, 'r');
+      const buf = Buffer.alloc(8);
+      fs.readSync(fd, buf, 0, 8, 0);
+      fs.closeSync(fd);
+      const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
+      const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+      if (!isJpeg && !isPng) {
+        try { fs.unlinkSync(f.path); } catch (_) {}
+        return res.status(400).json({ error: 'Invalid image format. Use JPG or PNG.' });
+      }
+    } catch (_) {
+      return res.status(400).json({ error: 'Failed to read uploaded file.' });
+    }
+    db.prepare(`INSERT INTO banners (path, active, sort_order, created_at) VALUES (?, 1, 0, ?)`)
+      .run(f.path, new Date().toISOString());
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to upload banner' });
+  }
+});
+
+router.post('/banners/:id/active', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const { active } = req.body || {};
+  try {
+    db.prepare(`UPDATE banners SET active = ? WHERE id = ?`).run(active ? 1 : 0, id);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update' });
+  }
+});
+
+router.delete('/banners/:id', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const row = db.prepare(`SELECT path FROM banners WHERE id = ?`).get(id);
+    if (row?.path) {
+      try { fs.unlinkSync(row.path); } catch (_) {}
+    }
+    db.prepare(`DELETE FROM banners WHERE id = ?`).run(id);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete' });
+  }
+});
+
+/**
+ * Secure Config File (encrypted at rest)
+ * - File stored at data/secure-config.enc
+ * - Symmetric encryption with AES-256-GCM (key derived via scrypt from passphrase)
+ * - Only accessible via admin endpoints with passphrase provided per request
+ * - Server does NOT store the passphrase
+ */
+const secureConfigPath = path.resolve(process.cwd(), 'data', 'secure-config.enc');
+
+function deriveKey(pass) {
+  const salt = crypto.createHash('sha256').update('ganudenu-config-salt').digest();
+  return crypto.scryptSync(String(pass), salt, 32);
+}
+
+function encryptConfig(pass, jsonString) {
+  const iv = crypto.randomBytes(12);
+  const key = deriveKey(pass);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const ciphertext = Buffer.concat([cipher.update(jsonString, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  // store IV + TAG + CIPHERTEXT as base64
+  return Buffer.concat([iv, tag, ciphertext]).toString('base64');
+}
+
+function decryptConfig(pass, b64) {
+  const buf = Buffer.from(String(b64), 'base64');
+  const iv = buf.subarray(0, 12);
+  const tag = buf.subarray(12, 28);
+  const ciphertext = buf.subarray(28);
+  const key = deriveKey(pass);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  return plaintext.toString('utf8');
+}
+
+// Status/meta endpoint (admin authenticated)
+router.get('/config-secure/status', requireAdmin, (req, res) => {
+  try {
+    const exists = fs.existsSync(secureConfigPath);
+    if (!exists) return res.json({ exists: false });
+    const stat = fs.statSync(secureConfigPath);
+    return res.json({ exists: true, size: stat.size, mtime: stat.mtime.toISOString() });
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to get status' });
+  }
+});
+
+// Decrypt and read (requires passphrase)
+router.post('/config-secure/decrypt', requireAdmin, (req, res) => {
+  const { passphrase } = req.body || {};
+  if (!passphrase) return res.status(400).json({ error: 'passphrase required' });
+  try {
+    if (!fs.existsSync(secureConfigPath)) return res.status(404).json({ error: 'Config not found' });
+    const b64 = fs.readFileSync(secureConfigPath, 'utf8');
+    const json = decryptConfig(passphrase, b64);
+    // Return parsed JSON if possible
+    try {
+      return res.json({ ok: true, config: JSON.parse(json) });
+    } catch (_) {
+      return res.json({ ok: true, config_text: json });
+    }
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid passphrase or corrupted config' });
+  }
+});
+
+// Encrypt and write (requires passphrase). Creates or overwrites the file.
+router.post('/config-secure/encrypt', requireAdmin, (req, res) => {
+  const { passphrase, config } = req.body || {};
+  if (!passphrase) return res.status(400).json({ error: 'passphrase required' });
+  if (config == null) return res.status(400).json({ error: 'config required' });
+  try {
+    const jsonString = typeof config === 'string' ? config : JSON.stringify(config, null, 2);
+    const b64 = encryptConfig(passphrase, jsonString);
+    fs.mkdirSync(path.dirname(secureConfigPath), { recursive: true });
+    fs.writeFileSync(secureConfigPath, b64, 'utf8');
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to write secure config' });
+  }
+});
+
+export default router;

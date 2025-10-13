@@ -1,0 +1,452 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import LoadingOverlay from '../components/LoadingOverlay.jsx'
+
+export default function HomePage() {
+  const [q, setQ] = useState('')
+  const [latest, setLatest] = useState([])
+  const [status, setStatus] = useState(null)
+  const [localFilter, setLocalFilter] = useState('')
+  const [banners, setBanners] = useState([])
+  const [slide, setSlide] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
+  const [showFilters, setShowFilters] = useState(false)
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterLocation, setFilterLocation] = useState('')
+  const [filterPriceMin, setFilterPriceMin] = useState('')
+  const [filterPriceMax, setFilterPriceMax] = useState('')
+  const [filtersDef, setFiltersDef] = useState({ keys: [], valuesByKey: {} })
+  const [filters, setFilters] = useState({})
+  const [locQuery, setLocQuery] = useState('')
+  const [locSuggestions, setLocSuggestions] = useState([])
+
+  // Global search suggestions
+  const [searchSuggestions, setSearchSuggestions] = useState([])
+
+  // Autocomplete queries for sub_category and model
+  const [subCategoryQuery, setSubCategoryQuery] = useState('')
+  const [modelQuery, setModelQuery] = useState('')
+
+  // Pagination
+  const [page, setPage] = useState(1)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const limit = 10
+
+  // Suggestions derived from filtersDef values
+  const subCategoryOptions = useMemo(() => {
+    const arr = (filtersDef.valuesByKey['sub_category'] || []).map(v => String(v))
+    const q = (subCategoryQuery || '').toLowerCase().trim()
+    if (!q) return arr.slice(0, 25)
+    return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25)
+  }, [filtersDef, subCategoryQuery])
+  const modelOptions = useMemo(() => {
+    const arr = (filtersDef.valuesByKey['model'] || []).map(v => String(v))
+    const q = (modelQuery || '').toLowerCase().trim()
+    if (!q) return arr.slice(0, 25)
+    return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25)
+  }, [filtersDef, modelQuery])
+
+  function onSearch(e) {
+    e.preventDefault()
+    const query = q.trim()
+    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
+  }
+
+  useEffect(() => {
+    async function loadAll() {
+      try {
+        setLoading(true)
+        const [lr, br] = await Promise.all([
+          fetch(`/api/listings/search?limit=${limit}&page=${page}&sort=latest`),
+          fetch('/api/banners')
+        ])
+        // listings
+        if (lr.status === 204) {
+          setLatest([])
+        } else {
+          const ct = lr.headers.get('content-type') || ''
+          const ltext = await lr.text()
+          const ldata = ct.includes('application/json') && ltext ? JSON.parse(ltext) : {}
+          if (!lr.ok) throw new Error((ldata && ldata.error) || 'Failed to load listings')
+          const items = Array.isArray(ldata.results) ? ldata.results : []
+          setLatest(items)
+        }
+        // banners
+        const bdata = await br.json().catch(() => ({}))
+        if (br.ok && Array.isArray(bdata.results)) {
+          setBanners(bdata.results)
+        }
+      } catch (e) {
+        setStatus(`Error: ${e.message}`)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadAll()
+  }, [page, refreshKey])
+
+  // Load dynamic filters when a category is selected
+  useEffect(() => {
+    async function loadFilters() {
+      if (!filterCategory) { setFiltersDef({ keys: [], valuesByKey: {} }); setFilters({}); return }
+      try {
+        const r = await fetch(`/api/listings/filters?category=${encodeURIComponent(filterCategory)}`)
+        const data = await r.json()
+        if (!r.ok) throw new Error(data.error || 'Failed to load filters')
+        setFiltersDef({ keys: data.keys || [], valuesByKey: data.valuesByKey || {} })
+      } catch (e) {
+        setStatus(`Error: ${e.message}`)
+      }
+    }
+    loadFilters()
+  }, [filterCategory])
+
+  useEffect(() => {
+    if (!banners.length) return
+    const timer = setInterval(() => {
+      setSlide(s => (s + 1) % banners.length)
+    }, 4000)
+    return () => clearInterval(timer)
+  }, [banners])
+
+  // NOTE: We intentionally DO NOT refetch listings when filters change on the Home page.
+  // Pressing "Apply" will show the default latest 10 listings.
+
+  // Fetch global search suggestions (titles, locations, sub_category, model)
+  useEffect(() => {
+    const term = (q || '').trim()
+    if (!term) { setSearchSuggestions([]); return }
+    const ctrl = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/listings/suggestions?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
+        const data = await r.json()
+        if (r.ok && Array.isArray(data.results)) setSearchSuggestions(data.results)
+      } catch (_) {}
+    }, 250)
+    return () => { clearTimeout(t); ctrl.abort() }
+  }, [q])
+
+  const [cardSlideIndex, setCardSlideIndex] = useState({})
+  function nextImage(item) {
+    const imgs = Array.isArray(item.small_images) ? item.small_images : []
+    const len = imgs.length || 1
+    setCardSlideIndex(prev => ({ ...prev, [item.id]: ((prev[item.id] || 0) + 1) % len }))
+  }
+  function prevImage(item) {
+    const imgs = Array.isArray(item.small_images) ? item.small_images : []
+    const len = imgs.length || 1
+    setCardSlideIndex(prev => {
+      const cur = prev[item.id] || 0
+      const nxt = (cur - 1 + len) % len
+      return { ...prev, [item.id]: nxt }
+    })
+  }
+
+  // Client-side filtering with AND logic across multiple selected filters.
+  const filtered = useMemo(() => {
+    const t = (localFilter || '').toLowerCase().trim()
+    return latest.filter(item => {
+      const parts = [
+        item.title || '',
+        item.main_category || '',
+        item.location || '',
+        item.seo_description || item.description || ''
+      ]
+      const textMatch = t ? parts.join(' ').toLowerCase().includes(t) : true
+
+      const categoryOk = filterCategory ? (item.main_category || '') === filterCategory : true
+      const locationOk = filterLocation ? (item.location || '').toLowerCase().includes(filterLocation.toLowerCase()) : true
+      const priceVal = item.price != null ? Number(item.price) : null
+      const priceMinOk = filterPriceMin ? (priceVal != null && priceVal >= Number(filterPriceMin)) : true
+      const priceMaxOk = filterPriceMax ? (priceVal != null && priceVal <= Number(filterPriceMax)) : true
+
+      // Structured filters (exact match except partial for model/sub_category)
+      let structuredOk = true
+      if (Object.keys(filters).length) {
+        try {
+          const raw = JSON.parse(item.structured_json || '{}')
+          const sj = Object.fromEntries(Object.entries(raw).map(([k, v]) => [String(k).toLowerCase(), v]))
+          for (const [k, v] of Object.entries(filters)) {
+            const key = String(k).toLowerCase()
+            const val = String(v || '').toLowerCase()
+            if (!val) continue
+            // Map UI key 'model' to stored 'model_name'
+            const lookupKey = key === 'model' ? 'model_name' : key
+            const target = sj[lookupKey]
+            const targetStr = String(target || '').toLowerCase()
+            if (lookupKey === 'model_name' || lookupKey === 'sub_category') {
+              if (!targetStr.includes(val)) { structuredOk = false; break }
+            } else {
+              if (targetStr !== val) { structuredOk = false; break }
+            }
+          }
+        } catch (_) {}
+      }
+
+      // AND all conditions
+      return textMatch && categoryOk && locationOk && priceMinOk && priceMaxOk && structuredOk
+    })
+  }, [latest, localFilter, filterCategory, filterLocation, filterPriceMin, filterPriceMax, filters])
+
+  // Compute 3-wide window for banners
+  const visibleBanners = useMemo(() => {
+    if (!banners.length) return []
+    const arr = []
+    for (let i = 0; i < Math.min(3, banners.length); i++) {
+      const idx = (slide + i) % banners.length
+      arr.push(banners[idx])
+    }
+    return arr
+  }, [banners, slide])
+
+  function updateFilter(key, value) {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
+  async function applyHomeFilters() {
+    try {
+      setLoading(true)
+      setShowFilters(false)
+      // Build server-side query based on current filter selections and keep current page
+      const params = new URLSearchParams()
+      params.set('limit', String(limit))
+      params.set('page', String(page))
+      params.set('sort', 'latest')
+      if (filterCategory) params.set('category', filterCategory)
+      if (filterLocation) params.set('location', filterLocation)
+      if (filterPriceMin) params.set('price_min', filterPriceMin)
+      if (filterPriceMax) params.set('price_max', filterPriceMax)
+      if (Object.keys(filters).length) params.set('filters', JSON.stringify(filters))
+
+      const r = await fetch(`/api/listings/search?${params.toString()}`)
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data?.error || 'Failed to load filtered listings')
+      setLatest(Array.isArray(data.results) ? data.results : [])
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Build pagination window (around 5 pages centered on current)
+  const pageWindow = [page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1)
+
+  return (
+    <div className="center">
+      {loading && <LoadingOverlay message="Loading latest listings..." />}
+      <div className="card" style={{ padding: 0 }}>
+        <div
+          style={{
+            padding: '42px 18px',
+            background:
+              'radial-gradient(1000px 300px at 10% -20%, rgba(0,209,255,0.25), transparent 60%), ' +
+              'radial-gradient(1000px 300px at 90% 0%, rgba(108,127,247,0.25), transparent 60%), ' +
+              'linear-gradient(180deg, rgba(18,22,31,0.9), rgba(18,22,31,0.6))'
+          }}
+        >
+          <h1 className="h1" style={{ textAlign: 'center', marginBottom: 8 }}>Buy • Sell • Hire</h1>
+          <p className="text-muted" style={{ textAlign: 'center', marginTop: 0 }}>
+            Discover great deals on vehicles, property, and jobs.
+          </p>
+
+          <form onSubmit={onSearch} className="searchbar" style={{ margin: '16px auto 0', maxWidth: 720 }}>
+            <input
+              className="input"
+              type="text"
+              list="global-suggest"
+              placeholder="Search anything (e.g., Toyota, House in Kandy, Accountant)..."
+              value={q}
+              onChange={e => setQ(e.target.value)}
+            />
+            <datalist id="global-suggest">
+              {(function() {
+                // Inline render: suggestions computed via useEffect below
+                return (globalThis && Array.isArray(globalThis.__home_suggestions)) ? globalThis.__home_suggestions.map(s => <option key={s} value={s} />) : null
+              })()}
+            </datalist>
+            <button className="btn primary" type="submit">Search</button>
+          </form>
+
+          <div className="quick-cats" style={{ marginTop: 16 }}>
+            <button className={`btn ${filterCategory === 'Vehicle' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Vehicle'); setShowFilters(true); }}>Vehicles</button>
+            <button className={`btn ${filterCategory === 'Property' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Property'); setShowFilters(true); }}>Property</button>
+            <button className={`btn ${filterCategory === 'Job' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Job'); setShowFilters(true); }}>Jobs</button>
+          </div>
+        </div>
+
+        {/* Banner slider - shows up to 3 wide, auto-rotates */}
+        {visibleBanners.length > 0 && (
+          <div style={{ padding: 18 }}>
+            <div className="grid three">
+              {visibleBanners.map(b => (
+                <div key={b.id} className="card" style={{ padding: 0 }}>
+                  <img
+                    src={b.url}
+                    alt="Banner"
+                    style={{
+                      width: '100%',
+                      height: 180,
+                      objectFit: 'cover',
+                      borderRadius: 12
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ padding: 18 }}>
+          <div className="h2" style={{ marginTop: 0 }}>{filterCategory ? `${filterCategory} listings` : 'Latest listings'}</div>
+
+          {/* Filters dropdown toggle */}
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button className="btn" type="button" onClick={() => setShowFilters(s => !s)}>
+              {showFilters ? 'Hide Filters' : 'Filters'}
+            </button>
+          </div>
+
+          {showFilters && (
+            <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+              <div className="grid two">
+                <select className="select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+                  <option value="">Category (any)</option>
+                  <option value="Vehicle">Vehicle</option>
+                  <option value="Property">Property</option>
+                  <option value="Job">Job</option>
+                </select>
+                <input className="input" placeholder="Location" value={filterLocation} onChange={e => setFilterLocation(e.target.value)} />
+                <input className="input" type="number" placeholder="Min price" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
+                <input className="input" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
+
+                {/* Dynamic sub_category/model and other keys */}
+                {filterCategory && filtersDef.keys.length > 0 && (
+                  <>
+                    {filtersDef.keys.filter(k => !['location','pricing_type','price'].includes(k)).map(key => (
+                      <select
+                        key={key}
+                        className="select"
+                        value={filters[key] || ''}
+                        onChange={e => updateFilter(key, e.target.value)}
+                        aria-label={key}
+                      >
+                        <option value="">{key} (any)</option>
+                        {(filtersDef.valuesByKey[key] || []).map(v => (
+                          <option key={String(v)} value={String(v)}>{String(v)}</option>
+                        ))}
+                      </select>
+                    ))}
+                  </>
+                )}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => {
+                      setFilterLocation('')
+                      setFilterPriceMin('')
+                      setFilterPriceMax('')
+                      setFilters({})
+                    }}
+                  >
+                    Clear
+                  </button>
+                  <button className="btn accent" type="button" onClick={applyHomeFilters}>
+                    Apply
+                  </button>
+                  <button className="btn" type="button" onClick={() => navigate('/search')}>
+                    Advanced Search
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(() => {
+            const displayList = filterCategory ? latest.filter(it => (it.main_category || '') === filterCategory) : latest
+            return (
+              <div className="grid three">
+                {displayList.map(item => {
+                  let expires = ''
+                  if (item.valid_until) {
+                    const diff = new Date(item.valid_until).getTime() - Date.now()
+                    const days = Math.max(0, Math.ceil(diff / (1000*60*60*24)))
+                    expires = `Expires in ${days} day${days === 1 ? '' : 's'}`
+                  }
+                  const imgs = Array.isArray(item.small_images) ? item.small_images : []
+                  const idx = cardSlideIndex[item.id] || 0
+                  const hero = imgs.length ? imgs[idx % imgs.length] : (item.thumbnail_url || null)
+
+                  return (
+                    <div key={item.id} className="card" onClick={() => navigate(`/listing/${item.id}`)} style={{ cursor: 'pointer' }}>
+                      {/* Small image slider */}
+                      {hero && (
+                        <div style={{ position: 'relative', marginBottom: 8 }}>
+                          <img
+                            src={hero}
+                            alt={item.title}
+                            style={{ width: '100%', borderRadius: 8, objectFit: 'cover', height: 180 }}
+                          />
+                          {imgs.length > 1 && (
+                            <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); prevImage(item) }}
+                                aria-label="Previous image"
+                              >‹</button>
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); nextImage(item) }}
+                                aria-label="Next image"
+                              >›</button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
+                      <div className="h2" style={{ marginTop: 0 }}>{item.title}</div>
+                      <div className="text-muted" style={{ marginBottom: 6 }}>
+                        {item.location ? item.location : ''}
+                        {item.pricing_type ? ` • ${item.pricing_type}` : ''}
+                        {item.price != null ? ` • ${String(item.price)}` : ''}
+                        {expires ? ` • ${expires}` : ''}
+                      </div>
+                      <p className="text-muted">{item.seo_description || (item.description || '').slice(0,160)}</p>
+                    </div>
+                  )
+                })}
+                {displayList.length === 0 && (
+                  <p className="text-muted">No listings yet.</p>
+                )}
+              </div>
+            )
+          })()}
+
+          {/* Pagination */}
+          <div className="pagination" style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+            <button className="btn page" onClick={() => setPage(Math.max(1, page - 1))} aria-label="Previous page">‹ Prev</button>
+            {pageWindow.map(p => (
+              <button
+                key={p}
+                className={`btn page ${p === page ? 'primary' : ''}`}
+                onClick={() => setPage(p)}
+                aria-label={`Go to page ${p}`}
+              >
+                {p}
+              </button>
+            ))}
+            <button className="btn page" onClick={() => setPage(page + 1)} aria-label="Next page">Next ›</button>
+          </div>
+
+          {status && <p style={{ marginTop: 8 }}>{status}</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
