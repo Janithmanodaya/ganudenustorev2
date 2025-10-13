@@ -541,13 +541,8 @@ export default function HomePage() {
 
       {/* Standalone Feature section (separate from main card) */}
       <section style={{ marginTop: 18 }}>
-        <div className="card" style={{ margin: '0 auto', maxWidth: 1000 }}>
-          <div className="h2" style={{ marginTop: 0 }}>🇱🇰 100% Sri Lankan</div>
-          <p className="text-muted" style={{ marginTop: 6 }}>
-            All-in-one, AI-powered marketplace. AI category selection, AI description writing, advanced filters, futuristic design,
-            and proudly 100% Sri Lankan — all in one place. Coming soon: automatic Facebook page creation and auto-share after your
-            ad is published. Low cost. High impact.
-          </p>
+        <div style={{ margin: '0 auto', maxWidth: 1000 }}>
+          <div className="h2" style={{ marginTop: 0, textAlign: 'center' }}>Our Features</div>
         </div>
 
         {/* Feature mini-cards - horizontal slider with floating nav buttons and hidden scrollbar */}
@@ -565,7 +560,7 @@ export default function HomePage() {
                 <div className="text-muted">
                   AI auto-selects the best main category<br/>and sub-category for your ad.
                 </div>
-                              </div>
+              </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   ✍️ AI Descriptions
@@ -573,7 +568,7 @@ export default function HomePage() {
                 <div className="text-muted">
                   One-click, polished descriptions with bullets<br/>and emoji for clarity.
                 </div>
-                              </div>
+              </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🧭 Advanced Filters
@@ -581,7 +576,6 @@ export default function HomePage() {
                 <div className="text-muted">
                   Powerful, easy filters to find exactly what<br/>you need fast.
                 </div>
-                
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -590,7 +584,6 @@ export default function HomePage() {
                 <div className="text-muted">
                   Clean, modern, and fast experience<br/>across devices.
                 </div>
-                
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -599,25 +592,6 @@ export default function HomePage() {
                 <div className="text-muted">
                   Built for Sri Lanka with local insights<br/>and simplicity.
                 </div>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => navigate('/policy')}
-                  style={{
-                    marginTop: 8,
-                    borderRadius: 24,
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    background: 'rgba(18,22,31,0.55)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
-                    width: 'fit-content'
-                  }}
-                >
-                  Learn more
-                </button>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -626,25 +600,6 @@ export default function HomePage() {
                 <div className="text-muted">
                   Keep costs down while reaching more<br/>buyers and sellers.
                 </div>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => navigate('/new')}
-                  style={{
-                    marginTop: 8,
-                    borderRadius: 24,
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    background: 'rgba(18,22,31,0.55)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
-                    width: 'fit-content'
-                  }}
-                >
-                  Start now
-                </button>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -653,25 +608,6 @@ export default function HomePage() {
                 <div className="text-muted">
                   Auto-create and auto-share to your FB<br/>page after publish.
                 </div>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => navigate('/policy')}
-                  style={{
-                    marginTop: 8,
-                    borderRadius: 24,
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    background: 'rgba(18,22,31,0.55)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
-                    width: 'fit-content'
-                  }}
-                >
-                  Coming soon
-                </button>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -680,52 +616,65 @@ export default function HomePage() {
                 <div className="text-muted">
                   Everything you need to buy, sell, and hire —<br/>in one place.
                 </div>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                  style={{
-                    marginTop: 8,
-                    borderRadius: 24,
-                    padding: '6px 10px',
-                    fontSize: 12,
-                    background: 'rgba(18,22,31,0.55)',
-                    color: '#fff',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
-                    width: 'fit-content'
-                  }}
-                >
-                  Explore
-                </button>
               </div>
             </div>
           </div>
 
-          {/* Floating nav buttons */}
+          {/* Glass-morphism sliding buttons */}
           <button
             className="btn"
             type="button"
             aria-label="Scroll features left"
             onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: -300, behavior: 'smooth' }) }}
             style={{
-              position: 'absolute', top: '50%', left: 6, transform: 'translateY(-50%)',
-              borderRadius: '50%', width: 36, height: 36, display: 'grid', placeItems: 'center',
-              boxShadow: '0 6px 18px rgba(0,0,0,0.2)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)'
+              position: 'absolute',
+              top: '50%',
+              left: 10,
+              transform: 'translateY(-50%)',
+              borderRadius: '50%',
+              width: 44,
+              height: 44,
+              display: 'grid',
+              placeItems: 'center',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14))',
+              color: '#0a0f1e',
+              border: '1px solid rgba(255,255,255,0.45)',
+              outline: '1px solid rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)',
+              transition: 'transform 150ms ease, box-shadow 150ms ease, background 150ms ease'
             }}
-          >‹</button>
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
+          >{'<'}</button>
           <button
             className="btn"
             type="button"
             aria-label="Scroll features right"
             onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: 300, behavior: 'smooth' }) }}
             style={{
-              position: 'absolute', top: '50%', right: 6, transform: 'translateY(-50%)',
-              borderRadius: '50%', width: 36, height: 36, display: 'grid', placeItems: 'center',
-              boxShadow: '0 6px 18px rgba(0,0,0,0.2)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)'
+              position: 'absolute',
+              top: '50%',
+              right: 10,
+              transform: 'translateY(-50%)',
+              borderRadius: '50%',
+              width: 44,
+              height: 44,
+              display: 'grid',
+              placeItems: 'center',
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14))',
+              color: '#0a0f1e',
+              border: '1px solid rgba(255,255,255,0.45)',
+              outline: '1px solid rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)',
+              transition: 'transform 150ms ease, box-shadow 150ms ease, background 150ms ease'
             }}
-          >›</button>
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
+          >{'>'}</button>
 
           {/* Hide scrollbar styling */}
           <style>{`
