@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
@@ -35,6 +35,10 @@ export default function HomePage() {
   const [page, setPage] = useState(1)
   const [refreshKey, setRefreshKey] = useState(0)
   const limit = 10
+
+  // Ref for features mini-cards scroller
+  const featureRef = useRef(n_codeulnewl</)
+
 
   // Suggestions derived from filtersDef values
   const subCategoryOptions = useMemo(() => {
@@ -549,58 +553,94 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Feature mini-cards - horizontal slider */}
-        <div style={{ marginTop: 12, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div style={{ display: 'flex', gap: 12, paddingBottom: 6, minWidth: 'max-content' }}>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🤖 AI Categories
+        {/* Feature mini-cards - horizontal slider with floating nav buttons and hidden scrollbar */}
+        <div style={{ position: 'relative', marginTop: 12 }}>
+          <div
+            ref={featureRef}
+            className="hide-scroll"
+            style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollBehavior: 'smooth' }}
+          >
+            <div style={{ display: 'flex', gap: 12, paddingBottom: 6, minWidth: 'max-content' }}>
+              <div className="card" style={{ minWidth: 220 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🤖 AI Categories
+                </div>
+                <div className="text-muted">Gemini auto-selects the best main category and sub-category for your ad.</div>
               </div>
-              <div className="text-muted">Gemini auto-selects the best main category and sub-category for your ad.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                ✍️ AI Descriptions
+              <div className="card" style={{ minWidth: 220 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  ✍️ AI Descriptions
+                </div>
+                <div className="text-muted">One-click, polished descriptions with bullets and emoji for clarity.</div>
               </div>
-              <div className="text-muted">One-click, polished descriptions with bullets and emoji for clarity.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🧭 Advanced Filters
+              <div className="card" style={{ minWidth: 220 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🧭 Advanced Filters
+                </div>
+                <div className="text-muted">Powerful, easy filters to find exactly what you need fast.</div>
               </div>
-              <div className="text-muted">Powerful, easy filters to find exactly what you need fast.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🚀 Futuristic UI
+              <div className="card" style={{ minWidth: 220 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🚀 Futuristic UI
+                </div>
+                <div className="text-muted">Clean, modern, and fast experience across devices.</div>
               </div>
-              <div className="text-muted">Clean, modern, and fast experience across devices.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🇱🇰 100% Sri Lankan
+              <div className="card" style={{ minWidth: 220 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🇱🇰 100% Sri Lankan
+                </div>
+                <div className="text-muted">Built for Sri Lanka with local insights and simplicity.</div>
               </div>
-              <div className="text-muted">Built for Sri Lanka with local insights and simplicity.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                💸 Low Cost
+              <div className="card" style={{ minWidth: 220 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  💸 Low Cost
+                </div>
+                <div className="text-muted">Keep costs down while reaching more buyers and sellers.</div>
               </div>
-              <div className="text-muted">Keep costs down while reaching more buyers and sellers.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🔗 Auto Facebook (Soon)
+              <div className="card" style={{ minWidth: 220 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🔗 Auto Facebook (Soon)
+                </div>
+                <div className="text-muted">Auto-create and auto-share to your FB page after publish.</div>
               </div>
-              <div className="text-muted">Auto-create and auto-share to your FB page after publish.</div>
-            </div>
-            <div className="card" style={{ minWidth: 220 }}>
-              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                🧩 All-in-one
+              <div className="card" style={{ minWidth: 220 }}>
+                <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  🧩 All-in-one
+                </div>
+                <div className="text-muted">Everything you need to buy, sell, and hire — in one place.</div>
               </div>
-              <div className="text-muted">Everything you need to buy, sell, and hire — in one place.</div>
             </div>
           </div>
+
+          {/* Floating nav buttons */}
+          <button
+            className="btn"
+            type="button"
+            aria-label="Scroll features left"
+            onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: -300, behavior: 'smooth' }) }}
+            style={{
+              position: 'absolute', top: '50%', left: 6, transform: 'translateY(-50%)',
+              borderRadius: '50%', width: 36, height: 36, display: 'grid', placeItems: 'center',
+              boxShadow: '0 6px 18px rgba(0,0,0,0.2)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)'
+            }}
+          >‹</button>
+          <button
+            className="btn"
+            type="button"
+            aria-label="Scroll features right"
+            onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: 300, behavior: 'smooth' }) }}
+            style={{
+              position: 'absolute', top: '50%', right: 6, transform: 'translateY(-50%)',
+              borderRadius: '50%', width: 36, height: 36, display: 'grid', placeItems: 'center',
+              boxShadow: '0 6px 18px rgba(0,0,0,0.2)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(8px)'
+            }}
+          >›</button>
+
+          {/* Hide scrollbar styling */}
+          <style>{`
+            .hide-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+            .hide-scroll::-webkit-scrollbar { display: none; }
+          `}</style>
         </div>
       </section>
 
