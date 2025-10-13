@@ -325,20 +325,37 @@ export default function HomePage() {
                 {/* Dynamic sub_category/model and other keys */}
                 {filterCategory && filtersDef.keys.length > 0 && (
                   <>
-                    {filtersDef.keys.filter(k => !['location','pricing_type','price'].includes(k)).map(key => (
-                      <select
-                        key={key}
-                        className="select"
-                        value={filters[key] || ''}
-                        onChange={e => updateFilter(key, e.target.value)}
-                        aria-label={key}
-                      >
-                        <option value="">{key} (any)</option>
-                        {(filtersDef.valuesByKey[key] || []).map(v => (
-                          <option key={String(v)} value={String(v)}>{String(v)}</option>
-                        ))}
-                      </select>
-                    ))}
+                    {(() => {
+                      const pretty = (k) => {
+                        if (!k) return '';
+                        const map = {
+                          model: 'Model',
+                          model_name: 'Model',
+                          manufacture_year: 'Manufacture Year',
+                          sub_category: 'Sub-category',
+                          pricing_type: 'Pricing',
+                        };
+                        if (map[k]) return map[k];
+                        // Fallback: title-case underscores
+                        return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+                      };
+                      return filtersDef.keys
+                        .filter(k => !['location','pricing_type','price'].includes(k))
+                        .map(key => (
+                          <select
+                            key={key}
+                            className="select"
+                            value={filters[key] || ''}
+                            onChange={e => updateFilter(key, e.target.value)}
+                            aria-label={key}
+                          >
+                            <option value="">{pretty(key)} (any)</option>
+                            {(filtersDef.valuesByKey[key] || []).map(v => (
+                              <option key={String(v)} value={String(v)}>{String(v)}</option>
+                            ))}
+                          </select>
+                        ));
+                    })()}
                   </>
                 )}
 
