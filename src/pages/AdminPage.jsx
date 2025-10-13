@@ -32,6 +32,9 @@ export default function AdminPage() {
   const [reports, setReports] = useState([])
   const [reportFilter, setReportFilter] = useState('pending')
 
+  // Tabs
+  const [activeTab, setActiveTab] = useState('dashboard')
+
   async function fetchConfig() {
     try {
       const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail } })
@@ -176,7 +179,10 @@ export default function AdminPage() {
     try {
       const r = await fetch(`/api/admin/metrics?days=${encodeURIComponent(days)}`, { headers: { 'X-Admin-Email': adminEmail } })
       const data = await r.json()
-      if (!r.ok) throw new Error(data.error || 'Failed to load metrics setStatus(`Error: ${e.message}`)
+      if (!r.ok) throw new Error(data.error || 'Failed to load metrics')
+      setMetrics(data)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
     }
   }
 
@@ -331,9 +337,12 @@ export default function AdminPage() {
       fetchConfig()
       loadPending()
       loadBanners()
+      loadMetrics(rangeDays)
+      loadUsers('')
+      loadReports(reportFilter)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, adminEmail])
+  }, [allowed, adminEm_codeainewl</])
 
   if (!allowed) {
     return (
