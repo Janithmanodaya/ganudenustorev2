@@ -632,17 +632,21 @@ export default function HomePage() {
               left: 10,
               transform: 'translateY(-50%)',
               borderRadius: '50%',
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               display: 'grid',
               placeItems: 'center',
-              background: 'rgba(255,255,255,0.18)',
-              color: '#0b1220',
-              border: '1px solid rgba(255,255,255,0.28)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.25)'
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14))',
+              color: '#0a0f1e',
+              border: '1px solid rgba(255,255,255,0.45)',
+              outline: '1px solid rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)',
+              transition: 'transform 150ms ease, box-shadow 150ms ease, background 150ms ease'
             }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
           >{'<'}</button>
           <button
             className="btn"
@@ -655,17 +659,21 @@ export default function HomePage() {
               right: 10,
               transform: 'translateY(-50%)',
               borderRadius: '50%',
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               display: 'grid',
               placeItems: 'center',
-              background: 'rgba(255,255,255,0.18)',
-              color: '#0b1220',
-              border: '1px solid rgba(255,255,255,0.28)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.25)'
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14))',
+              color: '#0a0f1e',
+              border: '1px solid rgba(255,255,255,0.45)',
+              outline: '1px solid rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)',
+              transition: 'transform 150ms ease, box-shadow 150ms ease, background 150ms ease'
             }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
           >{'>'}</button>
 
           {/* Hide scrollbar styling */}
