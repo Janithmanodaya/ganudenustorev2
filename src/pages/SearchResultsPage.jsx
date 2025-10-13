@@ -6,6 +6,7 @@ export default function SearchResultsPage() {
   const [sp, setSp] = useSearchParams()
   const q = sp.get('q') || ''
   const category = sp.get('category') || ''
+  const navigate = useNavigate()
 
   // Advanced filters (query params aware)
   const [location, setLocation] = useState(sp.get('location') || '')
