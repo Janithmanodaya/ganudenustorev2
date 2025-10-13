@@ -574,10 +574,7 @@ export default function HomePage() {
               }}
             >
               <div style={{ maxWidth: 420 }}>
-                <div style={{ fontWeight: 700, marginBottom: 2 }}>Start making money!</div>
-                <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.35 }}>
-                  Do you have something to sell? Post your first ad and start making money!
-                </div>
+                <div style={{ fontWeight: 700 }}>Start making money!</div>
               </div>
               <button
                 className="btn primary"
