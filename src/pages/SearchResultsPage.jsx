@@ -227,7 +227,7 @@ export default function SearchResultsPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                     <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>
                     {r.price != null && (
-                      <div className="h2" style={{ margin: '6px 0', whiteSpace: 'nowrap' }}>
+                      <div style={{ margin: '6px 0', whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
                         {`LKR ${Number(r.price).toLocaleString('en-US')}`}
                       </div>
                     )}

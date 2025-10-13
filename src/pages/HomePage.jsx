@@ -413,7 +413,7 @@ export default function HomePage() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                         <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{item.title}</div>
                         {item.price != null && (
-                          <div className="h2" style={{ margin: 0, whiteSpace: 'nowrap' }}>
+                          <div style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
                             {`LKR ${Number(item.price).toLocaleString('en-US')}`}
                           </div>
                         )}
