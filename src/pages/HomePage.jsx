@@ -232,7 +232,8 @@ export default function HomePage() {
   }
 
   function resetHomeFilters() {
-    setFilterCategory('')
+    try {
+     tegory('')
     setFilterLocation('')
     setFilterPriceMin('')
     setFilterPriceMax('')

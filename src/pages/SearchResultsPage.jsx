@@ -118,22 +118,16 @@ export default function SearchResultsPage() {
   }
 
   function resetAdvancedFilters() {
-    // Clear all advanced filters quickly and reload defaults
-    setLocation('')
-    setPricingType('')
-    setPriceMin('')
-    setPriceMax('')
-    setFilters({})
-    setSort('latest')
-    setPage(1)
-
-    const next = new URLSearchParams()
-    if (q) next.set('q', q)
-    if (category) next.set('category', category)
-    next.set('page', '1')
-    next.set('sort', 'latest')
-    next.set('limit', String(limit))
-    setSp(next, { replace: true })
+    // Reset state first
+    setLocation('');
+    setPricingType('');
+    setPriceMin('');
+    setPriceMax('');
+    setFilters({});
+    setSort('latest');
+    setPage(1);
+    // Then force a full page refresh to ensure a pristine state
+    window.location.reload();
   }
 
   const heading = useMemo(() => {
