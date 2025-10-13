@@ -6,6 +6,8 @@ export default function AdminPage() {
   const [adminEmail, setAdminEmail] = useState('')
   const [maskedKey, setMaskedKey] = useState(null)
   const [geminiApiKey, setGeminiApiKey] = useState('')
+  const [bankDetails, setBankDetails] = useState('')
+  const [whatsappNumber, setWhatsappNumber] = useState('')
   const [status, setStatus] = useState(null)
   const [allowed, setAllowed] = useState(false)
 
@@ -41,6 +43,8 @@ export default function AdminPage() {
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Failed to load config')
       setMaskedKey(data.gemini_api_key_masked)
+      setBankDetails(data.bank_details || '')
+      setWhatsappNumber(data.whatsapp_number || '')
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
@@ -54,11 +58,11 @@ export default function AdminPage() {
           'Content-Type': 'application/json',
           'X-Admin-Email': adminEmail
         },
-        body: JSON.stringify({ geminiApiKey })
+        body: JSON.stringify({ geminiApiKey, bankDetails, whatsappNumber })
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Failed to save config')
-      setStatus('API key saved.')
+      setStatus('Configuration saved.')
       setGeminiApiKey('')
       fetchConfig()
     } catch (e) {
@@ -684,16 +688,23 @@ export default function AdminPage() {
         {/* AI Config */}
         {activeTab === 'ai' && (
           <>
-            <div className="h2" style={{ marginTop: 8 }}>AI API Configuration</div>
+            <div className="h2" style={{ marginTop: 8 }}>AI & Payments Configuration</div>
             <div className="grid two">
-              <input className="input" placeholder="API Key" value={geminiApiKey} onChange={e => setGeminiApiKey(e.target.value)} />
-              <button className="btn primary" onClick={saveConfig}>Save Key</button>
+              <input className="input" placeholder="Gemini API Key" value={geminiApiKey} onChange={e => setGeminiApiKey(e.target.value)} />
+              <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
             </div>
             <div style={{ marginTop: 8 }}>
               <button className="btn" onClick={testGemini}>Test API Key</button>
               <div className="text-muted" style={{ marginTop: 8 }}>
                 Current key: {maskedKey || 'none'}
               </div>
+            </div>
+            <div className="h2" style={{ marginTop: 12 }}>Bank Details (shown to user for payment)</div>
+            <textarea className="textarea" placeholder="Bank details (Account Name, Number, Bank/Branch)" value={bankDetails} onChange={e => setBankDetails(e.target.value)} />
+            <div className="h2" style={{ marginTop: 12 }}>WhatsApp Number (for receipts)</div>
+            <input className="input" placeholder="+94XXXXXXXXX" value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)} />
+            <div style={{ marginTop: 8 }}>
+              <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
             </div>
           </>
         )}
@@ -710,6 +721,9 @@ export default function AdminPage() {
                   <div key={item.id} className="card" style={{ marginBottom: 8 }}>
                     <div><strong>{item.title}</strong></div>
                     <div className="text-muted">Category: {item.main_category}</div>
+                    <div className="text-muted">Price: {item.price != null ? item.price : 'N/A'}</div>
+                    <div className="text-muted">Owner: {item.owner_email || 'unknown'}</div>
+                    <div className="pill" style={{ marginTop: 6 }}>Bank Remark: {item.remark_number || '—'}</div>
                     <div className="text-muted">{item.seo_description || item.description?.slice(0,160)}</div>
                     <button className="btn" style={{ marginTop: 8 }} onClick={() => loadDetail(item.id)}>Review</button>
                   </div>
@@ -721,6 +735,7 @@ export default function AdminPage() {
                 {detail && (
                   <>
                     <p className="text-muted">Title: {detail.listing.title} • Category: {detail.listing.main_category}</p>
+                    <div className="pill">Bank Remark: {detail.listing.remark_number || '—'}</div>
                     <div className="grid two">
                       <div>
                         <div className="h2">Original User Input</div>

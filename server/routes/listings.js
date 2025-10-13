@@ -156,6 +156,7 @@ function ensureColumn(table, column, type) {
 ensureColumn('listings', 'reject_reason', 'TEXT');
 ensureColumn('listings', 'model_name', 'TEXT');
 ensureColumn('listings', 'manufacture_year', 'INTEGER');
+ensureColumn('listings', 'remark_number', 'TEXT');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
 
 try {
@@ -741,13 +742,26 @@ router.post('/submit', async (req, res) => {
       }
     }
 
+    // Generate a 4-digit unique remark number for bank transfers, ensure uniqueness across listings
+    function generateRemark() {
+      const n = Math.floor(1000 + Math.random() * 9000);
+      return String(n);
+    }
+    let remark = generateRemark();
+    const existsStmt = db.prepare('SELECT COUNT(*) AS c FROM listings WHERE remark_number = ?');
+    let tries = 0;
+    while (existsStmt.get(remark).c > 0 && tries < 20) {
+      remark = generateRemark();
+      tries++;
+    }
+
     const result = db.prepare(
       'INSERT INTO listings (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, ' +
-      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, valid_until, status, created_at, model_name, manufacture_year) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, valid_until, status, created_at, model_name, manufacture_year, remark_number) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       draft.main_category, draft.title, userDescription, JSON.stringify(finalStruct), draft.seo_title, draft.seo_description, draft.seo_keywords,
-      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, validUntil, 'Approved', ts, model_name, manufacture_year
+      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, validUntil, 'Pending Approval', ts, model_name, manufacture_year, remark
     );
     const listingId = result.lastInsertRowid;
 
@@ -765,7 +779,7 @@ router.post('/submit', async (req, res) => {
 
     deleteUserTempDb(ownerEmail);
 
-    res.json({ ok: true, listingId });
+    res.json({ ok: true, listingId, remark_number: remark });
   } catch (e) {
     console.error('[listings] /submit error:', e.message);
     res.status(500).json({ error: 'Failed to submit listing' });
@@ -1230,6 +1244,29 @@ router.delete('/:id', (req, res) => {
   } catch (e) {
     console.error('[listings] DELETE /:id error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to delete listing' });
+  }
+});
+
+/**
+ * Payment info for a listing (public for the listing owner after submission)
+ * Returns: bank details and whatsapp number from admin_config, plus remark_number and basic listing info
+ */
+router.get('/payment-info/:id', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid ID' });
+    const listing = db.prepare('SELECT id, title, price, owner_email, status, remark_number FROM listings WHERE id = ?').get(id);
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+    const cfg = db.prepare('SELECT bank_details, whatsapp_number FROM admin_config WHERE id = 1').get();
+    res.json({
+      ok: true,
+      listing,
+      bank_details: cfg?.bank_details || '',
+      whatsapp_number: cfg?.whatsapp_number || ''
+    });
+  } catch (e) {
+    console.error('[listings] /payment-info/:id error:', e && e.message ? e.message : e);
+    res.status(500).json({ error: 'Failed to load payment info' });
   }
 });
 

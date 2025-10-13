@@ -72,18 +72,31 @@ const upload = multer({
 
 // Get current Gemini API key (masked)
 router.get('/config', requireAdmin, (req, res) => {
-  const row = db.prepare('SELECT gemini_api_key FROM admin_config WHERE id = 1').get();
+  const row = db.prepare('SELECT gemini_api_key, bank_details, whatsapp_number FROM admin_config WHERE id = 1').get();
   const key = row?.gemini_api_key || null;
-  res.json({ gemini_api_key_masked: key ? `${key.slice(0, 4)}...${key.slice(-4)}` : null });
+  res.json({
+    gemini_api_key_masked: key ? `${key.slice(0, 4)}...${key.slice(-4)}` : null,
+    bank_details: row?.bank_details || '',
+    whatsapp_number: row?.whatsapp_number || ''
+  });
 });
 
 // Save Gemini API key
 router.post('/config', requireAdmin, (req, res) => {
-  const { geminiApiKey } = req.body || {};
-  if (!geminiApiKey || typeof geminiApiKey !== 'string') {
-    return res.status(400).json({ error: 'geminiApiKey is required.' });
+  const { geminiApiKey, bankDetails, whatsappNumber } = req.body || {};
+  if (geminiApiKey && typeof geminiApiKey !== 'string') {
+    return res.status(400).json({ error: 'geminiApiKey must be string.' });
   }
-  db.prepare('UPDATE admin_config SET gemini_api_key = ? WHERE id = 1').run(geminiApiKey.trim());
+  if (bankDetails && typeof bankDetails !== 'string') {
+    return res.status(400).json({ error: 'bankDetails must be string.' });
+  }
+  if (whatsappNumber && typeof whatsappNumber !== 'string') {
+    return res.status(400).json({ error: 'whatsappNumber must be string.' });
+  }
+  const row = db.prepare('SELECT id FROM admin_config WHERE id = 1').get();
+  if (!row) db.prepare('INSERT INTO admin_config (id) VALUES (1)').run();
+  db.prepare('UPDATE admin_config SET gemini_api_key = COALESCE(?, gemini_api_key), bank_details = COALESCE(?, bank_details), whatsapp_number = COALESCE(?, whatsapp_number) WHERE id = 1')
+    .run(geminiApiKey ? geminiApiKey.trim() : null, bankDetails ? bankDetails.trim() : null, whatsappNumber ? whatsappNumber.trim() : null);
   res.json({ ok: true });
 });
 
@@ -145,7 +158,7 @@ router.post('/prompts', requireAdmin, (req, res) => {
 
 router.get('/pending', requireAdmin, (req, res) => {
   const rows = db.prepare(`
-    SELECT id, main_category, title, description, seo_title, seo_description, created_at
+    SELECT id, main_category, title, description, seo_title, seo_description, created_at, remark_number, price, owner_email
     FROM listings
     WHERE status = 'Pending Approval'
     ORDER BY created_at ASC
