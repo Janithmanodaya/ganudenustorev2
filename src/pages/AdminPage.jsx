@@ -465,7 +465,7 @@ export default function AdminPage() {
             { key: 'reports', label: 'Reports' },
             { key: 'banners', label: 'Banners' },
             { key: 'ai', label: 'AI Config' },
-            { key: 'approvals', label: 'Approvals' },
+            { key: 'approvals', label: 'Approvals' }
           ].map(t => (
             <button
               key={t.key}
