@@ -537,6 +537,97 @@ export default function HomePage() {
           {status && <p style={{ marginTop: 8 }}>{status}</p>}
         </div>
       </div>
+
+      {/* Floating CTA: Post your first ad */}
+      {(() => {
+        const [show, setShow] = [true, () => {}]; // statically visible for eye-catching CTA
+        return (
+          <div
+            role="dialog"
+            aria-live="polite"
+            style={{
+              position: 'fixed',
+              left: '50%',
+              bottom: 22,
+              transform: 'translateX(-50%)',
+              zIndex: 1100,
+              pointerEvents: 'none'
+            }}
+          >
+            <div
+              className="card"
+              style={{
+                pointerEvents: 'auto',
+                display: show ? 'flex' : 'none',
+                alignItems: 'center',
+                gap: 12,
+                padding: '10px 14px',
+                borderRadius: 16,
+                boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+                background:
+                  'radial-gradient(300px 120px at 20% 0%, rgba(108,127,247,0.25), transparent 60%), ' +
+                  'radial-gradient(300px 120px at 80% 100%, rgba(0,209,255,0.25), transparent 60%), ' +
+                  'linear-gradient(180deg, rgba(29,35,48,0.98), rgba(29,35,48,0.92))',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.06)',
+                animation: 'cta-pop 0.6s ease-out'
+              }}
+            >
+              <div style={{ maxWidth: 420 }}>
+                <div style={{ fontWeight: 700, marginBottom: 2 }}>Start making money!</div>
+                <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.35 }}>
+                  Do you have something to sell? Post your first ad and start making money!
+                </div>
+              </div>
+              <button
+                className="btn primary"
+                onClick={() => navigate('/new')}
+                aria-label="Post your first ad"
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: '50%',
+                  padding: 0,
+                  fontSize: 24,
+                  display: 'grid',
+                  placeItems: 'center',
+                  background:
+                    'radial-gradient(120px 80px at 30% 0%, rgba(255,255,255,0.25), transparent 60%), ' +
+                    '#6c7ff7',
+                  boxShadow: '0 10px 25px rgba(108,127,247,0.55)',
+                  position: 'relative',
+                  overflow: 'visible'
+                }}
+                title="Post an ad"
+              >
+                +
+                <span
+                  aria-hidden="true"
+                  style={{
+                    content: '""',
+                    position: 'absolute',
+                    inset: -6,
+                    borderRadius: '50%',
+                    boxShadow: '0 0 0 0 rgba(108,127,247,0.6)',
+                    animation: 'pulse 1.6s ease-out infinite'
+                  }}
+                />
+              </button>
+              <style>{`
+                @keyframes pulse {
+                  0% { box-shadow: 0 0 0 0 rgba(108,127,247,0.6); }
+                  70% { box-shadow: 0 0 0 12px rgba(108,127,247,0); }
+                  100% { box-shadow: 0 0 0 0 rgba(108,127,247,0); }
+                }
+                @keyframes cta-pop {
+                  0% { transform: translateX(-50%) translateY(20px) scale(0.96); opacity: 0; }
+                  100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+                }
+              `}</style>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   )
 }
