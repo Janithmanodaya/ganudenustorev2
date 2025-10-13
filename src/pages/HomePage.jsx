@@ -299,10 +299,7 @@ export default function HomePage() {
               onChange={e => setQ(e.target.value)}
             />
             <datalist id="global-suggest">
-              {(function() {
-                // Inline render: suggestions computed via useEffect below
-                return (globalThis && Array.isArray(globalThis.__home_suggestions)) ? globalThis.__home_suggestions.map(s => <option key={s} value={s} />) : null
-              })()}
+              {Array.isArray(searchSuggestions) ? searchSuggestions.map(s => <option key={s} value={s} />) : null}
             </datalist>
             <button className="btn primary" type="submit">Search</button>
           </form>
