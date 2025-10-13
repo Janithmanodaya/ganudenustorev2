@@ -60,8 +60,9 @@ export default function HomePage() {
     async function loadAll() {
       try {
         setLoading(true)
+        const initialSort = filterCategory ? 'latest' : 'random'
         const [lr, br] = await Promise.all([
-          fetch(`/api/listings/search?limit=${limit}&page=${page}&sort=latest`),
+          fetch(`/api/listings/search?limit=${limit}&page=${page}&sort=${initialSort}`),
           fetch('/api/banners')
         ])
         // listings
@@ -231,7 +232,8 @@ export default function HomePage() {
       const params = new URLSearchParams()
       params.set('limit', String(limit))
       params.set('page', String(page))
-      params.set('sort', String(sort || 'latest'))
+      const effectiveSort = filterCategory ? String(sort || 'latest') : 'random'
+      params.set('sort', effectiveSort)
       if (filterCategory) params.set('category', filterCategory)
       if (filterLocation) params.set('location', filterLocation)
       if (filterPriceMin) params.set('price_min', filterPriceMin)

@@ -167,7 +167,7 @@ try {
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_owner ON listings(owner_email)").run();
 } catch (_) {}
 
-const CATEGORIES = new Set(['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden']);
+const CATEGORIES = new Set(['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden', 'Other']);
 function validateListingInputs({ main_category, title, description, files }) {
   if (!main_category || !CATEGORIES.has(String(main_category))) return 'Invalid main_category.';
   if (!title || String(title).trim().length < 3 || String(title).trim().length > 120) return 'Title must be between 3 and 120 characters.';
@@ -535,6 +535,68 @@ ${description}`;
       }
     }
 
+    // Generic sub-category inference for other main categories (fallback if Gemini didn't provide one)
+    function inferSubCategoryForMain(mainCat, text) {
+      const t = String(text || '').toLowerCase();
+      switch (String(mainCat)) {
+        case 'Property': {
+          if (/(house|villa|bungalow)/i.test(t)) return 'House';
+          if (/(apartment|flat|condo)/i.test(t)) return 'Apartment';
+          if (/(land|plot|acre)/i.test(t)) return 'Land';
+          if (/(room|annex)/i.test(t)) return 'Room/Annex';
+          if (/(office|shop|commercial)/i.test(t)) return 'Commercial';
+          return '';
+        }
+        case 'Job': {
+          if (/(account|finance|audit|bookkeep)/i.test(t)) return 'Accounting/Finance';
+          if (/(it|software|developer|engineer|programmer|tech)/i.test(t)) return 'IT/Software';
+          if (/(marketing|sales|seo|advertis)/i.test(t)) return 'Sales/Marketing';
+          if (/(teacher|tutor|education)/i.test(t)) return 'Education';
+          if (/(driver|logistic|delivery)/i.test(t)) return 'Logistics';
+          return '';
+        }
+        case 'Electronic': {
+          if (/(tv|television)/i.test(t)) return 'TV';
+          if (/(fridge|refrigerator)/i.test(t)) return 'Refrigerator';
+          if (/(washer|washing machine)/i.test(t)) return 'Washing Machine';
+          if (/(laptop|notebook|macbook)/i.test(t)) return 'Laptop';
+          if (/(camera|dslr|mirrorless)/i.test(t)) return 'Camera';
+          if (/(speaker|headphone|earbud)/i.test(t)) return 'Audio';
+          return '';
+        }
+        case 'Mobile': {
+          if (/(iphone|ios|apple)/i.test(t)) return 'iPhone';
+          if (/(android|samsung|pixel|huawei|xiaomi|oppo|vivo|realme|oneplus)/i.test(t)) return 'Android Phone';
+          if (/(tablet|ipad|galaxy tab)/i.test(t)) return 'Tablet';
+          if (/(feature phone|button phone)/i.test(t)) return 'Feature Phone';
+          return '';
+        }
+        case 'Home Garden': {
+          if (/(sofa|chair|table|bed|wardrobe)/i.test(t)) return 'Furniture';
+          if (/(kitchen|cook|gas|stove|microwave|oven)/i.test(t)) return 'Kitchen';
+          if (/(decor|vase|painting|lamp|curtain|carpet|rug)/i.test(t)) return 'Decor';
+          if (/(lawn|mower|trimmer|gardening|plant|pot|fertilizer|tool)/i.test(t)) return 'Garden Tools';
+          return '';
+        }
+        case 'Other': {
+          // Create a concise tag from top keywords if possible
+          const m = t.match(/\b([a-z]{3,})\b/gi);
+          if (m && m.length) {
+            const word = m.find(w => w.length >= 4) || m[0];
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+          }
+          return '';
+        }
+        default:
+          return '';
+      }
+    }
+
+    if (!structuredObj.sub_category) {
+      const sub = inferSubCategoryForMain(predictedCategory, rawText);
+      structuredObj.sub_category = sub || 'General';
+    }
+
     let seoObj = {};
     try {
       const out = await callGemini(key, seoPrompt, userContext);
@@ -859,9 +921,12 @@ router.get('/search', (req, res) => {
     }
 
     // Sorting
-    if (String(sort).toLowerCase() === 'price_asc') query += ' ORDER BY price ASC, created_at DESC';
-    else if (String(sort).toLowerCase() === 'price_desc') query += ' ORDER BY price DESC, created_at DESC';
-    else query += ' ORDER BY created_at DESC';
+    const sortVal = String(sort).toLowerCase();
+    if (sortVal === 'price_asc') query += ' ORDER BY price ASC, created_at DESC';
+    else if (sortVal === 'price_desc') query += ' ORDER BY price DESC, created_at DESC';
+    else if (sortVal === 'random') query += ' ORDER BY RANDOM()';
+    else query += ' ORDER BY created_at DE_codeSCnew'</;
+';
 
     query += ' LIMIT ? OFFSET ?';
     params.push(lim, offset);
