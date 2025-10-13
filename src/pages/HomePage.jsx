@@ -37,7 +37,7 @@ export default function HomePage() {
   const limit = 10
 
   // Ref for features mini-cards scroller
-  const featureRef = useRef(n_codeulnewl</)
+  const featureRef = useRef(null)
 
 
   // Suggestions derived from filtersDef values
