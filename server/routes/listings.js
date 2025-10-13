@@ -829,7 +829,26 @@ router.get('/search', (req, res) => {
 
     const rows = db.prepare(query).all(params);
 
-    // Post-filter using structured_json
+    // Post-filter using structured_json, with special handling for sub_category in Vehicle
+    function normalizeVehicleSubCategory(input) {
+      let subCat = String(input || '').trim();
+      if (!subCat) return '';
+      const low = subCat.toLowerCase();
+      if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(low)) return 'Bike';
+      if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(low)) return 'Car';
+      if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(low)) return 'Van';
+      if (/(^|\b)(bus|coach)(\b|$)/i.test(low)) return 'Bus';
+      return subCat.charAt(0).toUpperCase() + subCat.slice(1).toLowerCase();
+    }
+    function inferVehicleSubCategoryFromText(text) {
+      const t = String(text || '').toLowerCase();
+      if (/(^|\b)(bus|coach)(\b|$)/i.test(t)) return 'Bus';
+      if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(t)) return 'Van';
+      if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(t)) return 'Car';
+      if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(t)) return 'Bike';
+      return '';
+    }
+
     let results = rows;
     if (filtersObj && Object.keys(filtersObj).length) {
       results = rows.filter(r => {
@@ -838,7 +857,19 @@ router.get('/search', (req, res) => {
           for (const [k, v] of Object.entries(filtersObj)) {
             if (!v) continue;
             const key = k === 'model' ? 'model_name' : k;
-            if (String(sj[key] || '').toLowerCase() !== String(v).toLowerCase()) return false;
+            const want = String(v).toLowerCase();
+            if (key === 'sub_category' && String(category) === 'Vehicle') {
+              // Compute effective sub-category from structured_json or infer from text
+              const fromStruct = normalizeVehicleSubCategory(sj.sub_category || sj.subcategory || sj.vehicle_type || sj.type || '');
+              let eff = fromStruct;
+              if (!eff) {
+                const text = [r.title || '', r.description || '', String(sj.model_name || ''), String(sj.model || '')].join(' ');
+                eff = inferVehicleSubCategoryFromText(text);
+              }
+              if (String(eff).toLowerCase() !== want) return false;
+            } else {
+              if (String(sj[key] || '').toLowerCase() !== want) return false;
+            }
           }
           return true;
         } catch (_) { return true; }
