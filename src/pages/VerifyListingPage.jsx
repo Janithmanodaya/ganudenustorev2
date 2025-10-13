@@ -147,7 +147,12 @@ export default function VerifyListingPage() {
       if (!r.ok) throw new Error((data && data.error) || 'Failed to generate description');
       const desc = String(data.description || '').trim();
       if (!desc) throw new Error('Empty description');
-      setDescriptionText(desc);
+
+      // Safety: ensure no '*' characters are used for emphasis/bullets.
+      // Convert any asterisks to '•' to avoid markdown styling.
+      const safeDesc = desc.replace(/\*/g, '•');
+
+      setDescriptionText(safeDesc);
       setGenUsed(true);
       try { localStorage.setItem(`desc_gen_used_${draftId}`, '1'); } catch (_) {}
     } catch (e) {
