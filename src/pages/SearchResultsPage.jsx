@@ -203,7 +203,7 @@ export default function SearchResultsPage() {
 
         <div style={{ padding: 18 }}>
           <div className="h2" style={{ marginTop: 0 }}>Results</div>
-          <div className="grid two">
+          <div className="grid three">
             {results.map(r => {
               let expires = ''
               if (r.valid_until) {
@@ -222,7 +222,7 @@ export default function SearchResultsPage() {
                   style={{ cursor: 'pointer' }}
                 >
                   {hero && (
-                    <img src={hero} alt={r.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
+                    <img src={hero} alt={r.title} style={{ width: '100%', height: 160, borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
                   )}
                   <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>
                   <div className="text-muted" style={{ marginBottom: 6 }}>
