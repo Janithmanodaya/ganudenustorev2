@@ -1092,4 +1092,42 @@ router.post('/:id/report', (req, res) => {
   }
 });
 
+// Delete a listing (owner only)
+router.delete('/:id', (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid ID' });
+    const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
+    if (!email) return res.status(401).json({ error: 'Missing user email' });
+
+    const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+
+    if (String(listing.owner_email || '').toLowerCase().trim() !== email) {
+      return res.status(403).json({ error: 'Not authorized to delete this listing' });
+    }
+
+    // Delete associated images first
+    const images = db.prepare('SELECT path FROM listing_images WHERE listing_id = ?').all(id);
+    for (const img of images) {
+      if (img?.path) {
+        try { fs.unlinkSync(img.path); } catch (_) {}
+      }
+    }
+    // Delete generated variants
+    if (listing.thumbnail_path) { try { fs.unlinkSync(listing.thumbnail_path); } catch (_) {} }
+    if (listing.medium_path) { try { fs.unlinkSync(listing.medium_path); } catch (_) {} }
+
+    // Remove DB rows in correct order
+    db.prepare('DELETE FROM listing_images WHERE listing_id = ?').run(id);
+    db.prepare('DELETE FROM reports WHERE listing_id = ?').run(id);
+    db.prepare('DELETE FROM listings WHERE id = ?').run(id);
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[listings] DELETE /:id error:', e && e.message ? e.message : e);
+    res.status(500).json({ error: 'Failed to delete listing' });
+  }
+});
+
 export default router;

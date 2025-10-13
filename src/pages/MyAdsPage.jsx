@@ -6,26 +6,51 @@ export default function MyAdsPage() {
   const [status, setStatus] = useState(null)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const user = JSON.parse(localStorage.getItem('user') || 'null')
-        if (!user?.email) {
-          setStatus('Please login to view your ads.')
-          return
-        }
-        const r = await fetch('/api/listings/my', {
-          headers: { 'X-User-Email': user.email }
-        })
-        const data = await r.json()
-        if (!r.ok) throw new Error(data.error || 'Failed to load')
-        setItems(data.results || [])
-      } catch (e) {
-        setStatus(`Error: ${e.message}`)
+  async function refresh() {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null')
+      if (!user?.email) {
+        setStatus('Please login to view your ads.')
+        return
       }
+      const r = await fetch('/api/listings/my', {
+        headers: { 'X-User-Email': user.email }
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to load')
+      setItems(data.results || [])
+      setStatus(null)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
     }
-    load()
+  }
+
+  useEffect(() => {
+    refresh()
   }, [])
+
+  async function handleDelete(e, id) {
+    e.stopPropagation()
+    const user = JSON.parse(localStorage.getItem('user') || 'null')
+    if (!user?.email) {
+      alert('Please login first.')
+      return
+    }
+    const ok = window.confirm('Are you sure you want to delete this ad? This cannot be undone.')
+    if (!ok) return
+    try {
+      const r = await fetch(`/api/listings/${id}`, {
+        method: 'DELETE',
+        headers: { 'X-User-Email': user.email }
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data.error || 'Delete failed')
+      // Remove item from state
+      setItems(prev => prev.filter(x => x.id !== id))
+    } catch (err) {
+      alert(err.message || 'Failed to delete')
+    }
+  }
 
   return (
     <div className="center">
@@ -48,7 +73,7 @@ export default function MyAdsPage() {
                 key={item.id}
                 className="card"
                 onClick={() => navigate(`/listing/${item.id}`)}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: 'pointer', position: 'relative' }}
               >
                 {hero && (
                   <img src={hero} alt={item.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
@@ -65,6 +90,22 @@ export default function MyAdsPage() {
                   {item.status} • {item.location || 'N/A'}
                   {item.pricing_type ? ` • ${item.pricing_type}` : ''}
                   {expires ? ` • ${expires}` : ''}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <button
+                    onClick={(e) => handleDelete(e, item.id)}
+                    style={{
+                      background: '#f44336',
+                      color: 'white',
+                      border: 'none',
+                      padding: '6px 10px',
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      fontSize: 12
+                    }}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             )
