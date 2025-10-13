@@ -41,6 +41,7 @@ export default function VerifyListingPage() {
   const phone = String(struct.phone || '')
   const modelName = String(struct.model_name || '')
   const year = struct.manufacture_year != null && struct.manufacture_year !== '' ? String(struct.manufacture_year) : ''
+  const subCategory = String(struct.sub_category || '')
 
   useEffect(() => {
     async function load() {
@@ -93,6 +94,7 @@ export default function VerifyListingPage() {
 
   async function submitPost() {
     // Enforce required fields: location, price, pricing_type, phone, model_name, manufacture_year, description
+    // Vehicle-only: require sub_category (Bike/Car/Van/Bus)
     const s = parseStruct()
     const hasLoc = String(s.location || '').trim().length > 0
     const nPrice = Number(s.price)
@@ -103,9 +105,14 @@ export default function VerifyListingPage() {
     const nYear = Number(s.manufacture_year)
     const hasYear = Number.isFinite(nYear) && nYear >= 1950 && nYear <= 2100
     const hasDesc = String(descriptionText || '').trim().length >= 20
+    const isVehicle = String(draft?.main_category || '') === 'Vehicle'
+    const validSubCats = new Set(['Bike','Car','Van','Bus'])
+    const hasSubCat = !isVehicle || validSubCats.has(String(s.sub_category || '').trim())
 
-    if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasModel || !hasYear || !hasDesc) {
-      setStatus('Please provide Location, Price, Pricing Type, Phone (+94), Model Name, Manufacture Year (1950-2100), and a Description (min 20 chars).')
+    if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasModel || !hasYear || !hasDesc || !hasSubCat) {
+      const baseMsg = 'Please provide Location, Price, Pricing Type, Phone (+94), Model Name, Manufacture Year (1950-2100), and a Description (min 20 chars).'
+      const subMsg = isVehicle ? ' Also select the Vehicle Sub-category (Bike, Car, Van, or Bus).' : ''
+      setStatus(baseMsg + subMsg)
       return
     }
 
@@ -231,6 +238,21 @@ export default function VerifyListingPage() {
                   style={{ marginTop: 8 }}
                   disabled={!editMode}
                 />
+                {String(draft?.main_category || '') === 'Vehicle' && (
+                  <select
+                    className="select"
+                    value={subCategory}
+                    onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                    style={{ marginTop: 8 }}
+                    disabled={!editMode}
+                  >
+                    <option value="">Vehicle Sub-category (required)</option>
+                    <option value="Bike">Bike</option>
+                    <option value="Car">Car</option>
+                    <option value="Van">Van</option>
+                    <option value="Bus">Bus</option>
+                  </select>
+                )}
               </div>
             </div>
 
