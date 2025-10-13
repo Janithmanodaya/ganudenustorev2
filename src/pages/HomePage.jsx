@@ -417,7 +417,7 @@ export default function HomePage() {
                         {item.price != null ? ` • ${String(item.price)}` : ''}
                         {expires ? ` • ${expires}` : ''}
                       </div>
-                      <p className="text-muted">{item.seo_description || (item.description || '').slice(0,160)}</p>
+                      
                     </div>
                   )
                 })}
