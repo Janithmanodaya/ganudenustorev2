@@ -541,10 +541,12 @@ export default function HomePage() {
 
       {/* Standalone Feature section (separate from main card) */}
       <section style={{ marginTop: 18 }}>
-        <div className="card" style={{ margin: '0 auto', maxWidth: 1000 }}>
-          <div className="h2" style={{ marginTop: 0 }}>🇱🇰 100% Sri Lankan</div>
-          <p className="text-muted" style={{ marginTop: 6 }}>
-            All-in-one, AI-powered marketplace. AI category selection, AI description writing, advanced filters, futuristic design,
+       <<div style={{ margin: '0 auto', maxWidth: 1000 }}>
+         <0div className="h2" style={{ marginTop: 0, textAlign: 'center' }}>Our Featur</nkdiv>
+      </  div>
+
+        {/* Feature mini-cards - horizontal slider with floating nav buttons and hidden scrollbar */}
+       <sdiv style={{ position: 'relative', marginTop: 12_codeuturistic design,
             and proudly 100% Sri Lankan — all in one place. Coming soon: automatic Facebook page creation and auto-share after your
             ad is published. Low cost. High impact.
           </p>
