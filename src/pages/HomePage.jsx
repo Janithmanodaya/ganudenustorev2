@@ -22,6 +22,7 @@ export default function HomePage() {
   const [filters, setFilters] = useState({})
   const [locQuery, setLocQuery] = useState('')
   const [locSuggestions, setLocSuggestions] = useState([])
+  const [sort, setSort] = useState('latest')
 
   // Global search suggestions
   const [searchSuggestions, setSearchSuggestions] = useState([])
@@ -230,7 +231,7 @@ export default function HomePage() {
       const params = new URLSearchParams()
       params.set('limit', String(limit))
       params.set('page', String(page))
-      params.set('sort', 'latest')
+      params.set('sort', String(sort || 'latest'))
       if (filterCategory) params.set('category', filterCategory)
       if (filterLocation) params.set('location', filterLocation)
       if (filterPriceMin) params.set('price_min', filterPriceMin)
@@ -418,21 +419,23 @@ export default function HomePage() {
                     });
                 })()}
 
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    className="btn"
-                    type="button"
-                    onClick={() => {
-                      setFilterLocation('')
-                      setFilterPriceMin('')
-                      setFilterPriceMax('')
-                      setFilters({})
-                    }}
-                  >
-                    Clear
-                  </button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <CustomSelect
+                    value={sort}
+                    onChange={v => setSort(v)}
+                    ariaLabel="Sort"
+                    placeholder="Sort"
+                    options={[
+                      { value: 'latest', label: 'Latest' },
+                      { value: 'price_asc', label: 'Price: Low to High' },
+                      { value: 'price_desc', label: 'Price: High to Low' },
+                    ]}
+                  />
                   <button className="btn accent" type="button" onClick={applyHomeFilters}>
                     Apply
+                  </button>
+                  <button className="btn" type="button" onClick={resetHomeFilters}>
+                    Reset
                   </button>
                   <button className="btn" type="button" onClick={() => navigate('/search')}>
                     Advanced Search
