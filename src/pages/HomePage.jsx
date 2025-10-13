@@ -410,11 +410,17 @@ export default function HomePage() {
                         </div>
                       )}
                       <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
-                      <div className="h2" style={{ marginTop: 0 }}>{item.title}</div>
-                      <div className="text-muted" style={{ marginBottom: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                        <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{item.title}</div>
+                        {item.price != null && (
+                          <div className="h2" style={{ margin: 0, whiteSpace: 'nowrap' }}>
+                            {`LKR ${Number(item.price).toLocaleString('en-US')}`}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-muted" style={{ marginBottom: 6, marginTop: 4 }}>
                         {item.location ? item.location : ''}
                         {item.pricing_type ? ` • ${item.pricing_type}` : ''}
-                        {item.price != null ? ` • ${String(item.price)}` : ''}
                         {expires ? ` • ${expires}` : ''}
                       </div>
                       

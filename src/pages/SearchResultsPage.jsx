@@ -224,11 +224,17 @@ export default function SearchResultsPage() {
                   {hero && (
                     <img src={hero} alt={r.title} style={{ width: '100%', height: 160, borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
                   )}
-                  <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                    <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>
+                    {r.price != null && (
+                      <div className="h2" style={{ margin: '6px 0', whiteSpace: 'nowrap' }}>
+                        {`LKR ${Number(r.price).toLocaleString('en-US')}`}
+                      </div>
+                    )}
+                  </div>
                   <div className="text-muted" style={{ marginBottom: 6 }}>
                     {r.location ? r.location : ''}
                     {r.pricing_type ? ` • ${r.pricing_type}` : ''}
-                    {r.price != null ? ` • ${String(r.price)}` : ''}
                     {expires ? ` • ${expires}` : ''}
                   </div>
                 </div>

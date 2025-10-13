@@ -53,11 +53,17 @@ export default function MyAdsPage() {
                 {hero && (
                   <img src={hero} alt={item.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
                 )}
-                <div className="h2" style={{ margin: '6px 0' }}>{item.title}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                  <div className="h2" style={{ margin: '6px 0' }}>{item.title}</div>
+                  {item.price != null && (
+                    <div className="h2" style={{ margin: '6px 0', whiteSpace: 'nowrap' }}>
+                      {`LKR ${Number(item.price).toLocaleString('en-US')}`}
+                    </div>
+                  )}
+                </div>
                 <div className="text-muted" style={{ marginBottom: 6 }}>
                   {item.status} • {item.location || 'N/A'}
                   {item.pricing_type ? ` • ${item.pricing_type}` : ''}
-                  {item.price != null ? ` • ${String(item.price)}` : ''}
                   {expires ? ` • ${expires}` : ''}
                 </div>
               </div>
