@@ -19,8 +19,7 @@ export default function VerifyListingPage() {
   // Description (editable)
   const [descriptionText, setDescriptionText] = useState('')
 
-  // Edit toggle: default read-only (user can enable editing)
-  const [editMode, setEditMode] = useState(false)
+  
 
   // One-time generator controls
   const [genBusy, setGenBusy] = useState(false)
@@ -180,78 +179,78 @@ export default function VerifyListingPage() {
             <div className="grid two">
               <div>
                 <div className="h2">Required Details</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <small className="text-muted">Auto-filled from AI extraction. Edit only if needed.</small>
-                  <button type="button" className="btn" onClick={() => setEditMode(v => !v)}>
-                    {editMode ? 'Done' : 'Edit'}
-                  </button>
+                <div style={{ marginBottom: 6 }}>
+                  <small className="text-muted">Please review and complete the details below.</small>
                 </div>
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Location</label>
                 <input
                   className="input"
                   placeholder="Location (required)"
                   value={loc}
                   onChange={e => { const s = parseStruct(); s.location = e.target.value; patchStruct(s) }}
-                  disabled={!editMode}
                 />
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
                 <input
                   className="input"
                   type="number"
                   placeholder="Price (required)"
                   value={price}
                   onChange={e => { const s = parseStruct(); const v = e.target.value; s.price = v === '' ? '' : Number(v); patchStruct(s) }}
-                  style={{ marginTop: 8 }}
-                  disabled={!editMode}
                 />
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Pricing Type</label>
                 <select
                   className="select"
                   value={pricingType || ''}
                   onChange={e => { const s = parseStruct(); s.pricing_type = e.target.value; patchStruct(s) }}
-                  style={{ marginTop: 8 }}
-                  disabled={!editMode}
                 >
                   <option value="">Select pricing type</option>
                   <option value="Fixed Price">Fixed Price</option>
                   <option value="Negotiable">Negotiable</option>
                 </select>
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Phone</label>
                 <input
                   className="input"
                   placeholder="Phone (+94XXXXXXXXX)"
                   value={phone}
                   onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
-                  style={{ marginTop: 8 }}
-                  disabled={!editMode}
                 />
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Model Name</label>
                 <input
                   className="input"
                   placeholder="Model Name (required)"
                   value={modelName}
                   onChange={e => { const s = parseStruct(); s.model_name = e.target.value; patchStruct(s) }}
-                  style={{ marginTop: 8 }}
-                  disabled={!editMode}
                 />
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Manufacture Year</label>
                 <input
                   className="input"
                   type="number"
                   placeholder="Manufacture Year (required)"
                   value={year}
                   onChange={e => { const s = parseStruct(); const v = e.target.value; s.manufacture_year = v === '' ? '' : Number(v); patchStruct(s) }}
-                  style={{ marginTop: 8 }}
-                  disabled={!editMode}
                 />
+
                 {String(draft?.main_category || '') === 'Vehicle' && (
-                  <select
-                    className="select"
-                    value={subCategory}
-                    onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
-                    style={{ marginTop: 8 }}
-                    disabled={!editMode}
-                  >
-                    <option value="">Vehicle Sub-category (required)</option>
-                    <option value="Bike">Bike</option>
-                    <option value="Car">Car</option>
-                    <option value="Van">Van</option>
-                    <option value="Bus">Bus</option>
-                  </select>
+                  <>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Vehicle Sub-category</label>
+                    <select
+                      className="select"
+                      value={subCategory}
+                      onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Vehicle Sub-category (required)</option>
+                      <option value="Bike">Bike</option>
+                      <option value="Car">Car</option>
+                      <option value="Van">Van</option>
+                      <option value="Bus">Bus</option>
+                    </select>
+                  </>
                 )}
               </div>
             </div>
@@ -287,6 +286,7 @@ export default function VerifyListingPage() {
               </div>
             )}
 
+            <label className="text-muted" style={{ display: 'block', marginTop: 6 }}>Description</label>
             <textarea
               className="input"
               placeholder="Description (required)"
@@ -294,7 +294,6 @@ export default function VerifyListingPage() {
               onChange={e => setDescriptionText(e.target.value)}
               rows={6}
               style={{ marginTop: 6 }}
-              disabled={!editMode}
             />
 
             <div className="h2" style={{ marginTop: 12 }}>Images</div>
