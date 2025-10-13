@@ -339,15 +339,15 @@ export default function HomePage() {
 
           {showFilters && (
             <div className="card" style={{ padding: 12, marginBottom: 12 }}>
-              <div className="grid two">
-                <select className="select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+              <div className="filters-grid">
+                <select className="select xl" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
                   <option value="">Category (any)</option>
                   <option value="Vehicle">Vehicle</option>
                   <option value="Property">Property</option>
                   <option value="Job">Job</option>
                 </select>
                 <input
-                  className="input"
+                  className="input xl"
                   list="home-location-suggest"
                   placeholder="Location"
                   value={filterLocation}
@@ -356,8 +356,8 @@ export default function HomePage() {
                 <datalist id="home-location-suggest">
                   {locSuggestions.map(loc => <option key={loc} value={loc} />)}
                 </datalist>
-                <input className="input" type="number" placeholder="Min price" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
-                <input className="input" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
+                <input className="input xl" type="number" placeholder="Min price" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
+                <input className="input xl" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
 
                 {/* Dynamic sub_category/model and other keys */}
                 {filterCategory && filtersDef.keys.length > 0 && (
@@ -386,7 +386,7 @@ export default function HomePage() {
                             return (
                               <div key={key}>
                                 <input
-                                  className="input"
+                                  className="input xl"
                                   list={listId}
                                   placeholder={`${pretty(key)} (any)`}
                                   value={filters[key] || ''}
@@ -402,7 +402,7 @@ export default function HomePage() {
                           return (
                             <select
                               key={key}
-                              className="select"
+                              className="select xl"
                               value={filters[key] || ''}
                               onChange={e => updateFilter(key, e.target.value)}
                               aria-label={key}
