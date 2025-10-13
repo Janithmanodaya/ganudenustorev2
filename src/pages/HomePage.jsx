@@ -437,9 +437,6 @@ export default function HomePage() {
                   <button className="btn" type="button" onClick={resetHomeFilters}>
                     Reset
                   </button>
-                  <button className="btn" type="button" onClick={() => navigate('/search')}>
-                    Advanced Search
-                  </button>
                 </div>
               </div>
             </div>
