@@ -19,8 +19,7 @@ export default function VerifyListingPage() {
   // Description (editable)
   const [descriptionText, setDescriptionText] = useState('')
 
-  // Edit toggle: default read-only (user can enable editing)
-  const [editMode, setEditMode] = useState(false)
+  
 
   // One-time generator controls
   const [genBusy, setGenBusy] = useState(false)
@@ -41,6 +40,7 @@ export default function VerifyListingPage() {
   const phone = String(struct.phone || '')
   const modelName = String(struct.model_name || '')
   const year = struct.manufacture_year != null && struct.manufacture_year !== '' ? String(struct.manufacture_year) : ''
+  const subCategory = String(struct.sub_category || '')
 
   useEffect(() => {
     async function load() {
@@ -93,6 +93,7 @@ export default function VerifyListingPage() {
 
   async function submitPost() {
     // Enforce required fields: location, price, pricing_type, phone, model_name, manufacture_year, description
+    // Vehicle-only: require sub_category (Bike/Car/Van/Bus)
     const s = parseStruct()
     const hasLoc = String(s.location || '').trim().length > 0
     const nPrice = Number(s.price)
@@ -103,9 +104,14 @@ export default function VerifyListingPage() {
     const nYear = Number(s.manufacture_year)
     const hasYear = Number.isFinite(nYear) && nYear >= 1950 && nYear <= 2100
     const hasDesc = String(descriptionText || '').trim().length >= 20
+    const isVehicle = String(draft?.main_category || '') === 'Vehicle'
+    const validSubCats = new Set(['Bike','Car','Van','Bus'])
+    const hasSubCat = !isVehicle || validSubCats.has(String(s.sub_category || '').trim())
 
-    if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasModel || !hasYear || !hasDesc) {
-      setStatus('Please provide Location, Price, Pricing Type, Phone (+94), Model Name, Manufacture Year (1950-2100), and a Description (min 20 chars).')
+    if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasModel || !hasYear || !hasDesc || !hasSubCat) {
+      const baseMsg = 'Please provide Location, Price, Pricing Type, Phone (+94), Model Name, Manufacture Year (1950-2100), and a Description (min 20 chars).'
+      const subMsg = isVehicle ? ' Also select the Vehicle Sub-category (Bike, Car, Van, or Bus).' : ''
+      setStatus(baseMsg + subMsg)
       return
     }
 
@@ -147,7 +153,12 @@ export default function VerifyListingPage() {
       if (!r.ok) throw new Error((data && data.error) || 'Failed to generate description');
       const desc = String(data.description || '').trim();
       if (!desc) throw new Error('Empty description');
-      setDescriptionText(desc);
+
+      // Safety: ensure no '*' characters are used for emphasis/bullets.
+      // Convert any asterisks to '•' to avoid markdown styling.
+      const safeDesc = desc.replace(/\*/g, '•');
+
+      setDescriptionText(safeDesc);
       setGenUsed(true);
       try { localStorage.setItem(`desc_gen_used_${draftId}`, '1'); } catch (_) {}
     } catch (e) {
@@ -168,64 +179,79 @@ export default function VerifyListingPage() {
             <div className="grid two">
               <div>
                 <div className="h2">Required Details</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <small className="text-muted">Auto-filled from AI extraction. Edit only if needed.</small>
-                  <button type="button" className="btn" onClick={() => setEditMode(v => !v)}>
-                    {editMode ? 'Done' : 'Edit'}
-                  </button>
+                <div style={{ marginBottom: 6 }}>
+                  <small className="text-muted">Please review and complete the details below.</small>
                 </div>
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Location</label>
                 <input
                   className="input"
                   placeholder="Location (required)"
                   value={loc}
                   onChange={e => { const s = parseStruct(); s.location = e.target.value; patchStruct(s) }}
-                  disabled={!editMode}
                 />
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
                 <input
                   className="input"
                   type="number"
                   placeholder="Price (required)"
                   value={price}
                   onChange={e => { const s = parseStruct(); const v = e.target.value; s.price = v === '' ? '' : Number(v); patchStruct(s) }}
-                  style={{ marginTop: 8 }}
-                  disabled={!editMode}
                 />
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Pricing Type</label>
                 <select
                   className="select"
                   value={pricingType || ''}
                   onChange={e => { const s = parseStruct(); s.pricing_type = e.target.value; patchStruct(s) }}
-                  style={{ marginTop: 8 }}
-                  disabled={!editMode}
                 >
                   <option value="">Select pricing type</option>
                   <option value="Fixed Price">Fixed Price</option>
                   <option value="Negotiable">Negotiable</option>
                 </select>
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Phone</label>
                 <input
                   className="input"
                   placeholder="Phone (+94XXXXXXXXX)"
                   value={phone}
                   onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
-                  style={{ marginTop: 8 }}
-                  disabled={!editMode}
                 />
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Model Name</label>
                 <input
                   className="input"
                   placeholder="Model Name (required)"
                   value={modelName}
                   onChange={e => { const s = parseStruct(); s.model_name = e.target.value; patchStruct(s) }}
-                  style={{ marginTop: 8 }}
-                  disabled={!editMode}
                 />
+
+                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Manufacture Year</label>
                 <input
                   className="input"
                   type="number"
                   placeholder="Manufacture Year (required)"
                   value={year}
                   onChange={e => { const s = parseStruct(); const v = e.target.value; s.manufacture_year = v === '' ? '' : Number(v); patchStruct(s) }}
-                  style={{ marginTop: 8 }}
-                  disabled={!editMode}
                 />
+
+                {String(draft?.main_category || '') === 'Vehicle' && (
+                  <>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Vehicle Sub-category</label>
+                    <select
+                      className="select"
+                      value={subCategory}
+                      onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Vehicle Sub-category (required)</option>
+                      <option value="Bike">Bike</option>
+                      <option value="Car">Car</option>
+                      <option value="Van">Van</option>
+                      <option value="Bus">Bus</option>
+                    </select>
+                  </>
+                )}
               </div>
             </div>
 
@@ -260,6 +286,7 @@ export default function VerifyListingPage() {
               </div>
             )}
 
+            <label className="text-muted" style={{ display: 'block', marginTop: 6 }}>Description</label>
             <textarea
               className="input"
               placeholder="Description (required)"
@@ -267,7 +294,6 @@ export default function VerifyListingPage() {
               onChange={e => setDescriptionText(e.target.value)}
               rows={6}
               style={{ marginTop: 6 }}
-              disabled={!editMode}
             />
 
             <div className="h2" style={{ marginTop: 12 }}>Images</div>

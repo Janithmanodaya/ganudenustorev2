@@ -231,6 +231,18 @@ export default function HomePage() {
     }
   }
 
+  function resetHomeFilters() {
+    try {
+      setFilterCategory('');
+Location('')
+    setFilterPriceMin('')
+    setFilterPriceMax('')
+    setFilters({})
+    setShowFilters(false)
+    // Trigger reload of latest listings
+    setRefreshKey(k => k + 1)
+  }
+
   // Build pagination window (around 5 pages centered on current)
   const pageWindow = [page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1)
 
@@ -325,20 +337,37 @@ export default function HomePage() {
                 {/* Dynamic sub_category/model and other keys */}
                 {filterCategory && filtersDef.keys.length > 0 && (
                   <>
-                    {filtersDef.keys.filter(k => !['location','pricing_type','price'].includes(k)).map(key => (
-                      <select
-                        key={key}
-                        className="select"
-                        value={filters[key] || ''}
-                        onChange={e => updateFilter(key, e.target.value)}
-                        aria-label={key}
-                      >
-                        <option value="">{key} (any)</option>
-                        {(filtersDef.valuesByKey[key] || []).map(v => (
-                          <option key={String(v)} value={String(v)}>{String(v)}</option>
-                        ))}
-                      </select>
-                    ))}
+                    {(() => {
+                      const pretty = (k) => {
+                        if (!k) return '';
+                        const map = {
+                          model: 'Model',
+                          model_name: 'Model',
+                          manufacture_year: 'Manufacture Year',
+                          sub_category: 'Sub-category',
+                          pricing_type: 'Pricing',
+                        };
+                        if (map[k]) return map[k];
+                        // Fallback: title-case underscores
+                        return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+                      };
+                      return filtersDef.keys
+                        .filter(k => !['location','pricing_type','price'].includes(k))
+                        .map(key => (
+                          <select
+                            key={key}
+                            className="select"
+                            value={filters[key] || ''}
+                            onChange={e => updateFilter(key, e.target.value)}
+                            aria-label={key}
+                          >
+                            <option value="">{pretty(key)} (any)</option>
+                            {(filtersDef.valuesByKey[key] || []).map(v => (
+                              <option key={String(v)} value={String(v)}>{String(v)}</option>
+                            ))}
+                          </select>
+                        ));
+                    })()}
                   </>
                 )}
 
@@ -410,14 +439,20 @@ export default function HomePage() {
                         </div>
                       )}
                       <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
-                      <div className="h2" style={{ marginTop: 0 }}>{item.title}</div>
-                      <div className="text-muted" style={{ marginBottom: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                        <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{item.title}</div>
+                        {item.price != null && (
+                          <div style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
+                            {`LKR ${Number(item.price).toLocaleString('en-US')}`}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-muted" style={{ marginBottom: 6, marginTop: 4 }}>
                         {item.location ? item.location : ''}
                         {item.pricing_type ? ` • ${item.pricing_type}` : ''}
-                        {item.price != null ? ` • ${String(item.price)}` : ''}
                         {expires ? ` • ${expires}` : ''}
                       </div>
-                      <p className="text-muted">{item.seo_description || (item.description || '').slice(0,160)}</p>
+                      
                     </div>
                   )
                 })}

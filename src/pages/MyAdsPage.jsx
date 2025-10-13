@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 export default function MyAdsPage() {
   const [items, setItems] = useState([])
   const [status, setStatus] = useState(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     async function load() {
@@ -39,19 +40,32 @@ export default function MyAdsPage() {
               const days = Math.max(0, Math.ceil(diff / (1000*60*60*24)))
               expires = `Expires in ${days} day${days === 1 ? '' : 's'}`
             }
+            const imgs = Array.isArray(item.small_images) ? item.small_images : []
+            const hero = imgs.length ? imgs[0] : (item.thumbnail_url || null)
+
             return (
-              <div key={item.id} className="card">
-                {item.thumbnail_url && (
-                  <img src={item.thumbnail_url} alt={item.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
+              <div
+                key={item.id}
+                className="card"
+                onClick={() => navigate(`/listing/${item.id}`)}
+                style={{ cursor: 'pointer' }}
+              >
+                {hero && (
+                  <img src={hero} alt={item.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
                 )}
-                <div className="h2" style={{ margin: '6px 0' }}>{item.title}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                  <div className="h2" style={{ margin: '6px 0' }}>{item.title}</div>
+                  {item.price != null && (
+                    <div style={{ margin: '6px 0', whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
+                      {`LKR ${Number(item.price).toLocaleString('en-US')}`}
+                    </div>
+                  )}
+                </div>
                 <div className="text-muted" style={{ marginBottom: 6 }}>
                   {item.status} • {item.location || 'N/A'}
                   {item.pricing_type ? ` • ${item.pricing_type}` : ''}
-                  {item.price != null ? ` • ${String(item.price)}` : ''}
                   {expires ? ` • ${expires}` : ''}
                 </div>
-                <Link className="btn" to={`/listing/${item.id}`}>Open</Link>
               </div>
             )
           })}

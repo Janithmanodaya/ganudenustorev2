@@ -41,6 +41,7 @@ export function openUserTempDb(email) {
       phone TEXT,
       model_name TEXT,
       manufacture_year INTEGER,
+      sub_category TEXT,
       raw_json TEXT
     )
   `).run();
@@ -51,6 +52,7 @@ export function openUserTempDb(email) {
     const names = new Set(cols.map(c => c.name));
     if (!names.has('model_name')) db.prepare(`ALTER TABLE ai_extracts ADD COLUMN model_name TEXT`).run();
     if (!names.has('manufacture_year')) db.prepare(`ALTER TABLE ai_extracts ADD COLUMN manufacture_year INTEGER`).run();
+    if (!names.has('sub_category')) db.prepare(`ALTER TABLE ai_extracts ADD COLUMN sub_category TEXT`).run();
   } catch (_) {}
 
   db.prepare(`CREATE INDEX IF NOT EXISTS idx_ai_extracts_draft ON ai_extracts(draft_id)`).run();
@@ -68,11 +70,12 @@ export function writeExtract(email, draftId, data) {
     phone: data?.phone ?? null,
     model_name: data?.model_name ?? null,
     manufacture_year: data?.manufacture_year ?? null,
+    sub_category: data?.sub_category ?? null,
     raw_json: (() => { try { return JSON.stringify(data || {}); } catch (_) { return null; } })(),
   };
   db.prepare(`
-    INSERT INTO ai_extracts (draft_id, created_at, location, price, pricing_type, phone, model_name, manufacture_year, raw_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO ai_extracts (draft_id, created_at, location, price, pricing_type, phone, model_name, manufacture_year, sub_category, raw_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     Number(draftId) || null,
     new Date().toISOString(),
@@ -82,6 +85,7 @@ export function writeExtract(email, draftId, data) {
     payload.phone,
     payload.model_name,
     payload.manufacture_year,
+    payload.sub_category,
     payload.raw_json
   );
 }
@@ -125,6 +129,9 @@ export function readExtract(email, draftId) {
       price: typeof row.price === 'number' ? row.price : (row.price != null ? Number(row.price) : null),
       pricing_type: row.pricing_type ?? null,
       phone: row.phone ?? null,
+      model_name: row.model_name ?? null,
+      manufacture_year: row.manufacture_year != null ? Number(row.manufacture_year) : null,
+      sub_category: row.sub_category ?? null,
       raw_json: row.raw_json || null
     };
   } catch (e) {

@@ -228,6 +228,20 @@ function normalizeStructuredData(obj) {
   // Model name
   s.model_name = String(s.model_name ?? s.model ?? s.vehicle_model ?? '').trim();
 
+  // Sub-category (vehicle type) - normalize common keys to one canonical field
+  let subCat = String(
+    s.sub_category ?? s.subcategory ?? s.vehicle_subcategory ?? s.vehicle_type ?? s.type ?? ''
+  ).trim();
+  if (subCat) {
+    const low = subCat.toLowerCase();
+    if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(low)) subCat = 'Bike';
+    else if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(low)) subCat = 'Car';
+    else if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(low)) subCat = 'Van';
+    else if (/(^|\b)(bus|coach)(\b|$)/i.test(low)) subCat = 'Bus';
+    else subCat = subCat.charAt(0).toUpperCase() + subCat.slice(1).toLowerCase();
+  }
+  s.sub_category = subCat;
+
   // Manufacture year (coerce to integer if possible)
   let yearCandidate = s.manufacture_year ?? s.year ?? s.model_year ?? s.mfg_year;
   if (typeof yearCandidate === 'string') {
@@ -464,6 +478,24 @@ ${description}`;
       }
     }
 
+    // Infer vehicle sub-category when category is Vehicle
+    function extractVehicleSubCategory(text) {
+      const t = String(text || '').toLowerCase();
+      if (/(^|\b)(bus|coach)(\b|$)/i.test(t)) return 'Bus';
+      if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(t)) return 'Van';
+      if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(t)) return 'Car';
+      if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(t)) return 'Bike';
+      return '';
+    }
+    if (String(main_category) === 'Vehicle') {
+      const valid = new Set(['Bike','Car','Van','Bus']);
+      const current = String(structuredObj.sub_category || '').trim();
+      if (!current || !valid.has(current)) {
+        const inferred = extractVehicleSubCategory(rawText);
+        if (inferred) structuredObj.sub_category = inferred;
+      }
+    }
+
     let seoObj = {};
     try {
       const out = await callGemini(key, seoPrompt, userContext);
@@ -522,13 +554,16 @@ router.get('/draft/:id', (req, res) => {
     const ownerEmail = draft.owner_email || req.query.email;
     const tempExtract = readExtract(ownerEmail, draftId);
 
-    // If temp data has location/price/phone, merge it into structured_json for client-side hydration
+    // If temp data has location/price/phone/sub_category/model/year, merge it for client-side hydration
     if (tempExtract) {
       const s = draft.structured_json ? JSON.parse(draft.structured_json) : {};
       s.location = tempExtract.location || s.location || '';
       s.price = tempExtract.price != null ? tempExtract.price : (s.price != null ? s.price : '');
       s.pricing_type = tempExtract.pricing_type || s.pricing_type || 'Negotiable';
       s.phone = tempExtract.phone || s.phone || '';
+      if (tempExtract.sub_category) s.sub_category = tempExtract.sub_category;
+      if (tempExtract.model_name) s.model_name = tempExtract.model_name;
+      if (tempExtract.manufacture_year != null) s.manufacture_year = tempExtract.manufacture_year;
       draft.structured_json = JSON.stringify(s);
     }
 
@@ -794,7 +829,26 @@ router.get('/search', (req, res) => {
 
     const rows = db.prepare(query).all(params);
 
-    // Post-filter using structured_json
+    // Post-filter using structured_json, with special handling for sub_category in Vehicle
+    function normalizeVehicleSubCategory(input) {
+      let subCat = String(input || '').trim();
+      if (!subCat) return '';
+      const low = subCat.toLowerCase();
+      if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(low)) return 'Bike';
+      if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(low)) return 'Car';
+      if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(low)) return 'Van';
+      if (/(^|\b)(bus|coach)(\b|$)/i.test(low)) return 'Bus';
+      return subCat.charAt(0).toUpperCase() + subCat.slice(1).toLowerCase();
+    }
+    function inferVehicleSubCategoryFromText(text) {
+      const t = String(text || '').toLowerCase();
+      if (/(^|\b)(bus|coach)(\b|$)/i.test(t)) return 'Bus';
+      if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(t)) return 'Van';
+      if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(t)) return 'Car';
+      if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(t)) return 'Bike';
+      return '';
+    }
+
     let results = rows;
     if (filtersObj && Object.keys(filtersObj).length) {
       results = rows.filter(r => {
@@ -803,7 +857,19 @@ router.get('/search', (req, res) => {
           for (const [k, v] of Object.entries(filtersObj)) {
             if (!v) continue;
             const key = k === 'model' ? 'model_name' : k;
-            if (String(sj[key] || '').toLowerCase() !== String(v).toLowerCase()) return false;
+            const want = String(v).toLowerCase();
+            if (key === 'sub_category' && String(category) === 'Vehicle') {
+              // Compute effective sub-category from structured_json or infer from text
+              const fromStruct = normalizeVehicleSubCategory(sj.sub_category || sj.subcategory || sj.vehicle_type || sj.type || '');
+              let eff = fromStruct;
+              if (!eff) {
+                const text = [r.title || '', r.description || '', String(sj.model_name || ''), String(sj.model || '')].join(' ');
+                eff = inferVehicleSubCategoryFromText(text);
+              }
+              if (String(eff).toLowerCase() !== want) return false;
+            } else {
+              if (String(sj[key] || '').toLowerCase() !== want) return false;
+            }
           }
           return true;
         } catch (_) { return true; }
@@ -837,11 +903,30 @@ router.get('/filters', (req, res) => {
     if (!category) return res.status(400).json({ error: 'category is required' });
 
     const rows = db.prepare(`
-      SELECT structured_json
+      SELECT title, description, structured_json
       FROM listings
       WHERE status = 'Approved' AND main_category = ?
       ORDER BY id DESC LIMIT 500
     `).all(category);
+
+    function normalizeVehicleSubCategory(input) {
+      let subCat = String(input || '').trim();
+      if (!subCat) return '';
+      const low = subCat.toLowerCase();
+      if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(low)) return 'Bike';
+      if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(low)) return 'Car';
+      if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(low)) return 'Van';
+      if (/(^|\b)(bus|coach)(\b|$)/i.test(low)) return 'Bus';
+      return subCat.charAt(0).toUpperCase() + subCat.slice(1).toLowerCase();
+    }
+    function inferVehicleSubCategoryFromText(text) {
+      const t = String(text || '').toLowerCase();
+      if (/(^|\b)(bus|coach)(\b|$)/i.test(t)) return 'Bus';
+      if (/(^|\b)(van|mini ?van|hiace|kdh|caravan)(\b|$)/i.test(t)) return 'Van';
+      if (/(^|\b)(car|sedan|hatchback|wagon|estate|suv|jeep)(\b|$)/i.test(t)) return 'Car';
+      if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(t)) return 'Bike';
+      return '';
+    }
 
     const valuesByKey = {};
     for (const row of rows) {
@@ -853,11 +938,25 @@ router.get('/filters', (req, res) => {
         let key = k;
         if (k === 'model_name') key = 'model'; // map to UI 'model'
         if (['location', 'pricing_type', 'price', 'phone'].includes(key)) continue; // skip base filters
-        const valStr = Array.isArray(v) ? v.map(x => String(x)).join('|') : String(v);
         const vals = Array.isArray(v) ? v.map(x => String(x)) : [String(v)];
         valuesByKey[key] = valuesByKey[key] || new Set();
         for (const s of vals) {
           if (s && s.length <= 60) valuesByKey[key].add(s);
+        }
+      }
+
+      // Ensure sub_category appears for Vehicle category even if older rows missed it
+      if (category === 'Vehicle') {
+        const fromStruct = normalizeVehicleSubCategory(sj.sub_category || sj.subcategory || sj.vehicle_type || sj.type || '');
+        let sub = fromStruct;
+        if (!sub) {
+          // Infer from title/description/model name if missing
+          const text = [row.title || '', row.description || '', String(sj.model_name || ''), String(sj.model || '')].join(' ');
+          sub = inferVehicleSubCategoryFromText(text);
+        }
+        if (sub) {
+          valuesByKey['sub_category'] = valuesByKey['sub_category'] || new Set();
+          valuesByKey['sub_category'].add(sub);
         }
       }
     }
@@ -907,6 +1006,40 @@ router.get('/suggestions', (req, res) => {
   } catch (e) {
     console.error('[listings] /suggestions error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to load suggestions' });
+  }
+});
+
+// Get current user's listings (My Ads)
+router.get('/my', (req, res) => {
+  try {
+    const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
+    if (!email) return res.status(401).json({ error: 'Missing user email' });
+
+    const rows = db.prepare(`
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at
+      FROM listings
+      WHERE owner_email = ?
+      ORDER BY created_at DESC
+      LIMIT 200
+    `).all(email);
+
+    const firstImageStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
+    const listImagesStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
+    const results = rows.map(r => {
+      let thumbnail_url = filePathToUrl(r.thumbnail_path);
+      if (!thumbnail_url) {
+        const first = firstImageStmt.get(r.id);
+        thumbnail_url = filePathToUrl(first?.path);
+      }
+      const imgs = listImagesStmt.all(r.id);
+      const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.path)).filter(Boolean) : [];
+      return { ...r, thumbnail_url, small_images };
+    });
+
+    res.json({ results });
+  } catch (e) {
+    console.error('[listings] /my error:', e && e.message ? e.message : e);
+    res.status(500).json({ error: 'Failed to load your listings' });
   }
 });
 

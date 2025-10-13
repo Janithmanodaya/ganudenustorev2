@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
 export default function SearchResultsPage() {
   const [sp, setSp] = useSearchParams()
   const q = sp.get('q') || ''
   const category = sp.get('category') || ''
+  const navigate = useNavigate()
 
   // Advanced filters (query params aware)
   const [location, setLocation] = useState(sp.get('location') || '')
@@ -116,6 +117,19 @@ export default function SearchResultsPage() {
     setSp(next, { replace: true })
   }
 
+  function resetAdvancedFilters() {
+    // Reset state first
+    setLocation('');
+    setPricingType('');
+    setPriceMin('');
+    setPriceMax('');
+    setFilters({});
+    setSort('latest');
+    setPage(1);
+    // Then force a full page refresh to ensure a pristine state
+    window.location.reload();
+  }
+
   const heading = useMemo(() => {
     const base = 'Search Results'
     if (category) return `${base} • ${category}`
@@ -170,30 +184,47 @@ export default function SearchResultsPage() {
                 {/* Dynamic filters from structured_json */}
                 {category && filtersDef.keys.length > 0 && (
                   <>
-                    {filtersDef.keys.filter(k => !['location','pricing_type','price'].includes(k)).map(key => (
-                      <select
-                        key={key}
-                        className="select"
-                        value={filters[key] || ''}
-                        onChange={e => updateFilter(key, e.target.value)}
-                        aria-label={key}
-                      >
-                        <option value="">{key} (any)</option>
-                        {(filtersDef.valuesByKey[key] || []).map(v => (
-                          <option key={String(v)} value={String(v)}>{String(v)}</option>
-                        ))}
-                      </select>
-                    ))}
+                    {(() => {
+                      const pretty = (k) => {
+                        if (!k) return '';
+                        const map = {
+                          model: 'Model',
+                          model_name: 'Model',
+                          manufacture_year: 'Manufacture Year',
+                          sub_category: 'Sub-category',
+                          pricing_type: 'Pricing',
+                        };
+                        if (map[k]) return map[k];
+                        return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+                      };
+                      return filtersDef.keys
+                        .filter(k => !['location','pricing_type','price'].includes(k))
+                        .map(key => (
+                          <select
+                            key={key}
+                            className="select"
+                            value={filters[key] || ''}
+                            onChange={e => updateFilter(key, e.target.value)}
+                            aria-label={key}
+                          >
+                            <option value="">{pretty(key)} (any)</option>
+                            {(filtersDef.valuesByKey[key] || []).map(v => (
+                              <option key={String(v)} value={String(v)}>{String(v)}</option>
+                            ))}
+                          </select>
+                        ));
+                    })()}
                   </>
                 )}
 
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <select className="select" value={sort} onChange={e => setSort(e.target.value)}>
                     <option value="latest">Latest</option>
                     <option value="price_asc">Price: Low to High</option>
                     <option value="price_desc">Price: High to Low</option>
                   </select>
                   <button className="btn accent" type="submit">Apply</button>
+                  <button className="btn" type="button" onClick={resetAdvancedFilters}>Reset</button>
                 </div>
               </form>
             </>
@@ -202,7 +233,7 @@ export default function SearchResultsPage() {
 
         <div style={{ padding: 18 }}>
           <div className="h2" style={{ marginTop: 0 }}>Results</div>
-          <div className="grid two">
+          <div className="grid three">
             {results.map(r => {
               let expires = ''
               if (r.valid_until) {
@@ -210,26 +241,37 @@ export default function SearchResultsPage() {
                 const days = Math.max(0, Math.ceil(diff / (1000*60*60*24)))
                 expires = `Expires in ${days} day${days === 1 ? '' : 's'}`
               }
+              const imgs = Array.isArray(r.small_images) ? r.small_images : []
+              const hero = imgs.length ? imgs[0] : (r.thumbnail_url || null)
+
               return (
-                <div key={r.id} className="card">
-                  {r.thumbnail_url && (
-                    <img src={r.thumbnail_url} alt={r.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
+                <div
+                  key={r.id}
+                  className="card"
+                  onClick={() => navigate(`/listing/${r.id}`)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {hero && (
+                    <img src={hero} alt={r.title} style={{ width: '100%', height: 160, borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
                   )}
-                  <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                    <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>
+                    {r.price != null && (
+                      <div style={{ margin: '6px 0', whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
+                        {`LKR ${Number(r.price).toLocaleString('en-US')}`}
+                      </div>
+                    )}
+                  </div>
                   <div className="text-muted" style={{ marginBottom: 6 }}>
                     {r.location ? r.location : ''}
                     {r.pricing_type ? ` • ${r.pricing_type}` : ''}
-                    {r.price != null ? ` • ${String(r.price)}` : ''}
                     {expires ? ` • ${expires}` : ''}
                   </div>
-                  <p className="text-muted">{r.seo_description || r.description?.slice(0,160)}</p>
-                  <Link className="btn primary" to={`/listing/${r.id}`}>View</Link>
                 </div>
               )
             })}
             {results.length === 0 && <p className="text-muted">No results yet.</p>}
           </div>
-
           {/* Pagination */}
           <div className="pagination" style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
             <button className="btn page" onClick={() => setPage(Math.max(1, page - 1))} aria-label="Previous page">‹ Prev</button>
