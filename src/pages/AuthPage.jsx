@@ -17,6 +17,8 @@ export default function AuthPage() {
   // Admin OTP login flow
   const [loginStep, setLoginStep] = useState('password') // 'password' -> 'otp'
 
+  // Google Sign-In
+  const [googleReady, setGoogleReady] = useState(false)
   useEffect(() => {
     // If already logged in, go to account page
     try {
@@ -24,6 +26,77 @@ export default function AuthPage() {
       if (u) navigate('/account', { replace: true })
     } catch (_) {}
   }, [navigate])
+
+  useEffect(() => {
+    // Load Google script on login mode
+    if (mode !== 'login') return
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      setGoogleReady(true)
+      renderGoogleButton()
+      return
+    }
+    let el = document.querySelector('script[src="https://accounts.google.com/gsi/client"]')
+    if (!el) {
+      el = document.createElement('script')
+      el.src = 'https://accounts.google.com/gsi/client'
+      el.async = true
+      el.defer = true
+      el.onload = () => {
+        setGoogleReady(true)
+        renderGoogleButton()
+      }
+      document.body.appendChild(el)
+    } else {
+      el.addEventListener('load', () => {
+        setGoogleReady(true)
+        renderGoogleButton()
+      })
+    }
+
+    function renderGoogleButton() {
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+      if (!clientId || !window.google?.accounts?.id) return
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredential,
+        auto_select: false
+      })
+      const container = document.getElementById('googleSignInDiv')
+      if (container) {
+        container.innerHTML = ''
+        window.google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', shape: 'rectangular', text: 'signin_with' })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
+
+  async function handleGoogleCredential(resp) {
+    try {
+      const id_token = resp?.credential
+      if (!id_token) return
+      setSubmitting(true)
+      const r = await fetch('/api/auth/google-signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_token })
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        setResult({ ok: false, message: data?.error || 'Google sign-in failed.' })
+        setSubmitting(false)
+        return
+      }
+      try {
+        localStorage.setItem('user', JSON.stringify(data.user))
+      } catch (_) {}
+      setResult({ ok: true, message: 'Login successful. Redirecting to home...' })
+      setTimeout(() => navigate('/'), 500)
+    } catch (e) {
+      setResult({ ok: false, message: 'Google sign-in network error.' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   async function submit(e) {
     e.preventDefault()
@@ -178,6 +251,22 @@ export default function AuthPage() {
             Forgot Password
           </button>
         </div>
+
+        {/* Google quick login */}
+        {mode === 'login' && (
+          <div style={{ marginBottom: 16 }}>
+            <div id="googleSignInDiv" />
+            {!googleReady && (
+              <button className="btn" type="button" onClick={() => { /* noop fallback */ }}>
+                Continue with Google
+              </button>
+            )}
+            <div style={{ height: 8 }} />
+            <div className="text-muted" style={{ fontSize: 12 }}>
+              Sign in with Google does not require OTP.
+            </div>
+          </div>
+        )}
 
         <form onSubmit={submit} className="grid two">
           <input className="input" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} disabled={submitting} />
