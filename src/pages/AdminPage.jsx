@@ -34,6 +34,13 @@ export default function AdminPage() {
   const [reports, setReports] = useState([])
   const [reportFilter, setReportFilter] = useState('pending')
 
+  // Notifications (admin)
+  const [notificationsAdmin, setNotificationsAdmin] = useState([])
+  const [notifyTitle, setNotifyTitle] = useState('')
+  const [notifyMessage, setNotifyMessage] = useState('')
+  const [notifyTargetType, setNotifyTargetType] = useState('all') // 'all' | 'email'
+  const [notifyEmail, setNotifyEmail] = useState('')
+
   // Tabs
   const [activeTab, setActiveTab] = useState('dashboard')
 
@@ -321,6 +328,60 @@ export default function AdminPage() {
     }
   }
 
+  // Notifications (admin)
+  async function loadAdminNotifications() {
+    try {
+      const r = await fetch('/api/admin/notifications', { headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to load notifications')
+      setNotificationsAdmin(data.results || [])
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function sendNotification() {
+    if (!notifyTitle.trim() || !notifyMessage.trim()) {
+      setStatus('Title and message are required.')
+      return
+    }
+    try {
+      const payload = {
+        title: notifyTitle.trim(),
+        message: notifyMessage.trim(),
+        targetEmail: notifyTargetType === 'email' ? notifyEmail.trim().toLowerCase() : null
+      }
+      const r = await fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+        body: JSON.stringify(payload)
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to send notification')
+      setStatus('Notification sent.')
+      setNotifyTitle('')
+      setNotifyMessage('')
+      setNotifyTargetType('all')
+      setNotifyEmail('')
+      loadAdminNotifications()
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function deleteNotification(id) {
+    const yes = window.confirm('Delete this notification?')
+    if (!yes) return
+    try {
+      const r = await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to delete notification')
+      loadAdminNotifications()
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
   // On mount, require logged-in admin
   useEffect(() => {
     try {
@@ -344,9 +405,10 @@ export default function AdminPage() {
       loadMetrics(rangeDays)
       loadUsers('')
       loadReports(reportFilter)
+      loadAdminNotifications()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, adminEmail])
+  }, [allowed, adminEmail</])])
 
   if (!allowed) {
     return (
@@ -468,6 +530,7 @@ export default function AdminPage() {
             { key: 'users', label: 'Users' },
             { key: 'reports', label: 'Reports' },
             { key: 'banners', label: 'Banners' },
+            { key: 'notifications', label: 'Notifications' },
             { key: 'ai', label: 'AI Config' },
             { key: 'approvals', label: 'Approvals' }
           ].map(t => (
@@ -682,6 +745,44 @@ export default function AdminPage() {
               ))}
               {banners.length === 0 && <p className="text-muted">No banners yet.</p>}
             </div>
+          </>
+        )}
+
+        {/* Notifications */}
+        {activeTab === 'notifications' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Send Notification</div>
+            <div className="grid two">
+              <input className="input" placeholder="Title" value={notifyTitle} onChange={e => setNotifyTitle(e.target.value)} />
+              <select className="select" value={notifyTargetType} onChange={e => setNotifyTargetType(e.target.value)}>
+                <option value="all">Send to all users</option>
+                <option value="email">Send to specific email</option>
+              </select>
+            </div>
+            {notifyTargetType === 'email' && (
+              <input className="input" placeholder="Target email (exact match)" value={notifyEmail} onChange={e => setNotifyEmail(e.target.value)} style={{ marginTop: 8 }} />
+            )}
+            <textarea className="textarea" placeholder="Message" value={notifyMessage} onChange={e => setNotifyMessage(e.target.value)} style={{ marginTop: 8 }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button className="btn primary" onClick={sendNotification}>Send</button>
+              <button className="btn" onClick={loadAdminNotifications}>Refresh</button>
+            </div>
+
+            <div className="h2" style={{ marginTop: 16 }}>Recent Notifications</div>
+            {notificationsAdmin.length === 0 && <p className="text-muted">No notifications yet.</p>}
+            {notificationsAdmin.map(n => (
+              <div key={n.id} className="card" style={{ marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                  <strong>{n.title}</strong>
+                  <small className="text-muted">{new Date(n.created_at).toLocaleString()}</small>
+                </div>
+                <div className="text-muted" style={{ marginTop: 6 }}>To: {n.target_email ? n.target_email : 'All users'}</div>
+                <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.message}</div>
+                <div style={{ marginTop: 8 }}>
+                  <button className="btn" onClick={() => deleteNotification(n.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
           </>
         )}
 

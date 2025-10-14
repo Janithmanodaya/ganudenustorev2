@@ -605,4 +605,47 @@ router.post('/config-secure/encrypt', requireAdmin, (req, res) => {
   }
 });
 
+// Notifications management (admin)
+router.get('/notifications', requireAdmin, (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT id, title, message, target_email, created_at
+      FROM notifications
+      ORDER BY id DESC
+      LIMIT 200
+    `).all();
+    res.json({ results: rows });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load notifications' });
+  }
+});
+
+router.post('/notifications', requireAdmin, (req, res) => {
+  const { title, message, targetEmail } = req.body || {};
+  if (!title || !message) {
+    return res.status(400).json({ error: 'title and message are required' });
+  }
+  try {
+    db.prepare(`
+      INSERT INTO notifications (title, message, target_email, created_at)
+      VALUES (?, ?, ?, ?)
+    `).run(String(title).trim(), String(message).trim(), targetEmail ? String(targetEmail).toLowerCase().trim() : null, new Date().toISOString());
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create notification' });
+  }
+});
+
+router.delete('/notifications/:id', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
+  try {
+    db.prepare(`DELETE FROM notifications WHERE id = ?`).run(id);
+    db.prepare(`DELETE FROM notification_reads WHERE notification_id = ?`).run(id);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete notification' });
+  }
+});
+
 export default router;
