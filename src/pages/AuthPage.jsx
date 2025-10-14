@@ -227,7 +227,7 @@ export default function AuthPage() {
         {/* Notice with a link to policy on the auth page */}
         <div style={{ marginTop: 12 }}>
           <small className="text-muted">
-            By using this website you acknowledge that we are a platform connecting buyers and sellers and we are not responsible for user actions. See our <Link to="/policy">Service Policy</Link>.
+            <Link to="/policy">Service Policy</Link>
           </small>
         </div>
 
