@@ -722,7 +722,9 @@ export default function ViewListingPage() {
             onMouseLeave={!isMobile ? onDragEnd : undefined}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
-, cursor: (!isMobile && dragging) ? 'grabbing' : (!isMobile && zoom > 1 ? 'grab' : 'default') }}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchEnd}
+            style={{ display: 'grid', placeItems: 'center', overflow: 'hidden', cursor: (!isMobile && dragging) ? 'grabbing' : (!isMobile && zoom > 1 ? 'grab' : 'default') }}
           >
             {images[lightboxIndex]?.url ? (
               <img
