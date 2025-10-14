@@ -27,6 +27,7 @@ export default function App() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const notifBtnRef = useRef(null)
+  const notifPanelRef = useRef(null)
 
   useEffect(() => {
     try {
@@ -111,6 +112,23 @@ export default function App() {
       }
     }
   }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!notifOpen) return
+    function onDocMouseDown(e) {
+      const panel = notifPanelRef.current
+      const btn = notifBtnRef.current
+      const target = e.target
+      if (panel && panel.contains(target)) return
+      if (btn && btn.contains(target)) return
+      setNotifOpen(false)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+    }
+  }, [notifOpen])
 
   async function handleNotificationClick(n) {
     if (!userEmail) return
@@ -202,7 +220,7 @@ export default function App() {
 
         {/* Dropdown panel */}
         {notifOpen && (
-          <div style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
+          <div ref={notifPanelRef} style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
             <div className="card" style={{ width: 340, maxHeight: 420, overflow: 'auto' }}>
               <div className="h2" style={{ marginTop: 0 }}>Notifications</div>
               {notifications.length === 0 && <p className="text-muted">No notifications.</p>}
