@@ -156,8 +156,28 @@ export default function ViewListingPage() {
   }, [listing])
 
   const structuredEntries = useMemo(() => {
-    return Object.entries(structured || {}).filter(([k]) => k && k !== '')
-  }, [structured])
+    const obj = structured || {}
+    let entries = Object.entries(obj).filter(([k]) => k && k !== '')
+    const isJobCat = String(listing?.main_category || '') === 'Job'
+
+    // Always avoid duplicating the long description in the right-side details
+    const removeKeys = new Set([
+      'description',
+      // Common salary duplicates coming from extraction
+      'salary',
+      'salary_type'
+    ])
+
+    if (isJobCat) {
+      // Job view: hide vehicle-specific fields and extra year/model variants
+      ;['model_name','model','manufacture_year','model_year','year','mfg_year'].forEach(k => removeKeys.add(k))
+      // Also remove alternative salary fields to avoid duplicates when price/pricing_type are present
+      ;['expected_salary','salary_lkr','pay','compensation','compensation_type'].forEach(k => removeKeys.add(k))
+    }
+
+    entries = entries.filter(([k]) => !removeKeys.has(String(k)))
+    return entries
+  }, [structured, listing])
 
   function prettyLabel(key) {
     // Adjust labels based on category (e.g., Salary for Job)
@@ -287,7 +307,7 @@ export default function ViewListingPage() {
                   {listing.main_category && <span className="pill">{listing.main_category}</span>}
                   {listing.status && <span className="pill">{listing.status}</span>}
                   {listing.location && <span className="pill">{listing.location}</span>}
-                  {listing.pricing_type && <span className="pill">Price Type: {listing.pricing_type}</span>}
+                  {listing.pricing_type && <span className="pill">{String(listing?.main_category || '') === 'Job' ? 'Salary Type' : 'Price Type'}: {listing.pricing_type}</span>}
                 </div>
               )}
             </div>
