@@ -730,17 +730,17 @@ export default function HomePage() {
                   onClick={() => navigate('/new')}
                   aria-label="Post your first ad"
                   style={{
-                    width: 46,
-                    height: 46,
+                    width: 34,
+                    height: 34,
                     borderRadius: '50%',
                     padding: 0,
-                    fontSize: 24,
+                    fontSize: 18,
                     display: 'grid',
                     placeItems: 'center',
                     background:
                       'radial-gradient(120px 80px at 30% 0%, rgba(255,255,255,0.25), transparent 60%), ' +
                       '#6c7ff7',
-                    boxShadow: '0 10px 25px rgba(108,127,247,0.55)',
+                    boxShadow: '0 8px 18px rgba(108,127,247,0.45)',
                     position: 'relative',
                     overflow: 'visible'
                   }}
