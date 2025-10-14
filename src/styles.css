@@ -559,3 +559,6 @@ body {
   .mobile-actionbar .btn.accent { min-width: 90px; }
 
   /* Show mobile report button; hide desktop one */
+  .report-mobile { display: block; }
+  .report-desktop { display: none; }
+}

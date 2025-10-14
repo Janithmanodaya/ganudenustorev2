@@ -84,7 +84,8 @@ export default function ViewListingPage() {
   useEffect(() => {
     if (!listing) return
     const rawTitle = listing.seo_title || listing.title || 'Listing'
-    const title = formatTitlecription || listing.description || ''
+    const title = formatTitleCase(rawTitle)
+    const desc = listing.seo_description || listing.description || ''
     const url = `https://ganudenu.store/listing/${listing.id}`
     document.title = title
 
@@ -277,7 +278,9 @@ export default function ViewListingPage() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div>
-              <div className="h1 viewlisting-title" style={{ marginBottom: 6 }}>{formatTitleCase(listing?.seo_title || listing?.title || 'View Listi')}</ng_codedinewv</>
+              <div className="h1 viewlisting-title" style={{ marginBottom: 6 }}>
+                {formatTitleCase(listing?.seo_title || listing?.title || 'View Listing')}
+             />
 
               {listing && (
                 <div className="seo-keys" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
