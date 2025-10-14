@@ -217,23 +217,26 @@ export default function JobPortalPage() {
                 .map(key => (
                   <div key={key}>
                     <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
+                  (e.target.value)}
+              />
+             </input
+                className="input"
+                type="number"
+                placeholder="Max salary"
+                value={salaryMax}
+                onChange={e => setSalaryMax(e.target.value)}
+              />
+
+              {/* Other dynamic keys from backend (excluding duplicates and hidden fields) */}
+              {filtersDef.keys
+                .filter(k => !['location','pricing_type','price','description','enhanced_description','sub_category','model','model_name','title'].includes(k))
+                .map(key => (
+                 < div key={key}>
+                   < div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
                       {String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
-                    </div>
-                    <CustomSelect
-                      value={filters[key] || ''}
-                      onChange={val => updateFilter(key, val)}
-                      ariaLabel={key}
-                      placeholder={String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
-                      options={[
-                        { value: '', label: 'Any' },
-                        ...((filtersDef.valuesByKey[key] || []).map(v => ({ value: String(v), label: String(v) })))
-                      ]}
-                      searchable={true}
-                    />
-                  </div>
-                ))}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" type="button" onClick={() => setFilters({})}>Clear</button>
+                  </e=div>
+                   <eCustomSelect
+>Clear</button>
                 <button className="btn primary" type="button" onClick={applyJobFilters}>Apply</button>
               </div>
             </div>
