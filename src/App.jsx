@@ -253,35 +253,12 @@ export default function App() {
             ) : null}
           </div>
 
-          {/* Mobile navigation: menu first, then notifications, then account */}
+          {/* Mobile navigation: account, then notifications, then menu (swapped positions) */}
           <div className="nav-mobile" style={{ position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-            {/* Menu dropdown toggle (moved to first) */}
-            <div style={{ position: 'relative' }}>
-              <button
-                ref={mobileMenuBtnRef}
-                className="back-btn"
-                type="button"
-                aria-label="Menu"
-                title="Menu"
-                onClick={() => setMobileMenuOpen(o => !o)}
-              >
-                ☰
-              </button>
-              {mobileMenuOpen && (
-                <div
-                  ref={mobileMenuRef}
-                  className="card dropdown-panel"
-                  style={{ width: 200, padding: 8, left: 0, right: 'auto' }}
-                >
-                  <Link to="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
-                  <Link to="/new" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
-                  <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}>Jobs</Link>
-                  <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}>My Ads</Link>
-                </div>
-              )}
-            </div>
+            {/* Account icon (unchanged, first) */}
+            <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
 
-            {/* Notifications icon (now second) */}
+            {/* Notifications icon (moved to middle) */}
             {userEmail ? (
               <div style={{ position: 'relative' }}>
                 <button
@@ -319,8 +296,31 @@ export default function App() {
               </div>
             ) : null}
 
-            {/* Account icon (moved to last) */}
-            <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
+            {/* Menu dropdown toggle (moved to last / far right) */}
+            <div style={{ position: 'relative' }}>
+              <button
+                ref={mobileMenuBtnRef}
+                className="back-btn"
+                type="button"
+                aria-label="Menu"
+                title="Menu"
+                onClick={() => setMobileMenuOpen(o => !o)}
+              >
+                ☰
+              </button>
+              {mobileMenuOpen && (
+                <div
+                  ref={mobileMenuRef}
+                  className="card dropdown-panel"
+                  style={{ width: 200, padding: 8, right: 0, left: 'auto' }}
+                >
+                  <Link to="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
+                  <Link to="/new" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
+                  <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}>Jobs</Link>
+                  <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}>My Ads</Link>
+                </div>
+              )}
+            </div>
           </div>
         </nav>
 
