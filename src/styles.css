@@ -498,7 +498,7 @@ body {
   /* ViewListing mobile polish */
   .viewlisting.has-actionbar { padding-bottom: 84px; } /* space for sticky bar */
   .viewlisting-hero { padding: 18px !important; }
-  .viewlisting .viewlisting-header-actions { display: none; } /* hide header price/fav on mobile */
+  .viewlisting .viewlisting-header-actions { display: none !important; } /* hide header price/fav on mobile (override inline) */
 
   /* Update title sizing on mobile */
   .viewlisting-title {
