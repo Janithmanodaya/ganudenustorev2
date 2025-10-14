@@ -476,6 +476,17 @@ export default function AdminPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowed, adminEmail])
 
+  // Auto-refresh notifications when on the Notifications tab
+  useEffect(() => {
+    if (!allowed || !adminEmail) return
+    if (activeTab !== 'notifications') return
+    // initial refresh on entering tab
+    loadAdminNotifications()
+    const timer = setInterval(loadAdminNotifications, 15000) // every 15s
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed, adminEmail, activeTab])
+
   if (!allowed) {
     return (
       <div className="center">
