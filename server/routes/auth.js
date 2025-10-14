@@ -355,6 +355,22 @@ router.post('/reset-password', async (req, res) => {
     console.error(e);
     return res.status(500).json({ error: 'Unexpected error.' });
   }
-});
-
-export default router;
+});>
+// Public user status endpoint (used by client to enforce bans/suspensions)
+router.get('/status', (req, res) => {
+  try {
+    const hdrEmail = String(req.header('X-User-Email') || '').toLowerCase().trim();
+    const qEmail = String(req.query.email || '').toLowerCase().trim();
+    const email = hdrEmail || qEmail;
+    if (!email) return res.status(400).json({ error: 'Email required.' });
+    const user = db.prepare('SELECT id, email, is_admin, is_banned, suspended_until, username FROM users WHERE email = ?').get(email);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    return res.json({
+      ok: true,
+      email: user.email,
+      username: user.username || null,
+      is_admin: !!user.is_admin,
+      is_banned: !!user.is_banned,
+      suspended_until: user.suspended_until || null
+    });
+  } catch (;

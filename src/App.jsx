@@ -32,6 +32,9 @@ export default function App() {
   const notifPanelRef = useRef(null)
   const [rejectNotifModal, setRejectNotifModal] = useState({ open: false, title: '', reason: '' })
 
+  // Account enforcement overlay (ban/suspension)
+  const [accountBlock, setAccountBlock] = useState({ show: false, title: '', message: '' })
+
   // Mobile menu (only used on small screens)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const mobileMenuBtnRef = useRef(null)
@@ -45,6 +48,45 @@ export default function App() {
       setUserEmail('')
     }
   }, [location])
+
+  // Check ban/suspend status and show blocking overlay if necessary
+  useEffect(() => {
+    let cancelled = false
+    async function checkStatus() {
+      if (!userEmail) { setAccountBlock({ show: false, title: '', message: '' }); return }
+      try {
+        const r = await fetch(`/api/auth/status`, { headers: { 'X-User-Email': userEmail } })
+        const data = await r.json()
+        if (!r.ok) { setAccountBlock({ show: false, title: '', message: '' }); return }
+        if (cancelled) return
+        const isAdmin = !!data.is_admin
+        if (isAdmin) { setAccountBlock({ show: false, title: '', message: '' }); return }
+        const banned = !!data.is_banned
+        const suspUntil = data.suspended_until ? new Date(data.suspended_until) : null
+        const now = new Date()
+        if (banned) {
+          setAccountBlock({
+            show: true,
+            title: 'Account Banned',
+            message: 'Your account has been banned by an administrator. Please contact support if you believe this is a mistake.'
+          })
+        } else if (suspUntil && suspUntil > now) {
+          setAccountBlock({
+            show: true,
+            title: 'Account Suspended',
+            message: `Your account is temporarily suspended until ${suspUntil.toLocaleString()}. You cannot use the site during this period.`
+          })
+        } else {
+          setAccountBlock({ show: false, title: '', message: '' })
+        }
+      } catch (_) {
+        setAccountBlock({ show: false, title: '', message: '' })
+      }
+    }
+    checkStatus()
+    const timer = setInterval(checkStatus, 60 * 1000) // re-check periodically
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [userEmail])
 
   async function loadUnread() {
     if (!userEmail) { setUnreadCount(0); return }
@@ -393,6 +435,52 @@ export default function App() {
           <div className="text-muted" style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{rejectNotifModal.reason}</div>
         </div>
       </Modal>
+
+      {/* Blocking overlay for banned/suspended users */}
+      {accountBlock.show && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={accountBlock.title}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2000,
+            background: 'rgba(0,0,0,0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: 520,
+              margin: 12,
+              background: 'rgba(18,22,31,0.96)',
+              borderColor: 'var(--border)',
+              boxShadow: '0 16px 40px rgba(0,0,0,0.5)'
+            }}
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+          >
+            <div className="h1" style={{ marginTop: 0 }}>{accountBlock.title}</div>
+            <p className="text-muted">{accountBlock.message}</p>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'flex-end' }}>
+              <button
+                className="btn"
+                onClick={() => {
+                  try { localStorage.removeItem('user') } catch (_) {}
+                  setUserEmail('')
+                  navigate('/', { replace: true })
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
