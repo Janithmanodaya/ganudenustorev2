@@ -27,6 +27,7 @@ export default function App() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const notifBtnRef = useRef(null)
+  const notifPanelRef = useRef(null)
 
   useEffect(() => {
     try {
@@ -50,15 +51,19 @@ export default function App() {
   }
 
   async function loadNotifications() {
-    if (!userEmail) { setNotifications([]); return }
+    if (!userEmail) { setNotifications([]); return { results: [], unread: 0 } }
     try {
       const r = await fetch('/api/notifications', { headers: { 'X-User-Email': userEmail } })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Failed')
-      setNotifications(Array.isArray(data.results) ? data.results : [])
-      setUnreadCount(Number(data.unread_count || 0))
+      const results = Array.isArray(data.results) ? data.results : []
+      const unread = Number(data.unread_count || 0)
+      setNotifications(results)
+      setUnreadCount(unread)
+      return { results, unread }
     } catch (_) {
       setNotifications([])
+      return { results: [], unread: 0 }
     }
   }
 
@@ -66,12 +71,6 @@ export default function App() {
     loadUnread()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail])
-
-  function toggleNotif() {
-    const next = !notifOpen
-    setNotifOpen(next)
-    if (next) loadNotifications()
-  }
 
   async function markAllRead() {
     if (!userEmail) return
@@ -86,6 +85,71 @@ export default function App() {
     }
     setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })))
     setUnreadCount(0)
+  }
+
+  // Auto-mark as read when opening the dropdown
+  async function toggleNotif() {
+    const next = !notifOpen
+    setNotifOpen(next)
+    if (next) {
+      const { results } = await loadNotifications()
+      if (userEmail && Array.isArray(results) && results.length) {
+        const unreadItems = results.filter(n => !n.is_read)
+        if (unreadItems.length) {
+          try {
+            await Promise.all(
+              unreadItems.map(n =>
+                fetch(`/api/notifications/${n.id}/read`, {
+                  method: 'POST',
+                  headers: { 'X-User-Email': userEmail }
+                }).catch(() => {})
+              )
+            )
+          } catch (_) {}
+          setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })))
+          setUnreadCount(0)
+        }
+      }
+    }
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!notifOpen) return
+    function onDocMouseDown(e) {
+      const panel = notifPanelRef.current
+      const btn = notifBtnRef.current
+      const target = e.target
+      if (panel && panel.contains(target)) return
+      if (btn && btn.contains(target)) return
+      setNotifOpen(false)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+    }
+  }, [notifOpen])
+
+  async function handleNotificationClick(n) {
+    if (!userEmail) return
+    const type = String(n.type || '').toLowerCase()
+    const listingId = n.listing_id
+    let dest = null
+    if (type === 'pending' && listingId) {
+      dest = `/payment/${listingId}`
+    } else if (type === 'approved' && listingId) {
+      dest = `/listing/${listingId}`
+    }
+    try {
+      await fetch(`/api/notifications/${n.id}/read`, {
+        method: 'POST',
+        headers: { 'X-User-Email': userEmail }
+      })
+    } catch (_) {}
+    setNotifications(prev => prev.map(x => x.id === n.id ? ({ ...x, is_read: 1 }) : x))
+    setUnreadCount(c => c - (n.is_read ? 0 : 1))
+    setNotifOpen(false)
+    if (dest) navigate(dest)
   }
 
   return (
@@ -156,12 +220,17 @@ export default function App() {
 
         {/* Dropdown panel */}
         {notifOpen && (
-          <div style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
+          <div ref={notifPanelRef} style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
             <div className="card" style={{ width: 340, maxHeight: 420, overflow: 'auto' }}>
               <div className="h2" style={{ marginTop: 0 }}>Notifications</div>
               {notifications.length === 0 && <p className="text-muted">No notifications.</p>}
               {notifications.map(n => (
-                <div key={n.id} className="card" style={{ marginBottom: 8 }}>
+                <div
+                  key={n.id}
+                  className="card"
+                  onClick={() => handleNotificationClick(n)}
+                  style={{ marginBottom: 8, cursor: 'pointer' }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                     <strong>{n.title}</strong>
                     {!n.is_read && <span className="pill" style={{ background: 'rgba(108,127,247,0.15)', borderColor: 'transparent', color: '#c9d1ff' }}>New</span>}
