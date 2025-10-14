@@ -169,6 +169,8 @@ export default function AccountPage() {
 
   if (!user) return null
 
+  const defaultAvatarUrl = 'https://cdn-icons-png.flaticon.com/512/149/149071.png' // common profile icon
+
   return (
     <div className="center account-page">
       <div className="card">
@@ -194,7 +196,7 @@ export default function AccountPage() {
                 }}
               >
                 <img
-                  src={user.photo_url || 'https://via.placeholder.com/80?text=User'}
+                  src={user.photo_url || defaultAvatarUrl}
                   alt="Profile"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
