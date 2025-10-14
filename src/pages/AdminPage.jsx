@@ -717,7 +717,7 @@ export default function AdminPage() {
             { key: 'users', label: 'Users' },
             { key: 'reports', label: 'Reports' },
             { key: 'banners', label: 'Banners' },
-            { key: 'notifications', label: `Notifications${unreadCount > 0 ? ` (${unreadCount})` : ''}` },
+            { key: 'notifications', label: (unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications') },
             { key: 'chat', label: 'Chat' },
             { key: 'ai', label: 'AI Config' },
             { key: 'approvals', label: 'Approvals' }
