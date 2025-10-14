@@ -133,6 +133,33 @@ try {
   if (!hasWhats) db.prepare(`ALTER TABLE admin_config ADD COLUMN whatsapp_number TEXT`).run();
 } catch (_) {}
 
+// Payment rules per category (amount in LKR and enabled flag)
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS payment_rules (
+    category TEXT PRIMARY KEY,
+    amount INTEGER NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1
+  )
+`).run();
+
+// Seed defaults if not present
+try {
+  const defaults = [
+    ['Vehicle', 300, 1],
+    ['Property', 500, 1],
+    ['Job', 200, 1],
+    ['Electronic', 200, 1],
+    ['Mobile', 0, 1],
+    ['Home Garden', 200, 1],
+    ['Other', 200, 1]
+  ];
+  const exists = db.prepare(`SELECT COUNT(*) as c FROM payment_rules`).get().c || 0;
+  if (!exists) {
+    const ins = db.prepare(`INSERT INTO payment_rules (category, amount, enabled) VALUES (?, ?, ?)`);
+    for (const [cat, amt, en] of defaults) ins.run(cat, amt, en);
+  }
+} catch (_) {}
+
 db.prepare(`
   CREATE TABLE IF NOT EXISTS prompts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
