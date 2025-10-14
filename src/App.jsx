@@ -71,6 +71,22 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail])
 
+  async function markAllRead() {
+    if (!userEmail) return
+    const unread = notifications.filter(n => !n.is_read)
+    for (const n of unread) {
+      try {
+        await fetch(`/api/notifications/${n.id}/read`, {
+          method: 'POST',
+          headers: { 'X-User-Email': userEmail }
+        })
+      } catch (_) {}
+    }
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })))
+    setUnreadCount(0)
+  }
+
+  // Auto-mark as read when opening the dropdown
   async function toggleNotif() {
     const next = !notifOpen
     setNotifOpen(next)
@@ -94,21 +110,6 @@ export default function App() {
         }
       }
     }
-  }
-
-  async function markAllRead() {
-    if (!userEmail) return
-    const unread = notifications.filter(n => !n.is_read)
-    for (const n of unread) {
-      try {
-        await fetch(`/api/notifications/${n.id}/read`, {
-          method: 'POST',
-          headers: { 'X-User-Email': userEmail }
-        })
-      } catch (_) {}
-    }
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })))
-    setUnreadCount(0)
   }
 
   async function handleNotificationClick(n) {
