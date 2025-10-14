@@ -447,18 +447,7 @@ export default function ViewListingPage() {
           {listing?.phone && (
             <a
               className="btn accent"
-              href={`tel:${listing.phone}`}
-              aria-label="Call seller"
-              title="Call seller"
-            >
-              Call
-            </a>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+              href={`tel:${listing.phone}`
               aria-label="Call seller"
               title="Call seller"
             >
