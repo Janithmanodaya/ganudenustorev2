@@ -248,7 +248,7 @@ export default function HomePage() {
     setFilters(prev => ({ ...prev, [key]: value }))
   }
 
-  async function applyHomeFilters() {
+  async function fetchFilteredListings(sortOverride) {
     try {
       setLoading(true)
       setShowFilters(false)
@@ -256,7 +256,7 @@ export default function HomePage() {
       const params = new URLSearchParams()
       params.set('limit', String(limit))
       params.set('page', String(page))
-      const effectiveSort = filterCategory ? String(sort || 'latest') : 'random'
+      const effectiveSort = String(sortOverride || sort || 'latest')
       params.set('sort', effectiveSort)
       if (filterCategory) params.set('category', filterCategory)
       if (filterLocation) params.set('location', filterLocation)
@@ -465,7 +465,7 @@ export default function HomePage() {
                 })()}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button className="btn accent" type="button" onClick={applyHomeFilters}>
+                  <button className="btn accent" type="button" onClick={() => fetchFilteredListings()}>
                     Apply
                   </button>
                   <button className="btn" type="button" onClick={resetHomeFilters}>
@@ -481,7 +481,7 @@ export default function HomePage() {
             <div style={{ width: 240 }}>
               <CustomSelect
                 value={sort}
-                onChange={v => setSort(v)}
+                onChange={v => { setSort(v); fetchFilteredListings(v) }}
                 ariaLabel="Sort"
                 placeholder="Sort"
                 options={[
