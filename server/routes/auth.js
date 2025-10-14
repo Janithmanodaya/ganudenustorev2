@@ -355,7 +355,8 @@ router.post('/reset-password', async (req, res) => {
     console.error(e);
     return res.status(500).json({ error: 'Unexpected error.' });
   }
-});>
+});
+
 // Public user status endpoint (used by client to enforce bans/suspensions)
 router.get('/status', (req, res) => {
   try {
@@ -373,4 +374,9 @@ router.get('/status', (req, res) => {
       is_banned: !!user.is_banned,
       suspended_until: user.suspended_until || null
     });
-  } catch (;
+  } catch (e) {
+    return res.status(500).json({ error: 'Unexpected error.' });
+  }
+});
+
+export default router;
