@@ -219,7 +219,7 @@ export default function JobPortalPage() {
 
               {/* Other dynamic keys from backend (excluding duplicates and hidden fields) */}
               {filtersDef.keys
-                .filter(k => !['location','pricing_type','price','description','enhanced_description','sub_category','model','model_name','title'].includes(k))
+                .filter(k => !['location','pricing_type','price','description','enhanced_description','sub_category','model','model_name','title','category'].includes(k))
                 .map(key => (
                   <div key={key}>
                     <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
