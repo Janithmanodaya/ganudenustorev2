@@ -349,21 +349,24 @@ export default function HomePage() {
           {showFilters && (
             <div className="card" style={{ padding: 12, marginBottom: 12 }}>
               <div className="grid two">
-                <CustomSelect
-                  value={filterCategory}
-                  onChange={v => setFilterCategory(v)}
-                  ariaLabel="Category"
-                  placeholder="Category"
-                  options={[
-                    { value: '', label: 'Any' },
-                    { value: 'Vehicle', label: 'Vehicle' },
-                    { value: 'Property', label: 'Property' },
-                    { value: 'Job', label: 'Job' },
-                    { value: 'Electronic', label: 'Electronic' },
-                    { value: 'Mobile', label: 'Mobile' },
-                    { value: 'Home Garden', label: 'Home Garden' },
-                  ]}
-                />
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Category</div>
+                  <CustomSelect
+                    value={filterCategory}
+                    onChange={v => setFilterCategory(v)}
+                    ariaLabel="Category"
+                    placeholder="Category"
+                    options={[
+                      { value: '', label: 'Any' },
+                      { value: 'Vehicle', label: 'Vehicle' },
+                      { value: 'Property', label: 'Property' },
+                      { value: 'Job', label: 'Job' },
+                      { value: 'Electronic', label: 'Electronic' },
+                      { value: 'Mobile', label: 'Mobile' },
+                      { value: 'Home Garden', label: 'Home Garden' },
+                    ]}
+                  />
+                </div>
                 <input
                   className="input"
                   list="home-location-suggest"
@@ -401,27 +404,31 @@ export default function HomePage() {
                       if (hybridKeys.has(key)) {
                         // Searchable select with ability to type custom text AND choose from dropdown (mobile-friendly)
                         return (
+                          <div key={key}>
+                            <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
+                            <CustomSelect
+                              value={filters[key] || ''}
+                              onChange={val => updateFilter(key, val)}
+                              ariaLabel={key}
+                              placeholder={pretty(key)}
+                              options={opts}
+                              searchable={true}
+                              allowCustom={false}
+                            />
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={key}>
+                          <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
                           <CustomSelect
-                            key={key}
                             value={filters[key] || ''}
                             onChange={val => updateFilter(key, val)}
                             ariaLabel={key}
                             placeholder={pretty(key)}
                             options={opts}
-                            searchable={true}
-                            allowCustom={false}
                           />
-                        );
-                      }
-                      return (
-                        <CustomSelect
-                          key={key}
-                          value={filters[key] || ''}
-                          onChange={val => updateFilter(key, val)}
-                          ariaLabel={key}
-                          placeholder={pretty(key)}
-                          options={opts}
-                        />
+                        </div>
                       );
                     });
                 })()}

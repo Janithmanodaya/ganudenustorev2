@@ -122,18 +122,22 @@ export default function JobPortalPage() {
             <div className="card" style={{ padding: 12, marginTop: 12, ...white }}>
               <div className="grid two">
                 {filtersDef.keys.filter(k => !['location','pricing_type','price'].includes(k)).map(key => (
-                  <select
-                    key={key}
-                    className="select"
-                    value={filters[key] || ''}
-                    onChange={e => updateFilter(key, e.target.value)}
-                    aria-label={key}
-                  >
-                    <option value="">Any</option>
-                    {(filtersDef.valuesByKey[key] || []).map(v => (
-                      <option key={String(v)} value={String(v)}>{String(v)}</option>
-                    ))}
-                  </select>
+                  <div key={key}>
+                    <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
+                      {String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
+                    </div>
+                    <select
+                      className="select"
+                      value={filters[key] || ''}
+                      onChange={e => updateFilter(key, e.target.value)}
+                      aria-label={key}
+                    >
+                      <option value="">Any</option>
+                      {(filtersDef.valuesByKey[key] || []).map(v => (
+                        <option key={String(v)} value={String(v)}>{String(v)}</option>
+                      ))}
+                    </select>
+                  </div>
                 ))}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn" type="button" onClick={() => setFilters({})}>Clear</button>
