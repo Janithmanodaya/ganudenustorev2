@@ -241,7 +241,7 @@ export default function ViewListingPage() {
   const mainImage = images[currentIndex]
 
   return (
-    <div className="center">
+    <div className="center viewlisting has-actionbar">
       {loading && <LoadingOverlay message="Loading listing..." />}
       {showLogin && (
         <div className="card" style={{ position: 'sticky', top: 8, zIndex: 5, marginBottom: 12 }}>
@@ -255,6 +255,7 @@ export default function ViewListingPage() {
       <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
         {/* Gradient header to match Home/Job pages */}
         <div
+          className="viewlisting-hero"
           style={{
             padding: '32px 18px',
             background:
@@ -275,7 +276,7 @@ export default function ViewListingPage() {
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div className="viewlisting-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {typeof listing?.price !== 'undefined' && listing?.price !== null && (
                 <div className="price-chip large">LKR {formatPrice(listing.price)}</div>
               )}
@@ -383,6 +384,35 @@ export default function ViewListingPage() {
         </div>
 
         {status && <p style={{ marginTop: 8 }}>{status}</p>}
+      </div>
+
+      {/* Mobile sticky action bar (hidden on desktop via CSS) */}
+      <div className="mobile-actionbar">
+        {typeof listing?.price !== 'undefined' && listing?.price !== null ? (
+          <div className="price-chip">LKR {formatPrice(listing.price)}</div>
+        ) : <span />}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {listing?.phone && (
+            <a
+              className="btn accent"
+              href={isLoggedIn() ? `tel:${listing.phone}` : '#'}
+              onClick={onDial}
+              aria-label="Call seller"
+              title="Call seller"
+            >
+              Call
+            </a>
+          )}
+          <button
+            className={`btn fav-btn ${favorited ? 'active' : ''} ${favPulse ? 'pulse' : ''}`}
+            onClick={onToggleFavorite}
+            aria-label={favorited ? 'Remove favorite' : 'Add favorite'}
+            title={favorited ? 'Remove favorite' : 'Add favorite'}
+            type="button"
+          >
+            ★
+          </button>
+        </div>
       </div>
     </div>
   )

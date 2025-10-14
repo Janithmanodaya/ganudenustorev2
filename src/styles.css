@@ -437,6 +437,11 @@ body {
   border-radius: 999px;
 }
 
+/* Sticky mobile action bar (hidden by default) */
+.mobile-actionbar {
+  display: none;
+}
+
 /* ——— Mobile-first redesign without changing desktop look ——— */
 @media (max-width: 780px) {
   .topbar {
@@ -483,4 +488,33 @@ body {
 
   .footer { padding: 14px 12px; }
   .footer > div { flex-direction: column; gap: 6px !important; }
+
+  /* ViewListing mobile polish */
+  .viewlisting.has-actionbar { padding-bottom: 84px; } /* space for sticky bar */
+  .viewlisting-hero { padding: 18px !important; }
+  .viewlisting .viewlisting-header-actions { display: none; } /* hide header price/fav on mobile */
+
+  .mobile-actionbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: linear-gradient(180deg, rgba(18,22,31,0.75), rgba(18,22,31,0.9));
+    backdrop-filter: saturate(160%) blur(10px);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px var(--shadow);
+    z-index: 50;
+  }
+  .mobile-actionbar .price-chip {
+    margin-right: auto;
+    background: linear-gradient(180deg, #1a2230, #121824);
+    border-color: #0892b0;
+  }
+  .mobile-actionbar .btn { height: 42px; }
+  .mobile-actionbar .btn.accent { min-width: 90px; }
 }
