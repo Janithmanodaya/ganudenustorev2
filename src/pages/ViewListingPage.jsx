@@ -484,7 +484,7 @@ export default function ViewListingPage() {
   }
 
   const mainImage = images[currentIndex]
-  const isInteracting = (pinching || dragging || zoom > 
+  const isInteracting = (pinching || dragging || zoom > 1)
   return (
     <div className="center viewlisting has-actionbar">
       {loading && <LoadingOverlay message="Loading listing..." />}
@@ -783,7 +783,7 @@ export default function ViewListingPage() {
             <>
               {!isInteracting && (
                 <>
-                 <ibutton
+                  <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); lbPrev() }}
                     aria-label="Previous image"
@@ -794,28 +794,35 @@ export default function ViewListingPage() {
                       bottom: 0,
                       width: '24%',
                       background: 'linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0))',
-                      border'grid',
-                  placeItems: 'center'
-                }}
-              >‹</button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); lbNext() }}
-                aria-label="Next image"
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  width: '40%',
-                  background: 'linear-gradient(to left, rgba(0,0,0,0.25), rgba(0,0,0,0))',
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: 34,
-                  display: 'grid',
-                  placeItems: 'center'
-                }}
-              >›</button>
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: 34,
+                      display: 'grid',
+                      placeItems: 'center',
+                      touchAction: 'manipulation'
+                    }}
+                  >‹</button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); lbNext() }}
+                    aria-label="Next image"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      width: '24%',
+                      background: 'linear-gradient(to left, rgba(0,0,0,0.25), rgba(0,0,0,0))',
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: 34,
+                      display: 'grid',
+                      placeItems: 'center',
+                      touchAction: 'manipulation'
+                    }}
+                  >›</button>
+                </>
+              )}
             </>
           )}
         </div>
