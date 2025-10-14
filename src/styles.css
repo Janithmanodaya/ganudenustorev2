@@ -413,3 +413,60 @@ body {
   padding: 8px 12px;
   border-radius: 999px;
 }
+
+/* ——— Mobile-first redesign without changing desktop look ——— */
+@media (max-width: 780px) {
+  .topbar {
+    padding: 10px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .brand { font-size: 16px; }
+  .nav {
+    width: 100%;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a {
+    white-space: nowrap;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .content { padding: 14px; }
+  .center { max-width: 100%; padding: 0 2px; }
+
+  .hero { padding: 28px 0 20px; }
+  .h1 { font-size: 22px; }
+  .h2 { font-size: 18px; }
+
+  .searchbar { flex-direction: column; gap: 10px; }
+  .searchbar button { width: 100%; }
+
+  .quick-cats {
+    justify-content: stretch;
+    gap: 8px;
+  }
+  .quick-cats .btn {
+    min-width: 0;
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .card { border-radius: 14px; padding: 14px; }
+
+  .carousel-main { min-height: 200px; }
+  .carousel-thumbs .thumb { height: 52px; }
+
+  .details-grid { gap: 6px; }
+
+  .pagination { gap: 6px; }
+  .btn.page { min-width: 40px; padding: 10px 12px; }
+
+  .footer { padding: 14px 12px; }
+  .footer > div { flex-direction: column; gap: 6px !important; }
+}
