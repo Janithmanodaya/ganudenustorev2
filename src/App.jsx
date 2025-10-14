@@ -122,6 +122,14 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail])
 
+  // Auto-refresh unread notification count for all users (badge on bell icon)
+  useEffect(() => {
+    if (!userEmail) return
+    const timer = setInterval(loadUnread, 15000) // refresh every 15s
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userEmail])
+
   async function markAllRead() {
     if (!userEmail) return
     const unread = notifications.filter(n => !n.is_read)

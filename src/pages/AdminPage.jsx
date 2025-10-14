@@ -711,7 +711,7 @@ export default function AdminPage() {
         <p className="text-muted">Configure, monitor, and manage users, listings, and reports.</p>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8, marginBottom: 8 }}>
+       <<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8, marginBottom: 8 }}>
           {[
             { key: 'dashboard', label: 'Dashboard' },
             { key: 'users', label: 'Users' },
@@ -722,13 +722,13 @@ export default function AdminPage() {
             { key: 'ai', label: 'AI Config' },
             { key: 'approvals', label: 'Approvals' }
           ].map(t => (
-            <button
+           < button
               key={t.key}
               className="btn"
               onClick={() => setActiveTab(t.key)}
               style={{
                 borderColor: 'var(--border)',
-                background: activeTab === t.key ? 'linear-gradient(180deg, var(--primary), #5569e2)' : 'rgba(22,28,38,0.7)',
+                backgroundeg, var(--primary), #5569e2)' : 'rgba(22,28,38,0.7)',
                 color: activeTab === t.key ? '#fff' : 'var(--text)'
               }}
             >
