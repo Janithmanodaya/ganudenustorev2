@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import CustomSelect from '../components/CustomSelect.jsx'
 
@@ -18,8 +18,38 @@ export default function JobPortalPage() {
     navigate(url)
   }
 
+  const filtersCardRef = useRef(null)
+
   function quick(term) {
-    navigate(`/jobs/search?q=${encodeURIComponent(term)}`)
+    // Stay on Job Portal; update in-page filters and search input instead of navigating
+    const t = String(term || '').toLowerCase()
+    const patch = {}
+
+    if (t.includes('software')) {
+      patch.sub_category = 'IT/Software'
+    } else if (t.includes('marketing') || t.includes('sales')) {
+      patch.sub_category = 'Sales/Marketing'
+    } else if (t.includes('account')) {
+      patch.sub_category = 'Accounting/Finance'
+    } else if (t.includes('intern')) {
+      patch.employment_type = 'Internship'
+    } else if (t.includes('remote')) {
+      // No canonical structured key for remote; set the search box for convenience
+    }
+
+    // Reflect selection in the main search box
+    setQ(term)
+
+    // Apply structured filter patch
+    if (Object.keys(patch).length) {
+      setFilters(prev => ({ ...prev, ...patch }))
+    }
+
+    // Scroll the filters card into view for immediate refinement on mobile
+    try {
+      const el = filtersCardRef.current
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } catch (_) {}
   }
 
   function updateFilter(key, value) {
@@ -120,7 +150,7 @@ export default function JobPortalPage() {
 
           {/* Dynamic in-page filter: sub_category, model, and any job-specific keys */}
           {filtersDef.keys.length > 0 && (
-            <div className="card" style={{ padding: 12, marginTop: 12, ...white }}>
+            <div ref={filtersCardRef} className="card" style={{ padding: 12, marginTop: 12, ...white }}>
               <div className="grid two">
                 {filtersDef.keys.filter(k => !['location','pricing_type','price'].includes(k)).map(key => (
                   <div key={key}>
