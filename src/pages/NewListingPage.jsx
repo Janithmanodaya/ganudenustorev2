@@ -163,7 +163,7 @@ export default function NewListingPage() {
       return 'Step 1 • Provide details and up to 4 photos. Continue to review and publish.'
     }
     return 'Step 1 • Provide details and up to 5 photos. Continue to review and publish.'
-  }, [mainCategory</]))
+  }, [mainCategory])
 
   // Render grid of image slots with + for empty
   function ImageSlots() {
