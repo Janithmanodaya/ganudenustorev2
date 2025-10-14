@@ -41,6 +41,7 @@ export default function AdminPage() {
   const [notifyMessage, setNotifyMessage] = useState('')
   const [notifyTargetType, setNotifyTargetType] = useState('all') // 'all' | 'email'
   const [notifyEmail, setNotifyEmail] = useState('')
+  const [unreadCount, setUnreadCount] = useState(0)
 
   // Chat management (admin)
   const [conversations, setConversations] = useState([])
@@ -472,17 +473,29 @@ export default function AdminPage() {
       loadAdminNotifications()
       // preload conversations
       loadConversations()
+      // initial unread count
+      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail } })
+        .then(r => r.json())
+        .then(d => setUnreadCount(Number(d.unread_count) || 0))
+        .catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowed, adminEmail])
 
-  // Auto-refresh notifications when on the Notifications tab
+  // Auto-refresh notifications when on the Notifications tab (and update unread count)
   useEffect(() => {
     if (!allowed || !adminEmail) return
     if (activeTab !== 'notifications') return
+    const refresh = () => {
+      loadAdminNotifications()
+      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail } })
+        .then(r => r.json())
+        .then(d => setUnreadCount(Number(d.unread_count) || 0))
+        .catch(() => {})
+    }
     // initial refresh on entering tab
-    loadAdminNotifications()
-    const timer = setInterval(loadAdminNotifications, 15000) // every 15s
+    refresh()
+    const timer = setInterval(refresh, 15000) // every 15s
     return () => clearInterval(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowed, adminEmail, activeTab])
@@ -704,7 +717,7 @@ export default function AdminPage() {
             { key: 'users', label: 'Users' },
             { key: 'reports', label: 'Reports' },
             { key: 'banners', label: 'Banners' },
-            { key: 'notifications', label: 'Notifications' },
+            { key: 'notifications', label: `Notifications${unreadCount > 0 ? ` (${unreadCount})` : ''}` },
             { key: 'chat', label: 'Chat' },
             { key: 'ai', label: 'AI Config' },
             { key: 'approvals', label: 'Approvals' }
