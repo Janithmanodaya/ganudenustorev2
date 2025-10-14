@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import CustomSelect from '../components/CustomSelect.jsx'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
@@ -6,8 +6,6 @@ import LoadingOverlay from '../components/LoadingOverlay.jsx'
 export default function JobPortalPage() {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
-  const [searchSuggestions, setSearchSuggestions] = useState([])
-
   // Dynamic job filters
   const [filtersDef, setFiltersDef] = useState({ keys: [], valuesByKey: {} })
   const [filters, setFilters] = useState({})
@@ -100,21 +98,6 @@ export default function JobPortalPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Suggestions for the job search input (includes titles, locations, sub_category, model)
-  useEffect(() => {
-    const term = (q || '').trim()
-    if (!term) { setSearchSuggestions([]); return }
-    const ctrl = new AbortController()
-    const t = setTimeout(async () => {
-      try {
-        const r = await fetch(`/api/listings/suggestions?q=${encodeURIComponent(term)}&category=Job`, { signal: ctrl.signal })
-        const data = await r.json()
-        if (r.ok && Array.isArray(data.results)) setSearchSuggestions(data.results)
-      } catch (_) {}
-    }, 250)
-    return () => { clearTimeout(t); ctrl.abort() }
-  }, [q])
-
   function applyJobFilters() {
     // Refresh results within the Job Portal (no navigation)
     runPortalSearch()
@@ -124,6 +107,7 @@ export default function JobPortalPage() {
 
   return (
     <div className="center">
+      {loading && <LoadingOverlay message="Loading jobs..." />}
       <div className="card" style={{ padding: 0, overflow: 'hidden', ...white }}>
         <div style={{
           background: 'radial-gradient(1000px 300px at 10% -20%, rgba(0,209,255,0.25), transparent 60%), radial-gradient(1000px 300px at 90% 0%, rgba(108,127,247,0.25), transparent 60%), linear-gradient(180deg, rgba(18,22,31,0.9), rgba(18,22,31,0.6))',
@@ -176,9 +160,27 @@ export default function JobPortalPage() {
             <button className="btn" onClick={() => quick('Internship')} style={white}>🎓 Internship</button>
           </div>
 
-          {/* In-page filters: Salary, Salary Type, and other job-specific keys (no Category, Sub Category, Model, or Description) */}
+          {/* In-page filters: Title, Salary Type, Salary range, and other job-specific keys (no Category, Sub Category, Model, or Description) */}
           <div ref={filtersCardRef} className="card" style={{ padding: 12, marginTop: 12, ...white }}>
             <div className="grid two">
+              {/* Title selector (searchable, allows custom) */}
+              <div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Title</div>
+                <CustomSelect
+                  value={q}
+                  onChange={val => setQ(val)}
+                  ariaLabel="Title"
+                  placeholder="Title"
+                  options={[
+                    { value: '', label: 'Any' },
+                    ...Array.from(new Set((filtersDef.valuesByKey['sub_category'] || []).map(v => String(v))))
+                      .map(v => ({ value: v, label: v }))
+                  ]}
+                  searchable={true}
+                  allowCustom={true}
+                />
+              </div>
+
               {/* Salary Type (normalized: pricing_type) */}
               <div>
                 <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Salary Type</div>
@@ -196,20 +198,24 @@ export default function JobPortalPage() {
               </div>
 
               {/* Salary range (normalized: price_min / price_max) */}
-              <input
-                className="input"
-                type="number"
-                placeholder="Min salary"
-                value={salaryMin}
-                onChange={e => setSalaryMin(e.target.value)}
-              />
-              <input
-                className="input"
-                type="number"
-                placeholder="Max salary"
-                value={salaryMax}
-                onChange={e => setSalaryMax(e.target.value)}
-              />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input
+                  className="input"
+                  type="number"
+                  placeholder="Min salary"
+                  value={salaryMin}
+                  onChange={e => setSalaryMin(e.target.value)}
+                  style={{ width: 160 }}
+                />
+                <input
+                  className="input"
+                  type="number"
+                  placeholder="Max salary"
+                  value={salaryMax}
+                  onChange={e => setSalaryMax(e.target.value)}
+                  style={{ width: 160 }}
+                />
+              </div>
 
               {/* Other dynamic keys from backend (excluding duplicates and hidden fields) */}
               {filtersDef.keys
@@ -217,33 +223,29 @@ export default function JobPortalPage() {
                 .map(key => (
                   <div key={key}>
                     <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
-                  (e.target.value)}
-              />
-             </input
-                className="input"
-                type="number"
-                placeholder="Max salary"
-                value={salaryMax}
-                onChange={e => setSalaryMax(e.target.value)}
-              />
-
-              {/* Other dynamic keys from backend (excluding duplicates and hidden fields) */}
-              {filtersDef.keys
-                .filter(k => !['location','pricing_type','price','description','enhanced_description','sub_category','model','model_name','title'].includes(k))
-                .map(key => (
-                 < div key={key}>
-                   < div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
                       {String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
-                  </e=div>
-                   <eCustomSelect
->Clear</button>
+                    </div>
+                    <CustomSelect
+                      value={filters[key] || ''}
+                      onChange={val => updateFilter(key, val)}
+                      ariaLabel={key}
+                      placeholder={String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
+                      options={[
+                        { value: '', label: 'Any' },
+                        ...((filtersDef.valuesByKey[key] || []).map(v => ({ value: String(v), label: String(v) })))
+                      ]}
+                      searchable={true}
+                    />
+                  </div>
+                ))}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" type="button" onClick={() => setFilters({})}>Clear</button>
                 <button className="btn primary" type="button" onClick={applyJobFilters}>Apply</button>
               </div>
             </div>
           </div>
 
-          
-        <div className="h2" style={{ marginTop: 12, ...white }}>Results</div>
+          <div className="h2" style={{ marginTop: 12, ...white }}>Results</div>
           <div className="grid two">
             {results.map(job => {
               let company = ''
