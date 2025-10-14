@@ -267,9 +267,9 @@ export default function ViewListingPage() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div>
-              <div className="h1" style={{ marginBottom: 6 }}>{listing?.title || 'View Listing'}</div>
+              <div className="h1 viewlisting-title" style={{ marginBottom: 6 }}>{listing?.seo_title || listing?.title || 'View Listing'}</div>
               {listing && (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="seo-keys" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   {listing.main_category && <span className="pill">{listing.main_category}</span>}
                   {listing.status && <span className="pill">{listing.status}</span>}
                   {listing.location && <span className="pill">{listing.location}</span>}
@@ -436,15 +436,6 @@ export default function ViewListingPage() {
               Call
             </a>
           )}
-          <button
-            className={`btn fav-btn ${favorited ? 'active' : ''} ${favPulse ? 'pulse' : ''}`}
-            onClick={onToggleFavorite}
-            aria-label={favorited ? 'Remove favorite' : 'Add favorite'}
-            title={favorited ? 'Remove favorite' : 'Add favorite'}
-            type="button"
-          >
-            ★
-          </button>
         </div>
       </div>
     </div>

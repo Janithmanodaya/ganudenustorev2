@@ -500,6 +500,25 @@ body {
   .viewlisting-hero { padding: 18px !important; }
   .viewlisting .viewlisting-header-actions { display: none; } /* hide header price/fav on mobile */
 
+  /* Update title sizing on mobile */
+  .viewlisting-title {
+    font-size: 20px !important;
+    line-height: 1.25;
+    margin-bottom: 6px !important;
+  }
+
+  /* Horizontally organize SEO keys (chips) */
+  .seo-keys {
+    display: flex !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .seo-keys::-webkit-scrollbar { height: 6px; }
+  .seo-keys::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
+
   /* Show mobile-optimized blocks; hide desktop ones */
   .contact-mobile { display: block; }
   .contact-desktop { display: none; }
@@ -526,6 +545,8 @@ body {
     margin-right: auto;
     background: linear-gradient(180deg, #1a2230, #121824);
     border-color: #0892b0;
+    font-size: 14px;          /* reduced price size on mobile */
+    padding: 8px 10px;        /* smaller padding */
   }
   .mobile-actionbar .btn { height: 42px; }
   .mobile-actionbar .btn.accent { min-width: 90px; }
