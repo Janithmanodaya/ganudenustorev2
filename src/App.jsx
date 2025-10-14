@@ -323,141 +323,34 @@ export default function App() {
             ) : null}
           </div>
         </nav>
-          {/* Desktop navigation (unchanged) */}
-          <div className="nav-desktop">
-            <Link to="/">Home</Link>
-            <Link to="/new">Sell</Link>
-            <Link to="/jobs">Jobs</Link>
-            <Link to="/my-ads">My Ads</Link>
-            <Link to="/account">Account</Link>
-            {userEmail ? (
-              <div style={{ position: 'relative' }}>
-                <button
-                  ref={notifBtnRefDesktop}
-                  className="back-btn"
-                  type="button"
-                  aria-label="Notifications"
-                  title="Notifications"
-                  onClick={toggleNotif}
-                >
-                  🔔
-                </button>
-                {unreadCount > 0 && (
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      position: 'absolute',
-                      top: -2,
-                      right: -2,
-                      width: 16,
-                      height: 16,
-                      borderRadius: '999px',
-                      background: '#ef4444',
-                      color: '#fff',
-                      display: 'grid',
-                      placeItems: 'center',
-                      fontSize: 10,
-                      fontWeight: 700,
-                      boxShadow: '0 0 0 2px rgba(10,12,18,0.9)'
-                    }}
-                  >
-                    {unreadCount}
-                  </span>
-                )}
-              </div>
-            ) : null}
-          </div>
 
-          {/* Mobile navigation: dropdown on the left, then profile and notifications next to it */}
-          <div className="nav-mobile" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Left: Menu dropdown toggle (anchored to left corner) */}
-            <div style={{ position: 'relative' }}>
-              <button
-                ref={mobileMenuBtnRef}
-                className="back-btn"
-                type="button"
-                aria-label="Menu"
-                title="Menu"
-                onClick={() => setMobileMenuOpen(o => !o)}
-              >
-                ☰
-              </button>
-              {mobileMenuOpen && (
+        {/* Notifications dropdown panel */}
+        {notifOpen && (
+          <div ref={notifPanelRef} style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
+            <div className="card" style={{ width: 340, maxHeight: 420, overflow: 'auto' }}>
+              <div className="h2" style={{ marginTop: 0 }}>Notifications</div>
+              {notifications.length === 0 && <p className="text-muted">No notifications.</p>}
+              {notifications.map(n => (
                 <div
-                  ref={mobileMenuRef}
-                  className="card dropdown-panel"
-                  style={{ width: 200, padding: 8, left: 0 }}
+                  key={n.id}
+                  className="card"
+                  onClick={() => handleNotificationClick(n)}
+                  style={{ marginBottom: 8, cursor: 'pointer' }}
                 >
-                  <Link to="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
-                  <Link to="/new" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
-                  <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}>Jobs</Link>
-                  <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}>My Ads</Link>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <strong>{n.title}</strong>
+                    {!n.is_read && <span className="pill" style={{ background: 'rgba(108,127,247,0.15)', borderColor: 'transparent', color: '#c9d1ff' }}>New</span>}
+                  </div>
+                  <div className="text-muted" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.message}</div>
+                  <div className="text-muted" style={{ marginTop: 6, fontSize: 12 }}>
+                    {new Date(n.created_at).toLocaleString()}
+                    {n.target_email ? <span> • to {n.target_email}</span> : <span> • to All</span>}
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {/* Account icon (next to menu) */}
-            <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
-
-            {/* Notifications icon (next to account) */}
-            {userEmail ? (
-              <div style={{ position: 'relative' }}>
-                <button
-                  ref={notifBtnRefMobile}
-                  className="back-btn"
-                  type="button"
-                  aria-label="Notifications"
-                  title="Notifications"
-                  onClick={toggleNotif}
-                >
-                  🔔
-                </button>
-                {unreadCount > 0 && (
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      position: 'absolute',
-                      top: -2,
-                      right: -2,
-                      width: 16,
-                      height: 16,
-                      borderRadius: '999px',
-                      background: '#ef4444',
-                      color: '#fff',
-                      display: 'grid',
-                      placeItems: 'center',
-                      fontSize: 10,
-                      fontWeight: 700,
-                      boxShadow: '0 0 0 2px rgba(10,12,18,0.9)'
-                    }}
-                  >
-                    {unreadCount}
-                  </span>
-                )}
-              </div>
-            ) : null}
-          </div>
-              {/* Notifications dropdown panel */}
-          {notifOpen && (
-           </div ref={notifPanelRef} style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
-             < div className="card" style={{ width: 340, maxHeight: 420, overflow: 'auto' }}>
-               < div className="h2" style={{ marginTop: 0 }}>Notificatio</  div>
-                {notifications.length === 0 & <:p className="text-muted">No notificatio.</alp>}
-                {notifications.map(n => (
-                 <tdiv
-                    key={n.id}
-                    className="card"
-                    onClick={() => handleNotificationClick(n)}
-                    style={{ marginBottom: 8, cursor: 'pointer' }}
-                  >
-                   <mdiv style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                     < strong>{n.tit}</opstrong>
-                      {!n.is_read & <wspan className="pill" style={{ background: 'rgba(108,127,247,0.15)', borderColor: 'transparent', color: '#c9d1ff' }}>N</ •span>}
-                  </  div>
-                   < div className="text-muted" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.messa}</ 'div>
-                   <adiv className="text-muted" style={{ marginTop: 6, fontSize: 12 }}>
-                      {new Date(n.created_at).toLocaleString()}
-                      {{markAllRead} disabled={unreadCount === 0}>Mark all read</button>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8 }}>
+                <button className="btn" onClick={() => setNotifOpen(false)}>Close</button>
+                <button className="btn" onClick={markAllRead} disabled={unreadCount === 0}>Mark all read</button>
               </div>
             </div>
           </div>
