@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import CustomSelect from '../components/CustomSelect.jsx'
 
@@ -21,28 +21,13 @@ export default function JobPortalPage() {
   const filtersCardRef = useRef(null)
 
   function quick(term) {
-    // Stay on Job Portal; update in-page filters and search input instead of navigating
+    // Stay on Job Portal; set the Title (search text) instead of navigating
     const t = String(term || '').toLowerCase()
-    const patch = {}
-
-    if (t.includes('software')) {
-      patch.sub_category = 'IT/Software'
-    } else if (t.includes('marketing') || t.includes('sales')) {
-      patch.sub_category = 'Sales/Marketing'
-    } else if (t.includes('account')) {
-      patch.sub_category = 'Accounting/Finance'
-    } else if (t.includes('intern')) {
-      patch.employment_type = 'Internship'
-    } else if (t.includes('remote')) {
-      // No canonical structured key for remote; set the search box for convenience
-    }
-
-    // Reflect selection in the main search box
     setQ(term)
 
-    // Apply structured filter patch
-    if (Object.keys(patch).length) {
-      setFilters(prev => ({ ...prev, ...patch }))
+    // Special case: Internship maps to employment_type
+    if (t.includes('intern')) {
+      setFilters(prev => ({ ...prev, employment_type: 'Internship' }))
     }
 
     // Scroll the filters card into view for immediate refinement on mobile
@@ -86,6 +71,8 @@ export default function JobPortalPage() {
   function applyJobFilters() {
     const params = new URLSearchParams()
     params.set('category', 'Job')
+    const query = (q || '').trim()
+    if (query) params.set('q', query)
     if (Object.keys(filters).length) {
       params.set('filters', JSON.stringify(filters))
     }
@@ -148,28 +135,47 @@ export default function JobPortalPage() {
             <button className="btn" onClick={() => quick('Internship')} style={white}>🎓 Internship</button>
           </div>
 
-          {/* Dynamic in-page filter: sub_category, model, and any job-specific keys */}
+          {/* Dynamic in-page filter: Title + job-specific keys (without Sub Category / Model / Description) */}
           {filtersDef.keys.length > 0 && (
             <div ref={filtersCardRef} className="card" style={{ padding: 12, marginTop: 12, ...white }}>
               <div className="grid two">
-                {filtersDef.keys.filter(k => !['location','pricing_type','price'].includes(k)).map(key => (
-                  <div key={key}>
-                    <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
-                      {String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
+                {/* Title selector (replaces Model name / Sub Category) */}
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Title</div>
+                  <CustomSelect
+                    value={q}
+                    onChange={val => setQ(val)}
+                    ariaLabel="Title"
+                    placeholder="Title"
+                    options={[
+                      { value: '', label: 'Any' },
+                      ...Array.from(new Set((filtersDef.valuesByKey['sub_category'] || []).map(v => String(v)))).map(v => ({ value: v, label: v }))
+                    ]}
+                    searchable={true}
+                    allowCustom={true}
+                  />
+                </div>
+
+                {filtersDef.keys
+                  .filter(k => !['location','pricing_type','price','description','enhanced_description','sub_category','model','model_name'].includes(k))
+                  .map(key => (
+                    <div key={key}>
+                      <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
+                        {String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
+                      </div>
+                      <CustomSelect
+                        value={filters[key] || ''}
+                        onChange={val => updateFilter(key, val)}
+                        ariaLabel={key}
+                        placeholder={String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
+                        options={[
+                          { value: '', label: 'Any' },
+                          ...((filtersDef.valuesByKey[key] || []).map(v => ({ value: String(v), label: String(v) })))
+                        ]}
+                        searchable={true}
+                      />
                     </div>
-                    <CustomSelect
-                      value={filters[key] || ''}
-                      onChange={val => updateFilter(key, val)}
-                      ariaLabel={key}
-                      placeholder={String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
-                      options={[
-                        { value: '', label: 'Any' },
-                        ...((filtersDef.valuesByKey[key] || []).map(v => ({ value: String(v), label: String(v) })))
-                      ]}
-                      searchable={true}
-                    />
-                  </div>
-                ))}
+                  ))}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn" type="button" onClick={() => setFilters({})}>Clear</button>
                   <button className="btn primary" type="button" onClick={applyJobFilters}>Apply</button>
