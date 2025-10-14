@@ -409,7 +409,7 @@ export default function HomePage() {
                             placeholder={`${pretty(key)} (any)`}
                             options={opts}
                             searchable={true}
-                            allowCustom={true}
+                            allowCustom={false}
                           />
                         );
                       }
