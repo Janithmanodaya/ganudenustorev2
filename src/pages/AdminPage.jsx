@@ -29,6 +29,7 @@ export default function AdminPage() {
   // Users management
   const [users, setUsers] = useState([])
   const [userQuery, setUserQuery] = useState('')
+  const [suspendDays, setSuspendDays] = useState(7)
 
   // Reports management
   const [reports, setReports] = useState([])
@@ -238,7 +239,11 @@ export default function AdminPage() {
 
   async function suspend7Days(id) {
     try {
-      const r = await fetch(`/api/admin/users/${id}/suspend7`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/users/${id}/suspend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+        body: JSON.stringify({ days: Number(suspendDays) || 7 })
+      })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Failed to suspend user')
       loadUsers(userQuery)
@@ -805,6 +810,22 @@ export default function AdminPage() {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" onClick={() => loadUsers(userQuery)}>Search</button>
                 <button className="btn" onClick={() => { setUserQuery(''); loadUsers(''); }}>Reset</button>
+              </div>
+            </div>
+            <div className="grid two" style={{ marginTop: 8 }}>
+              <div>
+                <label className="text-muted">Suspend days</label>
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={suspendDays}
+                  onChange={e => setSuspendDays(Math.max(1, Math.min(365, Number(e.target.value || 1))))}
+                />
+              </div>
+              <div className="text-muted" style={{ display: 'flex', alignItems: 'center' }}>
+                This value is used when clicking “Suspend” on a user.
               </div>
             </div>
             <div className="grid two" style={{ marginTop: 8 }}>

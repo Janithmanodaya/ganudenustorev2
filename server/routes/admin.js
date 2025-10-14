@@ -608,6 +608,34 @@ router.post('/users/:id/suspend7', requireAdmin, (req, res) => {
   res.json({ ok: true, suspended_until: until });
 });
 
+// Suspend with custom day count
+router.post('/users/:id/suspend', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  let days = Number(req.body?.days);
+  if (!Number.isFinite(days) || days <= 0) days = 7; // default/fallback
+  if (days > 365) days = 365; // sanity limit 1 year max
+  const until = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+  db.prepare(`UPDATE users SET is_banned = 0, suspended_until = ? WHERE id = ?`).run(until, id);
+
+  // Notify the user about suspension
+  try {
+    const user = db.prepare(`SELECT email FROM users WHERE id = ?`).get(id);
+    if (user?.email) {
+      const untilDate = new Date(until);
+      db.prepare(`
+        INSERT INTO notifications (title, message, target_email, created_at, type)
+        VALUES (?, ?, ?, ?, 'suspend')
+      `).run(
+        'Account Suspended',
+        `Your account has been temporarily suspended for ${days} day(s), until ${untilDate.toLocaleString()}. You won't be able to log in during this period.`,
+        String(user.email).toLowerCase().trim(),
+        new Date().toISOString()
+      );
+    }
+  } catch (_) {}
+  res.json({ ok: true, suspended_until: until, days });
+});
+
 // Unsuspend user (clear suspension)
 router.post('/users/:id/unsuspend', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
