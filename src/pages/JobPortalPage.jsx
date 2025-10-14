@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import CustomSelect from '../components/CustomSelect.jsx'
+import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
 export default function JobPortalPage() {
   const navigate = useNavigate()
@@ -10,6 +11,9 @@ export default function JobPortalPage() {
   // Dynamic job filters
   const [filtersDef, setFiltersDef] = useState({ keys: [], valuesByKey: {} })
   const [filters, setFilters] = useState({})
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [status, setStatus] = useState(null)
 
   function onSearch(e) {
     e.preventDefault()
@@ -26,8 +30,10 @@ export default function JobPortalPage() {
     setQ(term)
 
     // Special case: Internship maps to employment_type
+    let extra = {}
     if (t.includes('intern')) {
-      setFilters(prev => ({ ...prev, employment_type: 'Internship' }))
+      extra = { employment_type: 'Internship' }
+      setFilters(prev => ({ ...prev, ...extra }))
     }
 
     // Scroll the filters card into view for immediate refinement on mobile
@@ -35,6 +41,35 @@ export default function JobPortalPage() {
       const el = filtersCardRef.current
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     } catch (_) {}
+
+    // Immediately refresh results on the portal based on the quick selection
+    runPortalSearch(extra, term)
+  }
+
+  async function runPortalSearch(extraFilters = {}, queryOverride = null) {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams()
+      params.set('category', 'Job')
+      const query = String(queryOverride != null ? queryOverride : q).trim()
+      if (query) params.set('q', query)
+
+      const eff = { ...(filters || {}), ...(extraFilters || {}) }
+      const effClean = Object.fromEntries(Object.entries(eff).filter(([_, v]) => v != null && String(v) !== ''))
+      if (Object.keys(effClean).length) {
+        params.set('filters', JSON.stringify(effClean))
+      }
+
+      const r = await fetch(`/api/listings/search?${params.toString()}`)
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data?.error || 'Failed to load jobs')
+      setResults(Array.isArray(data.results) ? data.results : [])
+      setStatus(null)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    } finally {
+      setLoading(false)
+    }
   }
 
   function updateFilter(key, value) {
@@ -53,6 +88,12 @@ export default function JobPortalPage() {
     loadFilters()
   }, [])
 
+  // Initial jobs load on portal
+  useEffect(() => {
+    runPortalSearch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Suggestions for the job search input (includes titles, locations, sub_category, model)
   useEffect(() => {
     const term = (q || '').trim()
@@ -69,14 +110,8 @@ export default function JobPortalPage() {
   }, [q])
 
   function applyJobFilters() {
-    const params = new URLSearchParams()
-    params.set('category', 'Job')
-    const query = (q || '').trim()
-    if (query) params.set('q', query)
-    if (Object.keys(filters).length) {
-      params.set('filters', JSON.stringify(filters))
-    }
-    navigate(`/jobs/search?${params.toString()}`)
+    // Refresh results within the Job Portal (no navigation)
+    runPortalSearch()
   }
 
   const white = { color: '#fff' }
@@ -185,6 +220,49 @@ export default function JobPortalPage() {
           )}
 
           
+        <div className="h2" style={{ marginTop: 12, ...white }}>Results</div>
+          <div className="grid two">
+            {results.map(job => {
+              let company = ''
+              let employment = ''
+              let exp = ''
+              try {
+                const sj = JSON.parse(job.structured_json || '{}')
+                company = sj.company || sj.employer || ''
+                employment = sj.employment_type || ''
+                exp = sj.experience_level || ''
+              } catch (_) {}
+              const salary = job.price != null ? String(job.price) : ''
+              return (
+                <div key={job.id} className="card">
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    {job.thumbnail_url && (
+                      <img src={job.thumbnail_url} alt={job.title} style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover' }} />
+                    )}
+                    <div>
+                      <div className="h2" style={{ margin: 0 }}>{job.title}</div>
+                      <div className="text-muted" style={{ marginTop: 2 }}>
+                        {company ? company + ' • ' : ''}{employment || '—'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-muted" style={{ marginTop: 8 }}>
+                    {job.location ? job.location : ''}{exp ? ` • ${exp}` : ''}{salary ? ` • ${salary}` : ''}{job.pricing_type ? ` • ${job.pricing_type}` : ''}
+                  </div>
+
+                  <p className="text-muted" style={{ marginTop: 8 }}>{job.seo_description || (job.description || '').slice(0, 180)}</p>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Link className="btn" to={`/listing/${job.id}`}>View</Link>
+                    <button className="btn" onClick={() => navigate(`/listing/${job.id}`)}>Apply</button>
+                  </div>
+                </div>
+              )
+            })}
+            {results.length === 0 && <p className="text-muted">No jobs found.</p>}
+          </div>
+
+          {status && <p style={{ marginTop: 8 }}>{status}</p>}
         </div>
       </div>
     </div>
