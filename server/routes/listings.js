@@ -392,8 +392,7 @@ router.post('/draft', upload.array('images', 5), async (req, res) => {
 
     // Validate using the selected category (so Job image rule applies correctly)
     const validationError = validateListingInputs({ main_category: selectedCategory, title, description, files });
-    if (validationError) return res.status(400).json({ error: validationError }new)</;
-;
+    if (validationError) return res.status(400).json({ error: validationError });
 
     for (const f of files) {
       try {
@@ -595,7 +594,7 @@ Do not confuse employment_type with general 'type' fields for other categories.`
         const inferred = extractVehicleSubCategory(rawText);
         if (inferred) structuredObj.sub_category = inferred;
       }
-   new
+    }
 
     // Generic sub-category inference for other main categories (fallback if Gemini didn't provide one)
     function inferSubCategoryForMain(mainCat, text) {
