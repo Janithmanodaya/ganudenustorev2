@@ -1249,7 +1249,7 @@ router.get('/my', (req, res) => {
     if (!email) return res.status(401).json({ error: 'Missing user email' });
 
     const rows = db.prepare(`
-      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason
       FROM listings
       WHERE owner_email = ?
       ORDER BY created_at DESC
