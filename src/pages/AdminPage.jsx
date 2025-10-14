@@ -729,7 +729,7 @@ export default function AdminPage() {
             <div className="h2" style={{ marginTop: 8 }}>Homepage Banners</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
               <button className="btn" onClick={() => fileRef.current?.click()}>Upload Banner</button>
-              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onUploadBanner(e.target.files?.[0] || null)} />
+              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onUploadBanner((e.target.files && e.target.files[0]) || null)} />
               <small className="text-muted">Recommended wide ratio (e.g., 3:1). JPG or PNG, up to 5MB.</small>
             </div>
             <div className="grid three">
