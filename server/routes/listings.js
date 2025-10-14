@@ -173,10 +173,19 @@ function validateListingInputs({ main_category, title, description, files }) {
   if (!main_category || !CATEGORIES.has(String(main_category))) return 'Invalid main_category.';
   if (!title || String(title).trim().length < 3 || String(title).trim().length > 120) return 'Title must be between 3 and 120 characters.';
   if (!description || String(description).trim().length < 10 || String(description).trim().length > 5000) return 'Description must be between 10 and 5000 characters.';
-  const isJob = String(main_category) === 'Job';
+
+  const cat = String(main_category);
+  const isJob = cat === 'Job';
+  const isMobile = cat === 'Mobile';
+  const isElectronic = cat === 'Electronic';
+  const isHomeGarden = cat === 'Home Garden';
+
   if (!Array.isArray(files) || files.length < 1) return 'At least 1 image is required.';
   if (isJob && files.length !== 1) return 'Job listings must include exactly 1 image.';
-  if (!isJob && files.length > 5) return 'Images: min 1, max 5.';
+
+  const maxFiles = (isMobile || isElectronic || isHomeGarden) ? 4 : 5;
+  if (!isJob && files.length > maxFiles) return 'Images: min 1, max ' + maxFiles + '.';
+
   for (const f of files) {
     if (f.size > 5 * 1024 * 1024) return 'File ' + f.originalname + ' exceeds 5MB.';
     if (!String(f.mimetype).startsWith('image/')) return 'File ' + f.originalname + ' is not an image.';
