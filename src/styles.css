@@ -437,6 +437,19 @@ body {
   border-radius: 999px;
 }
 
+/* Sticky mobile action bar (hidden by default) */
+.mobile-actionbar {
+  display: none;
+}
+
+/* Desktop default visibility for duplicated elements */
+.contact-mobile { display: none; }
+.contact-desktop { display: block; }
+.desc-mobile { display: none; }
+.desc-desktop { display: block; }
+.report-mobile { display: none; }
+.report-desktop { display: block; }
+
 /* ——— Mobile-first redesign without changing desktop look ——— */
 @media (max-width: 780px) {
   .topbar {
@@ -483,4 +496,86 @@ body {
 
   .footer { padding: 14px 12px; }
   .footer > div { flex-direction: column; gap: 6px !important; }
+
+  /* ViewListing mobile polish */
+  .viewlisting.has-actionbar { padding-bottom: 84px; } /* space for sticky bar */
+  .viewlisting-hero { padding: 18px !important; }
+  .viewlisting .viewlisting-header-actions { display: none !important; } /* hide header price/fav on mobile (override inline) */
+
+  /* Update title sizing on mobile */
+  .viewlisting-title {
+    font-size: 22px !important;   /* slightly increased */
+    line-height: 1.25;
+    margin-bottom: 4px !important; /* closer to keywords */
+  }
+
+  /* Horizontally organize SEO keys (chips) and bring them closer */
+  .seo-keys {
+    display: flex !important;
+    gap: 6px !important;           /* tighter spacing between pills */
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    margin-top: 2px;               /* closer to title */
+    -webkit-overflow-scrolling: touch;
+  }
+  .seo-keys .pill {
+    font-size: 11px;               /* reduced chip text size */
+    padding: 4px 8px;              /* smaller chip height */
+  }
+  .seo-keys::-webkit-scrollbar { height: 6px; }
+  .seo-keys::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
+
+  /* Show mobile-optimized blocks; hide desktop ones */
+  .contact-mobile { display: block; }
+  .contact-desktop { display: none; }
+  .desc-mobile { display: block; }
+  .desc-desktop { display: none; }
+
+  .mobile-actionbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: linear-gradient(180deg, rgba(18,22,31,0.75), rgba(18,22,31,0.9));
+    backdrop-filter: saturate(160%) blur(10px);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px var(--shadow);
+    z-index: 50;
+  }
+  .mobile-actionbar .price-chip {
+    margin-right: auto;
+    background: linear-gradient(180deg, #1a2230, #121824);
+    border-color: #0892b0;
+    font-size: 14px;          /* reduced price size on mobile */
+    padding: 8px 10px;        /* smaller padding */
+  }
+  .mobile-actionbar .btn { height: 42px; }
+  .mobile-actionbar .btn.accent { min-width: 90px; }
+
+  /* Show mobile report button; hide desktop one */
+  .report-mobile { 
+    display: block; 
+    margin: 16px 14px 12px !important;  /* lift it a bit and add space */
+    padding-top: 12px; 
+    border-top: 1px solid var(--border); /* visual separation from content above */
+  }
+  .report-mobile .btn { 
+    width: auto;                 /* small, not full-width */
+    padding: 6px 10px;           /* smaller size */
+    font-size: 12px;
+    font-weight: 500;
+    background: transparent;     /* not highlighted */
+    border-color: var(--border);
+    color: var(--muted);
+  }
+  .report-mobile .btn:hover {
+    background: rgba(255,255,255,0.04);
+  }
+  .report-desktop { display: none; }
 }

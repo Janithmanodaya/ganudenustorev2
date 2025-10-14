@@ -13,6 +13,7 @@ export default function ViewListingPage() {
   const [loading, setLoading] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [favPulse, setFavPulse] = useState(false)
+  const [descOpen, setDescOpen] = useState(false)
 
   function getUser() {
     try { return JSON.parse(localStorage.getItem('user') || 'null') } catch (_) { return null }
@@ -28,6 +29,16 @@ export default function ViewListingPage() {
     const v = typeof n === 'number' ? n : Number(n)
     if (!isFinite(v)) return String(n ?? '')
     return v.toLocaleString('en-US')
+  }
+
+  // Make a professional Title Case (e.g., "honda dio" -> "Honda Dio")
+  function formatTitleCase(s) {
+    const str = String(s || '').trim()
+    if (!str) return ''
+    return str
+      .split(/\s+/)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ')
   }
 
   // Load listing
@@ -72,7 +83,8 @@ export default function ViewListingPage() {
   // Dynamic SEO based on listing fields + OpenGraph/Twitter + canonical + JSON-LD
   useEffect(() => {
     if (!listing) return
-    const title = listing.seo_title || listing.title || 'Listing'
+    const rawTitle = listing.seo_title || listing.title || 'Listing'
+    const title = formatTitleCase(rawTitle)
     const desc = listing.seo_description || listing.description || ''
     const url = `https://ganudenu.store/listing/${listing.id}`
     document.title = title
@@ -130,7 +142,7 @@ export default function ViewListingPage() {
       const jsonld = {
         "@context": "https://schema.org",
         "@type": "Product",
-        name: listing.title,
+        name: title,
         description: desc,
         offers: price != null ? {
           "@type": "Offer",
@@ -241,7 +253,7 @@ export default function ViewListingPage() {
   const mainImage = images[currentIndex]
 
   return (
-    <div className="center">
+    <div className="center viewlisting has-actionbar">
       {loading && <LoadingOverlay message="Loading listing..." />}
       {showLogin && (
         <div className="card" style={{ position: 'sticky', top: 8, zIndex: 5, marginBottom: 12 }}>
@@ -255,6 +267,7 @@ export default function ViewListingPage() {
       <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
         {/* Gradient header to match Home/Job pages */}
         <div
+          className="viewlisting-hero"
           style={{
             padding: '32px 18px',
             background:
@@ -265,9 +278,12 @@ export default function ViewListingPage() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div>
-              <div className="h1" style={{ marginBottom: 6 }}>{listing?.title || 'View Listing'}</div>
+              <div className="h1 viewlisting-title" style={{ marginBottom: 6 }}>
+                {formatTitleCase(listing?.seo_title || listing?.title || 'View Listing')}
+              </div>
+
               {listing && (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="seo-keys" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   {listing.main_category && <span className="pill">{listing.main_category}</span>}
                   {listing.status && <span className="pill">{listing.status}</span>}
                   {listing.location && <span className="pill">{listing.location}</span>}
@@ -275,7 +291,7 @@ export default function ViewListingPage() {
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div className="viewlisting-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {typeof listing?.price !== 'undefined' && listing?.price !== null && (
                 <div className="price-chip large">LKR {formatPrice(listing.price)}</div>
               )}
@@ -340,13 +356,41 @@ export default function ViewListingPage() {
               </div>
             )}
 
-            <div className="h2" style={{ marginTop: 16 }}>Description</div>
-            <p>{listing?.description}</p>
+            {/* Contact (mobile-first duplicate, hidden on desktop via CSS) */}
+            {listing?.phone ? (
+              <div className="card contact-mobile" style={{ marginTop: 16 }}>
+                <div className="h2" style={{ marginTop: 0 }}>Contact</div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <a
+                    className="btn primary"
+                    href={`tel:${listing.phone}`}
+                  >
+                    {formatPhoneDisplay(listing.phone)}
+                  </a>
+                  {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
+                </div>
+              </div>
+            ) : null}
 
-            {/* Actions */}
-            <div style={{ margin: '14px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn" onClick={onReport}>Report this listing</button>
+            <div className="h2" style={{ marginTop: 16 }}>Description</div>
+            {/* Desktop full description */}
+            <div className="desc-desktop">
+              <p>{listing?.description}</p>
             </div>
+            {/* Mobile collapsible description */}
+            <div className="desc-mobile">
+              <p style={{ whiteSpace: 'pre-wrap' }}>
+                {descOpen ? (listing?.description || '') : String(listing?.description || '').slice(0, 180)}
+                {(!descOpen && String(listing?.description || '').length > 180) ? '…' : ''}
+              </p>
+              {String(listing?.description || '').length > 180 && (
+                <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
+                  {descOpen ? 'Show less' : 'Read more'}
+                </button>
+              )}
+            </div>
+
+            
           </div>
 
           {/* Right: Key details */}
@@ -362,15 +406,14 @@ export default function ViewListingPage() {
               ))}
             </div>
 
-            {/* Contact info card */}
+            {/* Contact info card (desktop) */}
             {listing?.phone && (
-              <div className="card" style={{ marginTop: 16 }}>
+              <div className="card contact-desktop" style={{ marginTop: 16 }}>
                 <div className="h2" style={{ marginTop: 0 }}>Contact</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <a
                     className="btn primary"
-                    href={isLoggedIn() ? `tel:${listing.phone}` : '#'}
-                    onClick={onDial}
+                    href={`tel:${listing.phone}`}
                   >
                     {formatPhoneDisplay(listing.phone)}
                   </a>
@@ -378,11 +421,40 @@ export default function ViewListingPage() {
                 </div>
               </div>
             )}
+
+            {/* Desktop: Report button moved under contact card, right-aligned */}
+            <div className="report-desktop" style={{ marginTop: 8, textAlign: 'right' }}>
+              <button className="btn" onClick={onReport} type="button">Report this listing</button>
+            </div>
           </div>
           </div>
         </div>
 
+        {/* Mobile: Report button moved away from description read-more, placed at bottom of card */}
+        <div className="report-mobile" style={{ margin: '12px 18px 0' }}>
+          <button className="btn" onClick={onReport} type="button">Report this listing</button>
+        </div>
+
         {status && <p style={{ marginTop: 8 }}>{status}</p>}
+      </div>
+
+      {/* Mobile sticky action bar (hidden on desktop via CSS) */}
+      <div className="mobile-actionbar">
+        {typeof listing?.price !== 'undefined' && listing?.price !== null ? (
+          <div className="price-chip">LKR {formatPrice(listing.price)}</div>
+        ) : <span />}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {listing?.phone && (
+            <a
+              className="btn accent"
+              href={`tel:${listing.phone}`}
+              aria-label="Call seller"
+              title="Call seller"
+            >
+              Call
+            </a>
+          )}
+        </div>
       </div>
     </div>
   )
