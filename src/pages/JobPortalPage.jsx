@@ -14,6 +14,8 @@ export default function JobPortalPage() {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState(null)
+  const [salaryMin, setSalaryMin] = useState('')
+  const [salaryMax, setSalaryMax] = useState('')
 
   function onSearch(e) {
     e.preventDefault()
@@ -53,6 +55,10 @@ export default function JobPortalPage() {
       params.set('category', 'Job')
       const query = String(queryOverride != null ? queryOverride : q).trim()
       if (query) params.set('q', query)
+
+      // Salary range as normalized query params
+      if (salaryMin) params.set('price_min', String(salaryMin))
+      if (salaryMax) params.set('price_max', String(salaryMax))
 
       const eff = { ...(filters || {}), ...(extraFilters || {}) }
       const effClean = Object.fromEntries(Object.entries(eff).filter(([_, v]) => v != null && String(v) !== ''))
@@ -170,37 +176,68 @@ export default function JobPortalPage() {
             <button className="btn" onClick={() => quick('Internship')} style={white}>🎓 Internship</button>
           </div>
 
-          {/* Dynamic in-page filter: job-specific keys (no Category, Sub Category, Model, or Description) */}
-          {filtersDef.keys.length > 0 && (
-            <div ref={filtersCardRef} className="card" style={{ padding: 12, marginTop: 12, ...white }}>
-              <div className="grid two">
-                {filtersDef.keys
-                  .filter(k => !['location','pricing_type','price','description','enhanced_description','sub_category','model','model_name','title'].includes(k))
-                  .map(key => (
-                    <div key={key}>
-                      <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
-                        {String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
-                      </div>
-                      <CustomSelect
-                        value={filters[key] || ''}
-                        onChange={val => updateFilter(key, val)}
-                        ariaLabel={key}
-                        placeholder={String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
-                        options={[
-                          { value: '', label: 'Any' },
-                          ...((filtersDef.valuesByKey[key] || []).map(v => ({ value: String(v), label: String(v) })))
-                        ]}
-                        searchable={true}
-                      />
+          {/* In-page filters: Salary, Salary Type, and other job-specific keys (no Category, Sub Category, Model, or Description) */}
+          <div ref={filtersCardRef} className="card" style={{ padding: 12, marginTop: 12, ...white }}>
+            <div className="grid two">
+              {/* Salary Type (normalized: pricing_type) */}
+              <div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Salary Type</div>
+                <CustomSelect
+                  value={filters['pricing_type'] || ''}
+                  onChange={val => updateFilter('pricing_type', val)}
+                  ariaLabel="Salary Type"
+                  placeholder="Salary Type"
+                  options={[
+                    { value: '', label: 'Any' },
+                    ...((filtersDef.valuesByKey['pricing_type'] || []).map(v => ({ value: String(v), label: String(v) })))
+                  ]}
+                  searchable={true}
+                />
+              </div>
+
+              {/* Salary range (normalized: price_min / price_max) */}
+              <input
+                className="input"
+                type="number"
+                placeholder="Min salary"
+                value={salaryMin}
+                onChange={e => setSalaryMin(e.target.value)}
+              />
+              <input
+                className="input"
+                type="number"
+                placeholder="Max salary"
+                value={salaryMax}
+                onChange={e => setSalaryMax(e.target.value)}
+              />
+
+              {/* Other dynamic keys from backend (excluding duplicates and hidden fields) */}
+              {filtersDef.keys
+                .filter(k => !['location','pricing_type','price','description','enhanced_description','sub_category','model','model_name','title'].includes(k))
+                .map(key => (
+                  <div key={key}>
+                    <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
+                      {String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
                     </div>
-                  ))}
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn" type="button" onClick={() => setFilters({})}>Clear</button>
-                  <button className="btn primary" type="button" onClick={applyJobFilters}>Apply</button>
-                </div>
+                    <CustomSelect
+                      value={filters[key] || ''}
+                      onChange={val => updateFilter(key, val)}
+                      ariaLabel={key}
+                      placeholder={String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
+                      options={[
+                        { value: '', label: 'Any' },
+                        ...((filtersDef.valuesByKey[key] || []).map(v => ({ value: String(v), label: String(v) })))
+                      ]}
+                      searchable={true}
+                    />
+                  </div>
+                ))}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" type="button" onClick={() => setFilters({})}>Clear</button>
+                <button className="btn primary" type="button" onClick={applyJobFilters}>Apply</button>
               </div>
             </div>
-          )}
+          </div>
 
           
         <div className="h2" style={{ marginTop: 12, ...white }}>Results</div>
