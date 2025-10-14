@@ -664,7 +664,7 @@ export default function HomePage() {
 
           {/* Glass-morphism sliding buttons */}
           <button
-            className="btn"
+            className="btn feature-nav"
             type="button"
             aria-label="Scroll features left"
             onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: -300, behavior: 'smooth' }) }}
@@ -691,7 +691,7 @@ export default function HomePage() {
             onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
           >{'<'}</button>
           <button
-            className="btn"
+            className="btn feature-nav"
             type="button"
             aria-label="Scroll features right"
             onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: 300, behavior: 'smooth' }) }}
