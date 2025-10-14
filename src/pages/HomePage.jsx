@@ -725,7 +725,7 @@ export default function HomePage() {
               }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, textAlign: 'center' }}>
-                <button
+               <<button
                   className="btn primary"
                   onClick={() => navigate('/new')}
                   aria-label="Post your first ad"
