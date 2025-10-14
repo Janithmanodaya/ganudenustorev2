@@ -740,7 +740,7 @@ export default function HomePage() {
                     background:
                       'radial-gradient(120px 80px at 30% 0%, rgba(255,255,255,0.25), transparent 60%), ' +
                       '#6c7ff7',
-                    boxShadow: '0 8px 18px rgba(108,127,247,0.45)',
+                    boxShadow: '0 10px 25px rgba(108,127,247,0.55)',
                     position: 'relative',
                     overflow: 'visible'
                   }}

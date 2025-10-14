@@ -286,9 +286,9 @@ export default function App() {
 
             {/* Notifications icon (kept separate on mobile) */}
             {userEmail ? (
-             <<div style={{ position: 'relative' }}>
-               <<button
-                  ref={notifBtnRef}
+              <div style={{ position: 'relative' }}>
+                <button
+                  ref={notifBtnRefMobile}
                   className="back-btn"
                   type="button"
                   aria-label="Notifications"
