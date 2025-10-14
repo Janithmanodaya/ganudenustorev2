@@ -31,6 +31,16 @@ export default function ViewListingPage() {
     return v.toLocaleString('en-US')
   }
 
+  // Make a professional Title Case (e.g., "honda dio" -> "Honda Dio")
+  function formatTitleCase(s) {
+    const str = String(s || '').trim()
+    if (!str) return ''
+    return str
+      .split(/\s+/)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ')
+  }
+
   // Load listing
   useEffect(() => {
     async function load() {
@@ -73,8 +83,8 @@ export default function ViewListingPage() {
   // Dynamic SEO based on listing fields + OpenGraph/Twitter + canonical + JSON-LD
   useEffect(() => {
     if (!listing) return
-    const title = listing.seo_title || listing.title || 'Listing'
-    const desc = listing.seo_description || listing.description || ''
+    const rawTitle = listing.seo_title || listing.title || 'Listing'
+    const title = formatTitlecription || listing.description || ''
     const url = `https://ganudenu.store/listing/${listing.id}`
     document.title = title
 
@@ -267,7 +277,8 @@ export default function ViewListingPage() {
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div>
-              <div className="h1 viewlisting-title" style={{ marginBottom: 6 }}>{listing?.seo_title || listing?.title || 'View Listing'}</div>
+              <div className="h1 viewlisting-title" style={{ marginBottom: 6 }}>{formatTitleCase(listing?.seo_title || listing?.title || 'View Listi')}</ng_codedinewv</>
+
               {listing && (
                 <div className="seo-keys" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   {listing.main_category && <span className="pill">{listing.main_category}</span>}
