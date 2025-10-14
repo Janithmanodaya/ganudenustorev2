@@ -262,9 +262,9 @@ function normalizeStructuredData(obj) {
   // Model name
   s.model_name = String(s.model_name ?? s.model ?? s.vehicle_model ?? '').trim();
 
-  // Sub-category (vehicle type) - normalize common keys to one canonical field
+  // Sub-category: vehicle types or category-specific hint. Avoid using generic "type" which can be employment type for jobs.
   let subCat = String(
-    s.sub_category ?? s.subcategory ?? s.vehicle_subcategory ?? s.vehicle_type ?? s.type ?? ''
+    s.sub_category ?? s.subcategory ?? s.vehicle_subcategory ?? s.vehicle_type ?? ''
   ).trim();
   if (subCat) {
     const low = subCat.toLowerCase();
@@ -318,8 +318,53 @@ function normalizeStructuredData(obj) {
   }
   s.pricing_type = pt || 'Negotiable';
 
+  // Job-specific normalizations
+  // Employment type
+  const employment = String(s.employment_type ?? s.job_type ?? s.employment ?? '').trim();
+  if (employment) s.employment_type = employment.charAt(0).toUpperCase() + employment.slice(1);
+  // Company
+  const company = String(s.company ?? s.company_name ?? s.employer ?? '').trim();
+  if (company) s.company = company;
+  // Salary -> map to price if price missing
+  let salaryCandidate = s.salary ?? s.salary_lkr ?? s.expected_salary ?? s.pay ?? s.compensation;
+  if (salaryCandidate != null && (s.price == null || s.price === '')) {
+    if (typeof salaryCandidate === 'string') {
+      const raw = salaryCandidate.trim().toLowerCase();
+      const kMatch = raw.match(/^([0-9]+(?:\.[0-9]+)?)\s*k$/i);
+      const lakhMatch = raw.match(/^([0-9]+(?:\.[0-9]+)?)\s*lakh(s)?$/i);
+      const millionMatch = raw.match(/^([0-9]+(?:\.[0-9]+)?)\s*(mn|m|million)$/i);
+      if (kMatch) salaryCandidate = Number(kMatch[1]) * 1000;
+      else if (lakhMatch) salaryCandidate = Number(lakhMatch[1]) * 100000;
+      else if (millionMatch) salaryCandidate = Number(millionMatch[1]) * 1000000;
+      else {
+        const num = parseFloat(String(salaryCandidate).replace(/[^0-9.]/g, ''));
+        salaryCandidate = Number.isFinite(num) ? num : null;
+      }
+    } else if (typeof salaryCandidate !== 'number') {
+      salaryCandidate = null;
+    }
+    if (salaryCandidate != null) s.price = salaryCandidate;
+  }
+  // Salary type -> map to pricing_type
+  let st = String(s.salary_type ?? s.compensation_type ?? '').trim();
+  if (st) {
+    const lowst = st.toLowerCase();
+    if (lowst.includes('negotiable') || lowst.includes('nego')) st = 'Negotiable';
+    else if (lowst.includes('fixed')) st = 'Fixed Price';
+    s.pricing_type = s.pricing_type || st;
+  }
+
   // Phone
-  let phone = String(s.phone ?? s.phone_number ?? s.contact_phone ?? s.mobile ?? s.contact ?? '').trim();
+  let phone = String(
+    s.phone ??
+    s.phone_number ??
+    s.contact_phone ??
+    s.mobile ??
+    s.contact ??
+    s.whatsapp ??
+    s.whatsapp_number ??
+    ''
+  ).trim();
   s.phone = phone;
 
   return s;
@@ -337,13 +382,18 @@ router.post('/draft', upload.array('images', 5), async (req, res) => {
     const key = getGeminiKey();
     if (!key) return res.status(400).json({ error: 'Gemini API key not configured.' });
 
-    // Always classify the category using Gemini; ignore user choice if it differs.
-    let predictedCategory = await classifyMainCategory(key, title, description);
-    if (!CATEGORIES.has(String(predictedCategory))) predictedCategory = 'Vehicle';
+    // Respect user-selected main_category when valid; otherwise fall back to Gemini classification
+    const userCategory = CATEGORIES.has(String(main_category)) ? String(main_category) : null;
+    let predictedCategory = null;
+    try {
+      predictedCategory = await classifyMainCategory(key, title, description);
+    } catch (_) {}
+    let selectedCategory = userCategory || (CATEGORIES.has(String(predictedCategory)) ? String(predictedCategory) : 'Vehicle');
 
-    // Validate using the predicted category (so Job image rule applies correctly)
-    const validationError = validateListingInputs({ main_category: predictedCategory, title, description, files });
-    if (validationError) return res.status(400).json({ error: validationError });
+    // Validate using the selected category (so Job image rule applies correctly)
+    const validationError = validateListingInputs({ main_category: selectedCategory, title, description, files });
+    if (validationError) return res.status(400).json({ error: validationError }new)</;
+;
 
     for (const f of files) {
       try {
@@ -364,10 +414,21 @@ router.post('/draft', upload.array('images', 5), async (req, res) => {
 
     const listingPrompt = getPrompt('listing_extraction');
     const seoPrompt = getPrompt('seo_metadata');
-    const userContext = `Category: ${predictedCategory}
+    const baseContext = `Category: ${selectedCategory}
 Title: ${title}
 Description:
 ${description}`;
+    const jobHint = `
+If the category is Job, extract job-specific fields:
+- sub_category (role, e.g., Driver, IT/Software, Sales/Marketing)
+- employment_type (Full-time, Part-time, Contract, Internship, Temporary)
+- company (employer name)
+- salary (numeric if present)
+- salary_type (Fixed or Negotiable)
+- phone (Sri Lanka format if present)
+- location
+Do not confuse employment_type with general 'type' fields for other categories.`;
+    const userContext = selectedCategory === 'Job' ? (baseContext + jobHint) : baseContext;
 
     let structuredObj = {};
     try {
@@ -527,14 +588,14 @@ ${description}`;
       if (/(^|\b)(bike|motorcycle|motor bike|motor-bike|scooter|scooty)(\b|$)/i.test(t)) return 'Bike';
       return '';
     }
-    if (String(predictedCategory) === 'Vehicle') {
+    if (String(selectedCategory) === 'Vehicle') {
       const valid = new Set(['Bike','Car','Van','Bus']);
       const current = String(structuredObj.sub_category || '').trim();
       if (!current || !valid.has(current)) {
         const inferred = extractVehicleSubCategory(rawText);
         if (inferred) structuredObj.sub_category = inferred;
       }
-    }
+   new
 
     // Generic sub-category inference for other main categories (fallback if Gemini didn't provide one)
     function inferSubCategoryForMain(mainCat, text) {
@@ -549,11 +610,18 @@ ${description}`;
           return '';
         }
         case 'Job': {
-          if (/(account|finance|audit|bookkeep)/i.test(t)) return 'Accounting/Finance';
-          if (/(it|software|developer|engineer|programmer|tech)/i.test(t)) return 'IT/Software';
-          if (/(marketing|sales|seo|advertis)/i.test(t)) return 'Sales/Marketing';
-          if (/(teacher|tutor|education)/i.test(t)) return 'Education';
-          if (/(driver|logistic|delivery)/i.test(t)) return 'Logistics';
+          // Order matters: match specific roles first
+          if (/(^|\\b)(driver|chauffeur|rider)(\\b|$)/i.test(t)) return 'Driver';
+          if (/(^|\\b)(delivery|courier|logistic|warehouse|supply chain)(\\b|$)/i.test(t)) return 'Logistics/Delivery';
+          if (/(^|\\b)(account|accountant|finance|auditor|bookkeep)(\\b|$)/i.test(t)) return 'Accounting/Finance';
+          if (/(^|\\b)(software|developer|programmer|tech|it\\b|i\\.t\\.?|information technology)(\\b|$)/i.test(t)) return 'IT/Software';
+          if (/(^|\\b)(marketing|sales|seo|advertis|business development)(\\b|$)/i.test(t)) return 'Sales/Marketing';
+          if (/(^|\\b)(teacher|tutor|education|lecturer|instructor)(\\b|$)/i.test(t)) return 'Education';
+          if (/(^|\\b)(customer service|call ?center|support)(\\b|$)/i.test(t)) return 'Customer Service';
+          if (/(^|\\b)(nurse|doctor|pharmacist|caregiver|healthcare|medical)(\\b|$)/i.test(t)) return 'Healthcare';
+          if (/(^|\\b)(construction|mason|carpenter|electrician|plumber|welder|mechanic)(\\b|$)/i.test(t)) return 'Construction/Trades';
+          if (/(^|\\b)(security guard|security)(\\b|$)/i.test(t)) return 'Security';
+          if (/(^|\\b)(cleaner|housekeep|janitor)(\\b|$)/i.test(t)) return 'Cleaning/Housekeeping';
           return '';
         }
         case 'Electronic': {
@@ -594,7 +662,7 @@ ${description}`;
     }
 
     if (!structuredObj.sub_category) {
-      const sub = inferSubCategoryForMain(predictedCategory, rawText);
+      const sub = inferSubCategoryForMain(selectedCategory, rawText);
       structuredObj.sub_category = sub || 'General';
     }
 
@@ -612,7 +680,7 @@ ${description}`;
       'INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, owner_email, created_at) ' +
       'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
-      predictedCategory,
+      selectedCategory,
       title,
       description,
       JSON.stringify(structuredObj),
@@ -699,17 +767,41 @@ router.post('/submit', async (req, res) => {
     finalStruct = normalizeStructuredData(finalStruct);
 
     const { location, price, pricing_type, phone, model_name, manufacture_year } = finalStruct;
-    if (!location || price == null || !pricing_type || !phone || !model_name || manufacture_year == null) {
-      return res.status(400).json({ error: 'Location, price, pricing type, phone, model name, and manufacture year are required' });
+    const mainCat = String(draft.main_category || '');
+
+    // Common required fields
+    if (!location) {
+      return res.status(400).json({ error: 'Location is required' });
     }
-    if (!/^\+94\d{9}$/.test(String(phone).trim())) {
+    if (!/^\+94\d{9}$/.test(String(phone || '').trim())) {
       return res.status(400).json({ error: 'Phone must be in +94XXXXXXXXX format' });
     }
-    if (String(model_name).trim().length < 2) {
-      return res.status(400).json({ error: 'Model name must be at least 2 characters' });
-    }
-    if (!Number.isFinite(Number(manufacture_year)) || manufacture_year < 1950 || manufacture_year > 2100) {
-      return res.status(400).json({ error: 'Manufacture year must be a valid year between 1950 and 2100' });
+
+    if (mainCat === 'Vehicle') {
+      // Vehicle-specific required fields
+      if (price == null || !pricing_type || !model_name || manufacture_year == null) {
+        return res.status(400).json({ error: 'For Vehicle: price, pricing type, model name, and manufacture year are required' });
+      }
+      if (String(model_name).trim().length < 2) {
+        return res.status(400).json({ error: 'Model name must be at least 2 characters' });
+      }
+      if (!Number.isFinite(Number(manufacture_year)) || manufacture_year < 1950 || manufacture_year > 2100) {
+        return res.status(400).json({ error: 'Manufacture year must be a valid year between 1950 and 2100' });
+      }
+    } else if (mainCat === 'Job') {
+      // For Job listings, salary is optional. Ensure sub_category exists so users can browse properly.
+      if (!finalStruct.sub_category || String(finalStruct.sub_category).trim() === '') {
+        return res.status(400).json({ error: 'Please specify a Job sub-category (e.g., Driver, IT/Software, Sales/Marketing)' });
+      }
+      // If salary present without pricing type, default to Negotiable
+      if (price != null && !pricing_type) {
+        finalStruct.pricing_type = 'Negotiable';
+      }
+    } else {
+      // Other categories require price/pricing type but not vehicle model/year
+      if (price == null || !pricing_type) {
+        return res.status(400).json({ error: 'Price and pricing type are required' });
+      }
     }
 
     // Use the exact description provided by the user on the verify page (fallback to original draft description)

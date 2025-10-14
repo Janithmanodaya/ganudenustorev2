@@ -148,16 +148,18 @@ export default function ViewListingPage() {
   }, [structured])
 
   function prettyLabel(key) {
+    // Adjust labels based on category (e.g., Salary for Job)
+    const isJob = String(listing?.main_category || '') === 'Job'
     const map = {
-      pricing_type: 'Price Type',
-      sub_category: 'Sub Category',
+      pricing_type: isJob ? 'Salary Type' : 'Price Type',
+      sub_category: isJob ? 'Job Sub-category' : 'Sub Category',
       valid_until: 'Valid Until',
       main_category: 'Category',
       phone: 'Phone',
       email: 'Email',
       model: 'Model',
       location: 'Location',
-      price: 'Price',
+      price: isJob ? 'Salary' : 'Price',
       status: 'Status'
     }
     if (map[key]) return map[key]
