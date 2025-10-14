@@ -163,7 +163,7 @@ export default function JobSearchResultsPage() {
                 </datalist>
               </div>
               <select className="select" value={employmentType} onChange={e => setEmploymentType(e.target.value)}>
-                <option value="">Employment type (any)</option>
+                <option value="">Any</option>
                 <option value="Full-time">Full-time</option>
                 <option value="Part-time">Part-time</option>
                 <option value="Contract">Contract</option>
@@ -171,7 +171,7 @@ export default function JobSearchResultsPage() {
                 <option value="Temporary">Temporary</option>
               </select>
               <select className="select" value={experience} onChange={e => setExperience(e.target.value)}>
-                <option value="">Experience (any)</option>
+                <option value="">Any</option>
                 <option value="Intern">Intern</option>
                 <option value="Junior">Junior</option>
                 <option value="Mid">Mid</option>

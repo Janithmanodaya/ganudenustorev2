@@ -178,9 +178,9 @@ export default function SearchResultsPage() {
                   value={pricingType}
                   onChange={v => setPricingType(v)}
                   ariaLabel="Pricing"
-                  placeholder="Pricing (any)"
+                  placeholder="Any"
                   options={[
-                    { value: '', label: 'Pricing (any)' },
+                    { value: '', label: 'Any' },
                     { value: 'Fixed Price', label: 'Fixed Price' },
                     { value: 'Negotiable', label: 'Negotiable' },
                   ]}
@@ -226,7 +226,7 @@ export default function SearchResultsPage() {
                         );
                       }
                       return (
-                        <CustomSelect
+                       <<CustomSelect
                           key={key}
                           value={filters[key] || ''}
                           onChange={val => updateFilter(key, val)}

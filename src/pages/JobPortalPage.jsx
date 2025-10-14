@@ -129,7 +129,7 @@ export default function JobPortalPage() {
                     onChange={e => updateFilter(key, e.target.value)}
                     aria-label={key}
                   >
-                    <option value="">{key} (any)</option>
+                    <option value="">Any</option>
                     {(filtersDef.valuesByKey[key] || []).map(v => (
                       <option key={String(v)} value={String(v)}>{String(v)}</option>
                     ))}

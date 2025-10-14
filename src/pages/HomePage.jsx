@@ -353,9 +353,9 @@ export default function HomePage() {
                   value={filterCategory}
                   onChange={v => setFilterCategory(v)}
                   ariaLabel="Category"
-                  placeholder="Category (any)"
+                  placeholder="Any"
                   options={[
-                    { value: '', label: 'Category (any)' },
+                    { value: '', label: 'Any' },
                     { value: 'Vehicle', label: 'Vehicle' },
                     { value: 'Property', label: 'Property' },
                     { value: 'Job', label: 'Job' },
@@ -397,7 +397,7 @@ export default function HomePage() {
                     .filter(k => !['location','pricing_type','price'].includes(k))
                     .map(key => {
                       const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
-                      const opts = [{ value: '', label: `${pretty(key)} (any)` }, ...values.map(v => ({ value: v, label: v }))];
+                      const opts = [{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))];
                       if (hybridKeys.has(key)) {
                         // Searchable select with ability to type custom text AND choose from dropdown (mobile-friendly)
                         return (
@@ -406,7 +406,7 @@ export default function HomePage() {
                             value={filters[key] || ''}
                             onChange={val => updateFilter(key, val)}
                             ariaLabel={key}
-                            placeholder={`${pretty(key)} (any)`}
+                            placeholder="Any"
                             options={opts}
                             searchable={true}
                             allowCustom={false}
@@ -419,7 +419,7 @@ export default function HomePage() {
                           value={filters[key] || ''}
                           onChange={val => updateFilter(key, val)}
                           ariaLabel={key}
-                          placeholder={`${pretty(key)} (any)`}
+                          placeholder="Any"
                           options={opts}
                         />
                       );
