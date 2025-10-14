@@ -13,6 +13,7 @@ export default function ViewListingPage() {
   const [loading, setLoading] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [favPulse, setFavPulse] = useState(false)
+  const [descOpen, setDescOpen] = useState(false)
 
   function getUser() {
     try { return JSON.parse(localStorage.getItem('user') || 'null') } catch (_) { return null }
@@ -341,8 +342,40 @@ export default function ViewListingPage() {
               </div>
             )}
 
+            {/* Contact (mobile-first duplicate, hidden on desktop via CSS) */}
+            {listing?.phone ? (
+              <div className="card contact-mobile" style={{ marginTop: 16 }}>
+                <div className="h2" style={{ marginTop: 0 }}>Contact</div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <a
+                    className="btn primary"
+                    href={isLoggedIn() ? `tel:${listing.phone}` : '#'}
+                    onClick={onDial}
+                  >
+                    {formatPhoneDisplay(listing.phone)}
+                  </a>
+                  {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
+                </div>
+              </div>
+            ) : null}
+
             <div className="h2" style={{ marginTop: 16 }}>Description</div>
-            <p>{listing?.description}</p>
+            {/* Desktop full description */}
+            <div className="desc-desktop">
+              <p>{listing?.description}</p>
+            </div>
+            {/* Mobile collapsible description */}
+            <div className="desc-mobile">
+              <p style={{ whiteSpace: 'pre-wrap' }}>
+                {descOpen ? (listing?.description || '') : String(listing?.description || '').slice(0, 180)}
+                {(!descOpen && String(listing?.description || '').length > 180) ? '…' : ''}
+              </p>
+              {String(listing?.description || '').length > 180 && (
+                <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
+                  {descOpen ? 'Show less' : 'Read more'}
+                </button>
+              )}
+            </div>
 
             {/* Actions */}
             <div style={{ margin: '14px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -363,9 +396,9 @@ export default function ViewListingPage() {
               ))}
             </div>
 
-            {/* Contact info card */}
+            {/* Contact info card (desktop) */}
             {listing?.phone && (
-              <div className="card" style={{ marginTop: 16 }}>
+              <div className="card contact-desktop" style={{ marginTop: 16 }}>
                 <div className="h2" style={{ marginTop: 0 }}>Contact</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <a

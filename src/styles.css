@@ -442,6 +442,12 @@ body {
   display: none;
 }
 
+/* Desktop default visibility for duplicated elements */
+.contact-mobile { display: none; }
+.contact-desktop { display: block; }
+.desc-mobile { display: none; }
+.desc-desktop { display: block; }
+
 /* ——— Mobile-first redesign without changing desktop look ——— */
 @media (max-width: 780px) {
   .topbar {
@@ -493,6 +499,12 @@ body {
   .viewlisting.has-actionbar { padding-bottom: 84px; } /* space for sticky bar */
   .viewlisting-hero { padding: 18px !important; }
   .viewlisting .viewlisting-header-actions { display: none; } /* hide header price/fav on mobile */
+
+  /* Show mobile-optimized blocks; hide desktop ones */
+  .contact-mobile { display: block; }
+  .contact-desktop { display: none; }
+  .desc-mobile { display: block; }
+  .desc-desktop { display: none; }
 
   .mobile-actionbar {
     position: fixed;
