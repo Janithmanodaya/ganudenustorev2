@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import CustomSelect from '../components/CustomSelect.jsx'
 
 export default function JobPortalPage() {
   const navigate = useNavigate()
@@ -126,17 +127,17 @@ export default function JobPortalPage() {
                     <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
                       {String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
                     </div>
-                    <select
-                      className="select"
+                    <CustomSelect
                       value={filters[key] || ''}
-                      onChange={e => updateFilter(key, e.target.value)}
-                      aria-label={key}
-                    >
-                      <option value="">Any</option>
-                      {(filtersDef.valuesByKey[key] || []).map(v => (
-                        <option key={String(v)} value={String(v)}>{String(v)}</option>
-                      ))}
-                    </select>
+                      onChange={val => updateFilter(key, val)}
+                      ariaLabel={key}
+                      placeholder={String(key).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}
+                      options={[
+                        { value: '', label: 'Any' },
+                        ...((filtersDef.valuesByKey[key] || []).map(v => ({ value: String(v), label: String(v) })))
+                      ]}
+                      searchable={true}
+                    />
                   </div>
                 ))}
                 <div style={{ display: 'flex', gap: 8 }}>
