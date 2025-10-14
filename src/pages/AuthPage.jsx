@@ -28,47 +28,57 @@ export default function AuthPage() {
   }, [navigate])
 
   useEffect(() => {
-    // Load Google script on login mode
+    // Prepare Google script when on login mode
     if (mode !== 'login') return
-    if (window.google && window.google.accounts && window.google.accounts.id) {
-      setGoogleReady(true)
-      renderGoogleButton()
+    ensureGoogleLoaded()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
+
+  async function ensureGoogleLoaded() {
+    const existing = document.querySelector('script[src="https://accounts.google.com/gsi/client"]')
+    if (window.google?.accounts?.id) {
+      initGoogle()
       return
     }
-    let el = document.querySelector('script[src="https://accounts.google.com/gsi/client"]')
-    if (!el) {
-      el = document.createElement('script')
-      el.src = 'https://accounts.google.com/gsi/client'
-      el.async = true
-      el.defer = true
-      el.onload = () => {
-        setGoogleReady(true)
-        renderGoogleButton()
-      }
-      document.body.appendChild(el)
-    } else {
-      el.addEventListener('load', () => {
-        setGoogleReady(true)
-        renderGoogleButton()
-      })
+    if (existing) {
+      existing.addEventListener('load', () => {
+        initGoogle()
+      }, { once: true })
+      return
     }
+    const el = document.createElement('script')
+    el.src = 'https://accounts.google.com/gsi/client'
+    el.async = true
+    el.defer = true
+    el.onload = () => {
+      initGoogle()
+    }
+    document.body.appendChild(el)
+  }
 
-    function renderGoogleButton() {
-      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
-      if (!clientId || !window.google?.accounts?.id) return
+  function initGoogle() {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+    if (!clientId || !window.google?.accounts?.id) {
+      setGoogleReady(false)
+      return
+    }
+    try {
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: handleGoogleCredential,
         auto_select: false
       })
+      // Render a button if container exists (optional, we also provide our own manual button)
       const container = document.getElementById('googleSignInDiv')
       if (container) {
         container.innerHTML = ''
         window.google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', shape: 'rectangular', text: 'signin_with' })
       }
+      setGoogleReady(true)
+    } catch {
+      setGoogleReady(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode])
+  }
 
   function decodeJwt(token) {
     try {
@@ -251,12 +261,28 @@ export default function AuthPage() {
         {/* Pick email from Google (no login) */}
         {mode === 'login' && (
           <div style={{ marginBottom: 16 }}>
-            <div id="googleSignInDiv" />
-            {!googleReady && (
-              <button className="btn" type="button" onClick={() => { /* noop fallback */ }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div id="googleSignInDiv" />
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  ensureGoogleLoaded()
+                  if (window.google?.accounts?.id) {
+                    // trigger One Tap/account chooser
+                    try {
+                      window.google.accounts.id.prompt()
+                    } catch {
+                      // ignore
+                    }
+                  } else {
+                    setResult({ ok: false, message: 'Google not ready. Please try again in a moment.' })
+                  }
+                }}
+              >
                 Pick email from Google
               </button>
-            )}
+            </div>
             <div style={{ height: 8 }} />
             <div className="text-muted" style={{ fontSize: 12 }}>
               Use the button above to pick your Google email. Then continue with the usual email/password and OTP flow.
