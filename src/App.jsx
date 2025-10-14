@@ -253,9 +253,9 @@ export default function App() {
             ) : null}
           </div>
 
-          {/* Mobile navigation: dropdown for main links + separate icons */}
-          <div className="nav-mobile" style={{ position: 'relative' }}>
-            {/* Menu dropdown toggle */}
+          {/* Mobile navigation: dropdown on the left, then profile and notifications next to it */}
+          <div className="nav-mobile" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Left: Menu dropdown toggle (anchored to left corner) */}
             <div style={{ position: 'relative' }}>
               <button
                 ref={mobileMenuBtnRef}
@@ -271,7 +271,7 @@ export default function App() {
                 <div
                   ref={mobileMenuRef}
                   className="card dropdown-panel"
-                  style={{ width: 200, padding: 8 }}
+                  style={{ width: 200, padding: 8, left: 0 }}
                 >
                   <Link to="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
                   <Link to="/new" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
@@ -281,10 +281,10 @@ export default function App() {
               )}
             </div>
 
-            {/* Account icon (replaces text on mobile) */}
+            {/* Account icon (next to menu) */}
             <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
 
-            {/* Notifications icon (kept separate on mobile) */}
+            {/* Notifications icon (next to account) */}
             {userEmail ? (
               <div style={{ position: 'relative' }}>
                 <button
@@ -322,13 +322,6 @@ export default function App() {
               </div>
             ) : null}
           </div>
-        </nav>
-
-        {/* Notifications dropdown panel */}
-        {notifOpen && (
-          <div ref={notifPanelRef} style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
-            <div className="card" style={{ width: 340, maxHeight: 420, overflow: 'auto' }}>
-              <div className="h2" style={{ marginTop: 0 }}>Notifications</div>
               {notifications.length === 0 && <p className="text-muted">No notifications.</p>}
               {notifications.map(n => (
                 <div
