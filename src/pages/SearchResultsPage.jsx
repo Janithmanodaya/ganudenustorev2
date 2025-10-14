@@ -178,7 +178,7 @@ export default function SearchResultsPage() {
                   value={pricingType}
                   onChange={v => setPricingType(v)}
                   ariaLabel="Pricing"
-                  placeholder="Any"
+                  placeholder="Pricing"
                   options={[
                     { value: '', label: 'Any' },
                     { value: 'Fixed Price', label: 'Fixed Price' },
@@ -214,7 +214,7 @@ export default function SearchResultsPage() {
                             <input
                               className="input"
                               list={listId}
-                              placeholder={`${pretty(key)} (any)`}
+                              placeholder={pretty(key)}
                               value={filters[key] || ''}
                               onChange={e => updateFilter(key, e.target.value)}
                               aria-label={key}
@@ -226,13 +226,13 @@ export default function SearchResultsPage() {
                         );
                       }
                       return (
-                       <<CustomSelect
+                        <CustomSelect
                           key={key}
                           value={filters[key] || ''}
                           onChange={val => updateFilter(key, val)}
                           ariaLabel={key}
-                          placeholder={`${pretty(key)} (any)`}
-                          options={[{ value: '', label: `${pretty(key)} (any)` }, ...values.map(v => ({ value: v, label: v }))]}
+                          placeholder={pretty(key)}
+                          options={[{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))]}
                         />
                       );
                     });

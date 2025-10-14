@@ -353,7 +353,7 @@ export default function HomePage() {
                   value={filterCategory}
                   onChange={v => setFilterCategory(v)}
                   ariaLabel="Category"
-                  placeholder="Any"
+                  placeholder="Category"
                   options={[
                     { value: '', label: 'Any' },
                     { value: 'Vehicle', label: 'Vehicle' },
@@ -406,7 +406,7 @@ export default function HomePage() {
                             value={filters[key] || ''}
                             onChange={val => updateFilter(key, val)}
                             ariaLabel={key}
-                            placeholder="Any"
+                            placeholder={pretty(key)}
                             options={opts}
                             searchable={true}
                             allowCustom={false}
@@ -419,7 +419,7 @@ export default function HomePage() {
                           value={filters[key] || ''}
                           onChange={val => updateFilter(key, val)}
                           ariaLabel={key}
-                          placeholder="Any"
+                          placeholder={pretty(key)}
                           options={opts}
                         />
                       );
