@@ -484,7 +484,7 @@ export default function ViewListingPage() {
   }
 
   const mainImage = images[currentIndex]
-
+  const isInteracting = (pinching || dragging || zoom > 
   return (
     <div className="center viewlisting has-actionbar">
       {loading && <LoadingOverlay message="Loading listing..." />}
@@ -781,21 +781,20 @@ export default function ViewListingPage() {
             </div>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); lbPrev() }}
-                aria-label="Previous image"
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  bottom: 0,
-                  width: '40%',
-                  background: 'linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0))',
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: 34,
-                  display: 'grid',
+              {!isInteracting && (
+                <>
+                 <ibutton
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); lbPrev() }}
+                    aria-label="Previous image"
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      bottom: 0,
+                      width: '24%',
+                      background: 'linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0))',
+                      border'grid',
                   placeItems: 'center'
                 }}
               >‹</button>
