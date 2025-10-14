@@ -732,7 +732,12 @@ export default function AdminPage() {
                 color: activeTab === t.key ? '#fff' : 'var(--text)'
               }}
             >
-              {t.label}
+              {t.key === 'notifications' ? (
+                <>
+                  <span>Notifications</span>
+                  {unreadCount > 0 && <span className="pill" style={{ marginLeft: 6 }}>{unreadCount}</span>}
+                </>
+              ) : t.label}
             </button>
           ))}
         </div>
