@@ -22,6 +22,7 @@ export default function HomePage() {
   const [filters, setFilters] = useState({})
   const [locQuery, setLocQuery] = useState('')
   const [locSuggestions, setLocSuggestions] = useState([])
+  const [locationOptionsCache, setLocationOptionsCache] = useState([])
   const [sort, setSort] = useState('latest')
 
   // Global search suggestions
@@ -151,6 +152,25 @@ export default function HomePage() {
     return () => { ctrl.abort(); clearTimeout(timer) }
   }, [locQuery])
 
+  // Keep a stable cache of location options so the dropdown doesn't shrink to only current results
+  useEffect(() => {
+    // If backend provided explicit locations for the selected category, prioritize and reset cache to those.
+    const vals = (filtersDef?.valuesByKey?.['location'] || []).map(v => String(v).trim()).filter(Boolean)
+    if (vals.length) {
+      setLocationOptionsCache(Array.from(new Set(vals)))
+      return
+    }
+    // Otherwise, merge-in locations seen in current listings without removing prior ones.
+    const fromLatest = Array.from(new Set((latest || []).map(it => String(it.location || '').trim()).filter(Boolean)))
+    if (fromLatest.length) {
+      setLocationOptionsCache(prev => {
+        const merged = [...prev]
+        for (const v of fromLatest) if (!merged.includes(v)) merged.push(v)
+        return merged
+      })
+    }
+  }, [filtersDef, latest])
+
   const [cardSlideIndex, setCardSlideIndex] = useState({})
   function nextImage(item) {
     const imgs = Array.isArray(item.small_images) ? item.small_images : []
@@ -228,7 +248,7 @@ export default function HomePage() {
     setFilters(prev => ({ ...prev, [key]: value }))
   }
 
-  async function applyHomeFilters() {
+  async function fetchFilteredListings(sortOverride) {
     try {
       setLoading(true)
       setShowFilters(false)
@@ -236,7 +256,7 @@ export default function HomePage() {
       const params = new URLSearchParams()
       params.set('limit', String(limit))
       params.set('page', String(page))
-      const effectiveSort = filterCategory ? String(sort || 'latest') : 'random'
+      const effectiveSort = String(sortOverride || sort || 'latest')
       params.set('sort', effectiveSort)
       if (filterCategory) params.set('category', filterCategory)
       if (filterLocation) params.set('location', filterLocation)
@@ -263,6 +283,7 @@ export default function HomePage() {
       setFilterPriceMax('');
       setFilters({});
       setShowFilters(false);
+      setLocationOptionsCache([]);
       // Trigger reload of latest listings
       setRefreshKey(k => k + 1)
     } catch (_) {}
@@ -367,16 +388,26 @@ export default function HomePage() {
                     ]}
                   />
                 </div>
-                <input
-                  className="input"
-                  list="home-location-suggest"
-                  placeholder="Location"
-                  value={filterLocation}
-                  onChange={e => { setFilterLocation(e.target.value); setLocQuery(e.target.value) }}
-                />
-                <datalist id="home-location-suggest">
-                  {locSuggestions.map(loc => <option key={loc} value={loc} />)}
-                </datalist>
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Location</div>
+                  <CustomSelect
+                    value={filterLocation}
+                    onChange={v => setFilterLocation(v)}
+                    ariaLabel="Location"
+                    placeholder="Location"
+                    options={(() => {
+                      // Build from stable cache so options don't shrink to only current filtered results
+                      const cached = Array.from(new Set((locationOptionsCache || []).map(v => String(v).trim()).filter(Boolean)))
+                      const fromSuggest = Array.from(new Set((locSuggestions || []).map(v => String(v).trim()).filter(Boolean)))
+                        .filter(v => !cached.includes(v))
+                      const merged = [...cached, ...fromSuggest]
+                      const opts = merged.map(v => ({ value: v, label: v }))
+                      return [{ value: '', label: 'Any' }, ...opts]
+                    })()}
+                    searchable={true}
+                    allowCustom={true}
+                  />
+                </div>
                 <input className="input" type="number" placeholder="Min price" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
                 <input className="input" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
 
@@ -434,18 +465,7 @@ export default function HomePage() {
                 })()}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <CustomSelect
-                    value={sort}
-                    onChange={v => setSort(v)}
-                    ariaLabel="Sort"
-                    placeholder="Sort"
-                    options={[
-                      { value: 'latest', label: 'Latest' },
-                      { value: 'price_asc', label: 'Price: Low to High' },
-                      { value: 'price_desc', label: 'Price: High to Low' },
-                    ]}
-                  />
-                  <button className="btn accent" type="button" onClick={applyHomeFilters}>
+                  <button className="btn accent" type="button" onClick={() => fetchFilteredListings()}>
                     Apply
                   </button>
                   <button className="btn" type="button" onClick={resetHomeFilters}>
@@ -455,6 +475,23 @@ export default function HomePage() {
               </div>
             </div>
           )}
+
+          {/* Sort selector - below filters, right corner */}
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ width: 240 }}>
+              <CustomSelect
+                value={sort}
+                onChange={v => { setSort(v); fetchFilteredListings(v) }}
+                ariaLabel="Sort"
+                placeholder="Sort"
+                options={[
+                  { value: 'latest', label: 'Latest' },
+                  { value: 'price_desc', label: 'Price: High to Low' },
+                  { value: 'price_asc', label: 'Price: Low to High' },
+                ]}
+              />
+            </div>
+          </div>
 
           {(() => {
             const displayList = filterCategory ? latest.filter(it => (it.main_category || '') === filterCategory) : latest
