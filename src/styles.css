@@ -566,7 +566,16 @@ body {
     border-top: 1px solid var(--border); /* visual separation from content above */
   }
   .report-mobile .btn { 
-    width: 100%;                 /* easier to tap */
+    width: auto;                 /* small, not full-width */
+    padding: 6px 10px;           /* smaller size */
+    font-size: 12px;
+    font-weight: 500;
+    background: transparent;     /* not highlighted */
+    border-color: var(--border);
+    color: var(--muted);
+  }
+  .report-mobile .btn:hover {
+    background: rgba(255,255,255,0.04);
   }
   .report-desktop { display: none; }
 }
