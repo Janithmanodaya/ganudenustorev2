@@ -170,29 +170,12 @@ export default function JobPortalPage() {
             <button className="btn" onClick={() => quick('Internship')} style={white}>🎓 Internship</button>
           </div>
 
-          {/* Dynamic in-page filter: Title + job-specific keys (without Sub Category / Model / Description) */}
+          {/* Dynamic in-page filter: job-specific keys (no Category, Sub Category, Model, or Description) */}
           {filtersDef.keys.length > 0 && (
             <div ref={filtersCardRef} className="card" style={{ padding: 12, marginTop: 12, ...white }}>
               <div className="grid two">
-                {/* Title selector (replaces Model name / Sub Category) */}
-                <div>
-                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Title</div>
-                  <CustomSelect
-                    value={q}
-                    onChange={val => setQ(val)}
-                    ariaLabel="Title"
-                    placeholder="Title"
-                    options={[
-                      { value: '', label: 'Any' },
-                      ...Array.from(new Set((filtersDef.valuesByKey['sub_category'] || []).map(v => String(v)))).map(v => ({ value: v, label: v }))
-                    ]}
-                    searchable={true}
-                    allowCustom={true}
-                  />
-                </div>
-
                 {filtersDef.keys
-                  .filter(k => !['location','pricing_type','price','description','enhanced_description','sub_category','model','model_name'].includes(k))
+                  .filter(k => !['location','pricing_type','price','description','enhanced_description','sub_category','model','model_name','title'].includes(k))
                   .map(key => (
                     <div key={key}>
                       <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
