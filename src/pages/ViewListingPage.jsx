@@ -68,6 +68,24 @@ export default function ViewListingPage() {
   const [dragging, setDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
 
+  // Responsive: detect mobile to tailor lightbox UI
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    try {
+      const mq = window.matchMedia('(max-width: 780px)')
+      const handle = () => setIsMobile(!!mq.matches)
+      handle()
+      if (mq.addEventListener) mq.addEventListener('change', handle)
+      else if (mq.addListener) mq.addListener(handle)
+      return () => {
+        if (mq.removeEventListener) mq.removeEventListener('change', handle)
+        else if (mq.removeListener) mq.removeListener(handle)
+      }
+    } catch (_) {
+      setIsMobile(false)
+    }
+  }, [])
+
   function openLightbox(idx = 0) {
     setLightboxIndex(idx)
     setZoom(1)
@@ -101,6 +119,18 @@ export default function ViewListingPage() {
   function zoomIn() { setZoom(z => Math.min(4, Number((z + 0.2).toFixed(2)))) }
   function zoomOut() { setZoom(z => Math.max(1, Number((z - 0.2).toFixed(2)))) }
   function resetZoom() { setZoom(1); setPan({ x: 0, y: 0 }) }
+
+  // Desktop keyboard navigation when lightbox is open
+  useEffect(() => {
+    if (!(lightboxOpen && !isMobile)) return
+    function onKey(e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); lbPrev() }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); lbNext() }
+      else if (e.key === 'Escape') { e.preventDefault(); closeLightbox() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightboxOpen, isMobile, images.length])
 
   function onWheelZoom(e) {
     e.preventDefault()
@@ -570,33 +600,37 @@ export default function ViewListingPage() {
               {lightboxIndex + 1} / {images.length || 0}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn" type="button" onClick={zoomOut} aria-label="Zoom out">−</button>
-              <button className="btn" type="button" onClick={resetZoom} aria-label="Reset zoom">Reset</button>
-              <button className="btn" type="button" onClick={zoomIn} aria-label="Zoom in">+</button>
+              {!isMobile && (
+                <>
+                  <button className="btn" type="button" onClick={zoomOut} aria-label="Zoom out">−</button>
+                  <button className="btn" type="button" onClick={resetZoom} aria-label="Reset zoom">Reset</button>
+                  <button className="btn" type="button" onClick={zoomIn} aria-label="Zoom in">+</button>
+                </>
+              )}
               <button className="btn" type="button" onClick={closeLightbox} aria-label="Close">✕</button>
             </div>
           </div>
 
           {/* Image stage */}
           <div
-            onWheel={onWheelZoom}
-            onMouseDown={onDragStart}
-            onMouseMove={onDragMove}
-            onMouseUp={onDragEnd}
-            onMouseLeave={onDragEnd}
-            style={{ display: 'grid', placeItems: 'center', overflow: 'hidden', cursor: dragging ? 'grabbing' : (zoom > 1 ? 'grab' : 'default') }}
+            onWheel={!isMobile ? onWheelZoom : undefined}
+            onMouseDown={!isMobile ? onDragStart : undefined}
+            onMouseMove={!isMobile ? onDragMove : undefined}
+            onMouseUp={!isMobile ? onDragEnd : undefined}
+            onMouseLeave={!isMobile ? onDragEnd : undefined}
+            style={{ display: 'grid', placeItems: 'center', overflow: 'hidden', cursor: (!isMobile && dragging) ? 'grabbing' : (!isMobile && zoom > 1 ? 'grab' : 'default') }}
           >
             {images[lightboxIndex]?.url ? (
               <img
                 src={images[lightboxIndex].url}
                 alt={images[lightboxIndex].original_name || 'Image'}
                 draggable={false}
-                onDoubleClick={resetZoom}
+                onDoubleClick={!isMobile ? resetZoom : undefined}
                 style={{
                   maxWidth: '90vw',
                   maxHeight: '80vh',
-                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                  transition: dragging ? 'none' : 'transform 120ms ease',
+                  transform: !isMobile ? `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` : undefined,
+                  transition: !isMobile ? (dragging ? 'none' : 'transform 120ms ease') : undefined,
                   boxShadow: '0 12px 48px rgba(0,0,0,0.5)',
                   borderRadius: 10,
                   userSelect: 'none'
@@ -607,37 +641,78 @@ export default function ViewListingPage() {
             )}
           </div>
 
-          {/* Bottom nav buttons */}
-          <div style={{ position: 'relative', padding: 12 }}>
-            <button
-              className="btn"
-              type="button"
-              onClick={lbPrev}
-              aria-label="Previous image"
-              style={{
-                position: 'absolute',
-                left: 12,
-                bottom: 12,
-                borderRadius: '999px',
-                width: 44,
-                height: 44
-              }}
-            >‹</button>
-            <button
-              className="btn"
-              type="button"
-              onClick={lbNext}
-              aria-label="Next image"
-              style={{
-                position: 'absolute',
-                right: 12,
-                bottom: 12,
-                borderRadius: '999px',
-                width: 44,
-                height: 44
-              }}
-            >›</button>
-          </div>
+          {/* Desktop bottom nav buttons; Mobile gets large side overlays */}
+          {!isMobile ? (
+            <div style={{ position: 'relative', padding: 12 }}>
+              <button
+                className="btn"
+                type="button"
+                onClick={lbPrev}
+                aria-label="Previous image"
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  bottom: 12,
+                  borderRadius: '999px',
+                  width: 44,
+                  height: 44
+                }}
+              >‹</button>
+              <button
+                className="btn"
+                type="button"
+                onClick={lbNext}
+                aria-label="Next image"
+                style={{
+                  position: 'absolute',
+                  right: 12,
+                  bottom: 12,
+                  borderRadius: '999px',
+                  width: 44,
+                  height: 44
+                }}
+              >›</button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); lbPrev() }}
+                aria-label="Previous image"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  bottom: 0,
+                  width: '40%',
+                  background: 'linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0))',
+                  border: 'none',
+                  color: '#fff',
+                  fontSize: 34,
+                  display: 'grid',
+                  placeItems: 'center'
+                }}
+              >‹</button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); lbNext() }}
+                aria-label="Next image"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: '40%',
+                  background: 'linear-gradient(to left, rgba(0,0,0,0.25), rgba(0,0,0,0))',
+                  border: 'none',
+                  color: '#fff',
+                  fontSize: 34,
+                  display: 'grid',
+                  placeItems: 'center'
+                }}
+              >›</button>
+            </>
+          )}
         </div>
       )}
 
