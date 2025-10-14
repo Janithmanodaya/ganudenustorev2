@@ -14,6 +14,9 @@ export default function JobPortalPage() {
   const [status, setStatus] = useState(null)
   const [salaryMin, setSalaryMin] = useState('')
   const [salaryMax, setSalaryMax] = useState('')
+  const [page, setPage] = useState(1)
+  const limit = 10
+  const [cardSlideIndex, setCardSlideIndex] = useState({})
 
   function onSearch(e) {
     e.preventDefault()
@@ -42,7 +45,8 @@ export default function JobPortalPage() {
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     } catch (_) {}
 
-    // Immediately refresh results on the portal based on the quick selection
+    // Reset to first page and refresh results on the portal based on the quick selection
+    setPage(1)
     runPortalSearch(extra, term)
   }
 
@@ -53,6 +57,10 @@ export default function JobPortalPage() {
       params.set('category', 'Job')
       const query = String(queryOverride != null ? queryOverride : q).trim()
       if (query) params.set('q', query)
+
+      // Pagination
+      params.set('limit', String(limit))
+      params.set('page', String(page))
 
       // Salary range as normalized query params
       if (salaryMin) params.set('price_min', String(salaryMin))
@@ -80,6 +88,22 @@ export default function JobPortalPage() {
     setFilters(prev => ({ ...prev, [key]: value }))
   }
 
+  function nextImage(item) {
+    const imgs = Array.isArray(item.small_images) ? item.small_images : []
+    const len = imgs.length || 1
+    setCardSlideIndex(prev => ({ ...prev, [item.id]: ((prev[item.id] || 0) + 1) % len }))
+  }
+
+  function prevImage(item) {
+    const imgs = Array.isArray(item.small_images) ? item.small_images : []
+    const len = imgs.length || 1
+    setCardSlideIndex(prev => {
+      const cur = prev[item.id] || 0
+      const nxt = (cur - 1 + len) % len
+      return { ...prev, [item.id]: nxt }
+    })
+  }
+
   useEffect(() => {
     async function loadFilters() {
       try {
@@ -98,12 +122,20 @@ export default function JobPortalPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Re-run when page changes
+  useEffect(() => {
+    runPortalSearch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page])
+
   function applyJobFilters() {
     // Refresh results within the Job Portal (no navigation)
+    setPage(1)
     runPortalSearch()
   }
 
   const white = { color: '#fff' }
+  const pageWindow = [page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1)
 
   return (
     <div className="center">
@@ -246,45 +278,76 @@ export default function JobPortalPage() {
           </div>
 
           <div className="h2" style={{ marginTop: 12, ...white }}>Results</div>
-          <div className="grid two">
-            {results.map(job => {
-              let company = ''
-              let employment = ''
-              let exp = ''
-              try {
-                const sj = JSON.parse(job.structured_json || '{}')
-                company = sj.company || sj.employer || ''
-                employment = sj.employment_type || ''
-                exp = sj.experience_level || ''
-              } catch (_) {}
-              const salary = job.price != null ? String(job.price) : ''
+          <div className="grid three">
+            {results.map(item => {
+              const imgs = Array.isArray(item.small_images) ? item.small_images : []
+              const idx = cardSlideIndex[item.id] || 0
+              const hero = imgs.length ? imgs[idx % imgs.length] : (item.thumbnail_url || null)
+
               return (
-                <div key={job.id} className="card">
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    {job.thumbnail_url && (
-                      <img src={job.thumbnail_url} alt={job.title} style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover' }} />
-                    )}
-                    <div>
-                      <div className="h2" style={{ margin: 0 }}>{job.title}</div>
-                      <div className="text-muted" style={{ marginTop: 2 }}>
-                        {company ? company + ' • ' : ''}{employment || '—'}
-                      </div>
+                <div
+                  key={item.id}
+                  className="card"
+                  onClick={() => navigate(`/listing/${item.id}`)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {hero && (
+                    <div style={{ position: 'relative', marginBottom: 8 }}>
+                      <img
+                        src={hero}
+                        alt={item.title}
+                        style={{ width: '100%', borderRadius: 8, objectFit: 'cover', height: 180 }}
+                      />
+                      {imgs.length > 1 && (
+                        <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); prevImage(item) }}
+                            aria-label="Previous image"
+                          >‹</button>
+                          <button
+                            className="btn"
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); nextImage(item) }}
+                            aria-label="Next image"
+                          >›</button>
+                        </div>
+                      )}
                     </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                    <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{item.title}</div>
+                    {item.price != null && (
+                      <div style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
+                        {`LKR ${Number(item.price).toLocaleString('en-US')}`}
+                      </div>
+                    )}
                   </div>
-
-                  <div className="text-muted" style={{ marginTop: 8 }}>
-                    {job.location ? job.location : ''}{exp ? ` • ${exp}` : ''}{salary ? ` • ${salary}` : ''}{job.pricing_type ? ` • ${job.pricing_type}` : ''}
-                  </div>
-
-                  <p className="text-muted" style={{ marginTop: 8 }}>{job.seo_description || (job.description || '').slice(0, 180)}</p>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <Link className="btn" to={`/listing/${job.id}`}>View</Link>
-                    <button className="btn" onClick={() => navigate(`/listing/${job.id}`)}>Apply</button>
+                  <div className="text-muted" style={{ marginBottom: 6, marginTop: 4 }}>
+                    {item.location ? item.location : ''}
+                    {item.pricing_type ? ` • ${item.pricing_type}` : ''}
                   </div>
                 </div>
               )
             })}
             {results.length === 0 && <p className="text-muted">No jobs found.</p>}
+          </div>
+
+          {/* Pagination */}
+          <div className="pagination" style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+            <button className="btn page" onClick={() => setPage(Math.max(1, page - 1))} aria-label="Previous page">‹ Prev</button>
+            {pageWindow.map(p => (
+              <button
+                key={p}
+                className={`btn page ${p === page ? 'primary' : ''}`}
+                onClick={() => setPage(p)}
+                aria-label={`Go to page ${p}`}
+              >
+                {p}
+              </button>
+            ))}
+            <button className="btn page" onClick={() => setPage(page + 1)} aria-label="Next page">Next ›</button>
           </div>
 
           {status && <p style={{ marginTop: 8 }}>{status}</p>}
