@@ -725,7 +725,7 @@ export default function HomePage() {
               }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, textAlign: 'center' }}>
-               <<button
+                <button
                   className="btn primary"
                   onClick={() => navigate('/new')}
                   aria-label="Post your first ad"
@@ -759,8 +759,7 @@ export default function HomePage() {
                     }}
                   />
                 </button>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>Start making money</div>
-                <div className="text-muted" style={{ fontSize: 12 }}>Post your first ad in minutes</div>
+                <div style={{ fontWeight: 700, fontSize: 12 }}>Start making money</div>
               </div>
               <style>{`
                 @keyframes pulse {
