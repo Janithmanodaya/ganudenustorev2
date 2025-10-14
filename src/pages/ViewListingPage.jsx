@@ -142,7 +142,7 @@ export default function ViewListingPage() {
       const jsonld = {
         "@context": "https://schema.org",
         "@type": "Product",
-        name: listing.title,
+        name: title,
         description: desc,
         offers: price != null ? {
           "@type": "Offer",
@@ -280,7 +280,7 @@ export default function ViewListingPage() {
             <div>
               <div className="h1 viewlisting-title" style={{ marginBottom: 6 }}>
                 {formatTitleCase(listing?.seo_title || listing?.title || 'View Listing')}
-             />
+              </div>
 
               {listing && (
                 <div className="seo-keys" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
