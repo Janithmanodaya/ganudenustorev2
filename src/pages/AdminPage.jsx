@@ -247,6 +247,17 @@ export default function AdminPage() {
     }
   }
 
+  async function unsuspendUser(id) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}/unsuspend`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to unsuspend user')
+      loadUsers(userQuery)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
   async function loadReports(filter = 'pending') {
     try {
       const r = await fetch(`/api/admin/reports?status=${encodeURIComponent(filter)}`, { headers: { 'X-Admin-Email': adminEmail } })
@@ -810,7 +821,12 @@ export default function AdminPage() {
                     <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                       {!u.is_banned && <button className="btn" onClick={() => banUser(u.id)}>Ban</button>}
                       {u.is_banned && <button className="btn" onClick={() => unbanUser(u.id)}>Unban</button>}
-                      <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend 7 days</button>
+                      {/* Show Unsuspend if currently suspended */}
+                      {u.suspended_until && (new Date(u.suspended_until) > new Date()) ? (
+                        <button className="btn" onClick={() => unsuspendUser(u.id)}>Unsuspend</button>
+                      ) : (
+                        <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend 7 days</button>
+                      )}
                     </div>
                   </div>
                 ))}

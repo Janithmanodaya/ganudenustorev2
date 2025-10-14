@@ -544,12 +544,44 @@ router.get('/users', requireAdmin, (req, res) => {
 router.post('/users/:id/ban', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   db.prepare(`UPDATE users SET is_banned = 1, suspended_until = NULL WHERE id = ?`).run(id);
+
+  // Notify the user about ban
+  try {
+    const user = db.prepare(`SELECT email, username FROM users WHERE id = ?`).get(id);
+    if (user?.email) {
+      db.prepare(`
+        INSERT INTO notifications (title, message, target_email, created_at, type)
+        VALUES (?, ?, ?, ?, 'ban')
+      `).run(
+        'Account Banned',
+        `Your account has been banned by an administrator. If you believe this is a mistake, please contact support.`,
+        String(user.email).toLowerCase().trim(),
+        new Date().toISOString()
+      );
+    }
+  } catch (_) {}
   res.json({ ok: true });
 });
 
 router.post('/users/:id/unban', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   db.prepare(`UPDATE users SET is_banned = 0, suspended_until = NULL WHERE id = ?`).run(id);
+
+  // Notify the user about unban
+  try {
+    const user = db.prepare(`SELECT email FROM users WHERE id = ?`).get(id);
+    if (user?.email) {
+      db.prepare(`
+        INSERT INTO notifications (title, message, target_email, created_at, type)
+        VALUES (?, ?, ?, ?, 'unban')
+      `).run(
+        'Account Unbanned',
+        `Good news! Your account ban has been lifted and you can use Ganudenu again.`,
+        String(user.email).toLowerCase().trim(),
+        new Date().toISOString()
+      );
+    }
+  } catch (_) {}
   res.json({ ok: true });
 });
 
@@ -557,7 +589,47 @@ router.post('/users/:id/suspend7', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   db.prepare(`UPDATE users SET is_banned = 0, suspended_until = ? WHERE id = ?`).run(until, id);
+
+  // Notify the user about suspension
+  try {
+    const user = db.prepare(`SELECT email FROM users WHERE id = ?`).get(id);
+    if (user?.email) {
+      const untilDate = new Date(until);
+      db.prepare(`
+        INSERT INTO notifications (title, message, target_email, created_at, type)
+        VALUES (?, ?, ?, ?, 'suspend')
+      `).run(
+        'Account Suspended',
+        `Your account has been temporarily suspended until ${untilDate.toLocaleString()}. You won't be able to log in during this period.`,
+        String(user.email).toLowerCase().trim(),
+        new Date().toISOString()
+      );
+    }
+  } catch (_) {}
   res.json({ ok: true, suspended_until: until });
+});
+
+// Unsuspend user (clear suspension)
+router.post('/users/:id/unsuspend', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare(`UPDATE users SET suspended_until = NULL WHERE id = ?`).run(id);
+
+  // Notify the user about unsuspension
+  try {
+    const user = db.prepare(`SELECT email FROM users WHERE id = ?`).get(id);
+    if (user?.email) {
+      db.prepare(`
+        INSERT INTO notifications (title, message, target_email, created_at, type)
+        VALUES (?, ?, ?, ?, 'unsuspend')
+      `).run(
+        'Account Unsuspended',
+        `Your account suspension has been lifted. You can now log in and use Ganudenu.`,
+        String(user.email).toLowerCase().trim(),
+        new Date().toISOString()
+      );
+    }
+  } catch (_) {}
+  res.json({ ok: true });
 });
 
 router.post('/banners', requireAdmin, upload.single('image'), (req, res) => {

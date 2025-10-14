@@ -187,10 +187,24 @@ router.post('/verify-otp-and-register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
-  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path FROM users WHERE email = ?').get(email.toLowerCase());
+  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path, is_banned, suspended_until FROM users WHERE email = ?').get(email.toLowerCase());
   if (!user) return res.status(401).json({ error: 'Invalid credentials.' });
   const match = await bcrypt.compare(password, user.password_hash);
   if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
+
+  // Enforce bans and suspensions for non-admin users
+  if (!user.is_admin) {
+    if (user.is_banned) {
+      return res.status(403).json({ error: 'Your account is banned. Please contact support.' });
+    }
+    if (user.suspended_until) {
+      const now = new Date();
+      const until = new Date(user.suspended_until);
+      if (until > now) {
+        return res.status(403).json({ error: `Your account is suspended until ${until.toLocaleString()}.` });
+      }
+    }
+  }
 
   // For admin accounts: require OTP after password is verified
   if (user.is_admin) {
