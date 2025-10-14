@@ -392,27 +392,25 @@ export default function HomePage() {
                     // Fallback: title-case underscores
                     return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
                   };
-                  const asInputKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
+                  const hybridKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
                   return filtersDef.keys
                     .filter(k => !['location','pricing_type','price'].includes(k))
                     .map(key => {
                       const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
-                      if (asInputKeys.has(key)) {
-                        const listId = `home-filter-${key}-list`;
+                      const opts = [{ value: '', label: `${pretty(key)} (any)` }, ...values.map(v => ({ value: v, label: v }))];
+                      if (hybridKeys.has(key)) {
+                        // Searchable select with ability to type custom text AND choose from dropdown (mobile-friendly)
                         return (
-                          <div key={key}>
-                            <input
-                              className="input"
-                              list={listId}
-                              placeholder={`${pretty(key)} (any)`}
-                              value={filters[key] || ''}
-                              onChange={e => updateFilter(key, e.target.value)}
-                              aria-label={key}
-                            />
-                            <datalist id={listId}>
-                              {values.map(v => <option key={v} value={v} />)}
-                            </datalist>
-                          </div>
+                          <CustomSelect
+                            key={key}
+                            value={filters[key] || ''}
+                            onChange={val => updateFilter(key, val)}
+                            ariaLabel={key}
+                            placeholder={`${pretty(key)} (any)`}
+                            options={opts}
+                            searchable={true}
+                            allowCustom={true}
+                          />
                         );
                       }
                       return (
@@ -422,7 +420,7 @@ export default function HomePage() {
                           onChange={val => updateFilter(key, val)}
                           ariaLabel={key}
                           placeholder={`${pretty(key)} (any)`}
-                          options={[{ value: '', label: `${pretty(key)} (any)` }, ...values.map(v => ({ value: v, label: v }))]}
+                          options={opts}
                         />
                       );
                     });

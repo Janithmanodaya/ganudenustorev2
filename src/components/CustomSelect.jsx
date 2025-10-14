@@ -5,6 +5,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
  * - Keeps the trigger sized like the native .select control
  * - Renders a floating dropdown menu that is more spacious and clear
  * - Keyboard: Enter/Space to open, Esc to close, ArrowUp/Down to navigate, Enter to select
+ * - Optional searchable mode with a text input to filter options (mobile-friendly)
+ * - Optional allowCustom to commit arbitrary text not in the options list
  */
 export default function CustomSelect({
   value = '',
@@ -13,9 +15,12 @@ export default function CustomSelect({
   placeholder = 'Select...',
   ariaLabel,
   className = '',
+  searchable = false,
+  allowCustom = false,
 }) {
   const [open, setOpen] = useState(false)
   const [hoverIndex, setHoverIndex] = useState(-1)
+  const [searchTerm, setSearchTerm] = useState('')
   const rootRef = useRef(null)
   const btnRef = useRef(null)
   const listRef = useRef(null)
@@ -23,6 +28,14 @@ export default function CustomSelect({
   const selectedIndex = useMemo(() => {
     return options.findIndex(o => String(o.value) === String(value))
   }, [options, value])
+
+  // Filtered view when searchable
+  const filteredOptions = useMemo(() => {
+    if (!searchable) return options
+    const t = searchTerm.trim().toLowerCase()
+    if (!t) return options
+    return options.filter(o => String(o.label ?? o.value).toLowerCase().includes(t))
+  }, [options, searchable, searchTerm])
 
   useEffect(() => {
     function onDocClick(e) {
@@ -36,24 +49,34 @@ export default function CustomSelect({
   useEffect(() => {
     if (open) {
       // Reset hover to selected (or first) when opening
-      setHoverIndex(selectedIndex >= 0 ? selectedIndex : (options.length ? 0 : -1))
+      setHoverIndex(selectedIndex >= 0 ? selectedIndex : (filteredOptions.length ? 0 : -1))
+      setSearchTerm('') // reset search each time menu opens
     }
-  }, [open, selectedIndex, options.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, selectedIndex])
 
   useEffect(() => {
     if (!open || hoverIndex < 0 || !listRef.current) return
-    const el = listRef.current.children[hoverIndex]
+    const el = listRef.current.children[hoverIndex + (searchable ? 1 : 0)] // offset if search input exists
     if (el && el.scrollIntoView) {
       el.scrollIntoView({ block: 'nearest' })
     }
-  }, [hoverIndex, open])
+  }, [hoverIndex, open, searchable])
 
   function commitSelect(idx) {
-    if (idx < 0 || idx >= options.length) return
-    const opt = options[idx]
+    if (idx < 0 || idx >= filteredOptions.length) return
+    const opt = filteredOptions[idx]
     if (onChange) onChange(opt.value)
     setOpen(false)
     // Return focus to the button for accessibility
+    btnRef.current && btnRef.current.focus()
+  }
+
+  function commitCustom(val) {
+    const v = String(val || '').trim()
+    if (!v) return
+    if (onChange) onChange(v)
+    setOpen(false)
     btnRef.current && btnRef.current.focus()
   }
 
@@ -72,7 +95,7 @@ export default function CustomSelect({
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setHoverIndex(i => Math.min(options.length - 1, i + 1))
+      setHoverIndex(i => Math.min(filteredOptions.length - 1, i + 1))
       return
     }
     if (e.key === 'ArrowUp') {
@@ -82,7 +105,11 @@ export default function CustomSelect({
     }
     if (e.key === 'Enter') {
       e.preventDefault()
-      commitSelect(hoverIndex >= 0 ? hoverIndex : selectedIndex)
+      if (searchable && allowCustom && searchTerm.trim() && filteredOptions.findIndex(o => String(o.value) === searchTerm.trim()) === -1) {
+        commitCustom(searchTerm.trim())
+      } else {
+        commitSelect(hoverIndex >= 0 ? hoverIndex : selectedIndex)
+      }
     }
   }
 
@@ -128,12 +155,43 @@ export default function CustomSelect({
             borderRadius: 12,
             background: 'rgba(22, 28, 38, 0.98)',
             boxShadow: '0 14px 36px var(--shadow)',
-            maxHeight: 280,
+            maxHeight: 300,
             overflowY: 'auto',
             padding: 6
           }}
         >
-          {options.length === 0 && (
+          {searchable && (
+            <div style={{ padding: '6px 6px 8px 6px' }}>
+              <input
+                className="input"
+                type="text"
+                placeholder="Type to filter..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{ width: '100%' }}
+                aria-label="Filter options"
+              />
+              {allowCustom && searchTerm.trim() && filteredOptions.findIndex(o => String(o.value).toLowerCase() === searchTerm.trim().toLowerCase()) === -1 && (
+                <div
+                  className="custom-select-option"
+                  onClick={() => commitCustom(searchTerm.trim())}
+                  style={{
+                    marginTop: 6,
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    background: '#1a2332',
+                    color: 'var(--text)',
+                    fontSize: 14
+                  }}
+                >
+                  Use "{searchTerm.trim()}"
+                </div>
+              )}
+            </div>
+          )}
+
+          {filteredOptions.length === 0 && (
             <div
               className="custom-select-option"
               style={{
@@ -145,8 +203,9 @@ export default function CustomSelect({
               No options
             </div>
           )}
-          {options.map((opt, idx) => {
-            const isSelected = idx === selectedIndex
+          {filteredOptions.map((opt, idx) => {
+            const globalIndex = options.findIndex(o => String(o.value) === String(opt.value))
+            const isSelected = globalIndex === selectedIndex
             const isHover = idx === hoverIndex
             return (
               <div
