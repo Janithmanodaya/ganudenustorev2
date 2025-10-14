@@ -170,7 +170,7 @@ export default function AccountPage() {
   if (!user) return null
 
   return (
-    <div className="center">
+    <div className="center account-page">
       <div className="card">
         <div className="h1">Account</div>
         <p className="text-muted">Manage your profile.</p>
@@ -178,8 +178,9 @@ export default function AccountPage() {
         <div className="grid two">
           <div className="card">
             <div className="h2" style={{ marginTop: 0 }}>Profile</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <div className="profile-row" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <div
+                className="avatar"
                 onClick={onAvatarClick}
                 title="Set profile photo"
                 style={{
@@ -235,7 +236,7 @@ export default function AccountPage() {
             <form onSubmit={updateUsername} className="grid two">
               <input className="input" placeholder="New username" value={username} onChange={e => setUsername(e.target.value)} />
               <input className="input" type="password" placeholder="Current password (required)" value={password} onChange={e => setPassword(e.target.value)} />
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="actions" style={{ display: 'flex', gap: 8 }}>
                 <button className="btn primary" type="submit">Update Username</button>
                 <button className="btn" type="button" onClick={logout}>Logout</button>
               </div>
@@ -277,7 +278,7 @@ export default function AccountPage() {
                       {item.pricing_type ? ` • ${item.pricing_type}` : ''}
                       {item.price != null ? ` • LKR ${formatPrice(item.price)}` : ''}
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div className="actions" style={{ display: 'flex', gap: 8 }}>
                       <a className="btn primary" href={`/listing/${item.id}`}>View</a>
                       <button className="btn" onClick={() => removeFavorite(item.id)}>Remove</button>
                     </div>

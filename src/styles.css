@@ -580,4 +580,21 @@ body {
   .report-desktop { display: none; }
   /* Hide Our Features slider nav buttons on mobile */
   .feature-nav { display: none !important; }
+
+  /* AccountPage mobile alignment improvements */
+  .account-page .profile-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .account-page .avatar {
+    width: 72px !important;
+    height: 72px !important;
+  }
+  .account-page .actions {
+    flex-direction: column;
+  }
+  .account-page .actions .btn {
+    width: 100%;
+  }
 }
