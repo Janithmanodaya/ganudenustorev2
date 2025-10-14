@@ -41,6 +41,7 @@ export default function AdminPage() {
   const [notifyMessage, setNotifyMessage] = useState('')
   const [notifyTargetType, setNotifyTargetType] = useState('all') // 'all' | 'email'
   const [notifyEmail, setNotifyEmail] = useState('')
+  const [unreadCount, setUnreadCount] = useState(0)
 
   // Chat management (admin)
   const [conversations, setConversations] = useState([])
@@ -472,9 +473,32 @@ export default function AdminPage() {
       loadAdminNotifications()
       // preload conversations
       loadConversations()
+      // initial unread count
+      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail } })
+        .then(r => r.json())
+        .then(d => setUnreadCount(Number(d.unread_count) || 0))
+        .catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowed, adminEmail])
+
+  // Auto-refresh notifications when on the Notifications tab (and update unread count)
+  useEffect(() => {
+    if (!allowed || !adminEmail) return
+    if (activeTab !== 'notifications') return
+    const refresh = () => {
+      loadAdminNotifications()
+      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail } })
+        .then(r => r.json())
+        .then(d => setUnreadCount(Number(d.unread_count) || 0))
+        .catch(() => {})
+    }
+    // initial refresh on entering tab
+    refresh()
+    const timer = setInterval(refresh, 15000) // every 15s
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed, adminEmail, activeTab])
 
   if (!allowed) {
     return (
@@ -687,28 +711,33 @@ export default function AdminPage() {
         <p className="text-muted">Configure, monitor, and manage users, listings, and reports.</p>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8, marginBottom: 8 }}>
+       <<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8, marginBottom: 8 }}>
           {[
             { key: 'dashboard', label: 'Dashboard' },
             { key: 'users', label: 'Users' },
             { key: 'reports', label: 'Reports' },
             { key: 'banners', label: 'Banners' },
-            { key: 'notifications', label: 'Notifications' },
+            { key: 'notifications', label: (unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications') },
             { key: 'chat', label: 'Chat' },
             { key: 'ai', label: 'AI Config' },
             { key: 'approvals', label: 'Approvals' }
           ].map(t => (
-            <button
+           < button
               key={t.key}
               className="btn"
               onClick={() => setActiveTab(t.key)}
               style={{
                 borderColor: 'var(--border)',
-                background: activeTab === t.key ? 'linear-gradient(180deg, var(--primary), #5569e2)' : 'rgba(22,28,38,0.7)',
+                backgroundeg, var(--primary), #5569e2)' : 'rgba(22,28,38,0.7)',
                 color: activeTab === t.key ? '#fff' : 'var(--text)'
               }}
             >
-              {t.label}
+              {t.key === 'notifications' ? (
+                <>
+                  <span>Notifications</span>
+                  {unreadCount > 0 && <span className="pill" style={{ marginLeft: 6 }}>{unreadCount}</span>}
+                </>
+              ) : t.label}
             </button>
           ))}
         </div>
