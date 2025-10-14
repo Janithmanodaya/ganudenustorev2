@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
@@ -193,9 +193,41 @@ export default function ViewListingPage() {
     }
   }
 
+  const lastTapRef = useRef(0)
+
   function onTouchStart(e) {
     if (!isMobile) return
     if (!lightboxOpen) return
+
+    // Double-tap to toggle zoom (mobile)
+    if (e.touches.length === 1) {
+      const now = Date.now()
+      const elapsed = now - (lastTapRef.current || 0)
+      lastTapRef.current = now
+
+      const t = e.touches[0]
+      if (elapsed > 0 && elapsed < 300) {
+        // Double tap detected: toggle zoom around tap point
+        e.preventDefault()
+        if (zoom <= 1.01) {
+          const targetZoom = 2
+          // Pan so that tapped point moves toward center
+          const cx = window.innerWidth / 2
+          const cy = window.innerHeight / 2
+          const dx = t.clientX - cx
+          const dy = t.clientY - cy
+          const dz = targetZoom - 1
+          setZoom(targetZoom)
+          setPan({ x: pan.x - dx * dz, y: pan.y - dy * dz })
+        } else {
+          // Reset
+          setZoom(1)
+          setPan({ x: 0, y: 0 })
+        }
+        return
+      }
+    }
+
     if (e.touches.length === 2) {
       e.preventDefault()
       const dist = distance(e.touches)
@@ -735,11 +767,12 @@ export default function ViewListingPage() {
                 style={{
                   maxWidth: '90vw',
                   maxHeight: '80vh',
-                  transform: !isMobile ? `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` : undefined,
-                  transition: !isMobile ? (dragging ? 'none' : 'transform 120ms ease') : undefined,
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transition: dragging ? 'none' : 'transform 120ms ease',
                   boxShadow: '0 12px 48px rgba(0,0,0,0.5)',
                   borderRadius: 10,
-                  userSelect: 'none'
+                  userSelect: 'none',
+                  willChange: 'transform'
                 }}
               />
             ) : (
