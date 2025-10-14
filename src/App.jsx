@@ -208,6 +208,121 @@ export default function App() {
 
         {/* Navigation */}
         <nav className="nav" style={{ alignItems: 'center', gap: 10, flex: 1 }}>
+          {/* Desktop navigation aligned to right */}
+          <div className="nav-desktop" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Link to="/">Home</Link>
+            <Link to="/new">Sell</Link>
+            <Link to="/jobs">Jobs</Link>
+            <Link to="/my-ads">My Ads</Link>
+            <Link to="/account">Account</Link>
+            {userEmail ? (
+              <div style={{ position: 'relative' }}>
+                <button
+                  ref={notifBtnRefDesktop}
+                  className="back-btn"
+                  type="button"
+                  aria-label="Notifications"
+                  title="Notifications"
+                  onClick={toggleNotif}
+                >
+                  🔔
+                </button>
+                {unreadCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      top: -2,
+                      right: -2,
+                      width: 16,
+                      height: 16,
+                      borderRadius: '999px',
+                      background: '#ef4444',
+                      color: '#fff',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      boxShadow: '0 0 0 2px rgba(10,12,18,0.9)'
+                    }}
+                  >
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          {/* Mobile navigation: dropdown on the right corner, then profile and notifications */}
+          <div className="nav-mobile" style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+            {/* Right: Menu dropdown toggle (anchored to right corner) */}
+            <div style={{ position: 'relative' }}>
+              <button
+                ref={mobileMenuBtnRef}
+                className="back-btn"
+                type="button"
+                aria-label="Menu"
+                title="Menu"
+                onClick={() => setMobileMenuOpen(o => !o)}
+              >
+                ☰
+              </button>
+              {mobileMenuOpen && (
+                <div
+                  ref={mobileMenuRef}
+                  className="card dropdown-panel"
+                  style={{ width: 200, padding: 8, right: 0, left: 'auto' }}
+                >
+                  <Link to="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
+                  <Link to="/new" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
+                  <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}>Jobs</Link>
+                  <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}>My Ads</Link>
+                </div>
+              )}
+            </div>
+
+            {/* Account icon */}
+            <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
+
+            {/* Notifications icon */}
+            {userEmail ? (
+              <div style={{ position: 'relative' }}>
+                <button
+                  ref={notifBtnRefMobile}
+                  className="back-btn"
+                  type="button"
+                  aria-label="Notifications"
+                  title="Notifications"
+                  onClick={toggleNotif}
+                >
+                  🔔
+                </button>
+                {unreadCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      top: -2,
+                      right: -2,
+                      width: 16,
+                      height: 16,
+                      borderRadius: '999px',
+                      background: '#ef4444',
+                      color: '#fff',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      boxShadow: '0 0 0 2px rgba(10,12,18,0.9)'
+                    }}
+                  >
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </nav>
           {/* Desktop navigation (unchanged) */}
           <div className="nav-desktop">
             <Link to="/">Home</Link>
