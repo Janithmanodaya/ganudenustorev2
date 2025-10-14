@@ -22,6 +22,7 @@ import adminRouter from './routes/admin.js';
 import listingsRouter from './routes/listings.js';
 import jobsRouter from './routes/jobs.js';
 import notificationsRouter from './routes/notifications.js';
+import chatsRouter from './routes/chats.js';
 
 let helmet = null;
 try {
@@ -264,6 +265,15 @@ const notificationsLimiter = rateLimit({
 });
 app.use('/api/notifications', notificationsLimiter, notificationsRouter);
 
+// Chats endpoints (separate limiter)
+const chatsLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 240,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/chats', chatsLimiter, chatsRouter);
+
 
 // Public banners endpoint
 app.get('/api/banners', (req, res) => {
@@ -334,9 +344,24 @@ async function purgeExpiredListings() {
   }
 }
 
+// Purge chats older than 7 days
+function purgeOldChats() {
+  try {
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const info = db.prepare(`DELETE FROM chats WHERE created_at < ?`).run(cutoff);
+    if (info.changes) {
+      console.log(`[cleanup] Purged ${info.changes} chats older than 7 days at ${new Date().toISOString()}`);
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
 // Run cleanup at startup and hourly
 purgeExpiredListings();
+purgeOldChats();
 setInterval(purgeExpiredListings, 60 * 60 * 1000);
+setInterval(purgeOldChats, 60 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`Ganudenu backend running at http://localhost:${PORT}`);

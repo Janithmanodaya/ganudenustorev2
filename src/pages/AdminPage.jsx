@@ -41,6 +41,12 @@ export default function AdminPage() {
   const [notifyTargetType, setNotifyTargetType] = useState('all') // 'all' | 'email'
   const [notifyEmail, setNotifyEmail] = useState('')
 
+  // Chat management (admin)
+  const [conversations, setConversations] = useState([])
+  const [selectedChatEmail, setSelectedChatEmail] = useState('')
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatInput, setChatInput] = useState('')
+
   // Tabs
   const [activeTab, setActiveTab] = useState('dashboard')
 
@@ -382,6 +388,48 @@ export default function AdminPage() {
     }
   }
 
+  // Chat management (admin)
+  async function loadConversations() {
+    try {
+      const r = await fetch('/api/chats/admin/conversations', { headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to load conversations')
+      setConversations(Array.isArray(data.results) ? data.results : [])
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function loadChatMessages(email) {
+    try {
+      const r = await fetch(`/api/chats/admin/${encodeURIComponent(email)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to load messages')
+      setSelectedChatEmail(email)
+      setChatMessages(Array.isArray(data.results) ? data.results : [])
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function sendAdminReply() {
+    const msg = chatInput.trim()
+    if (!msg || !selectedChatEmail) return
+    try {
+      const r = await fetch(`/api/chats/admin/${encodeURIComponent(selectedChatEmail)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+        body: JSON.stringify({ message: msg })
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data.error || 'Failed to send')
+      setChatInput('')
+      setChatMessages(prev => [...prev, { id: Date.now(), sender: 'admin', message: msg, created_at: new Date().toISOString() }])
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
   // On mount, require logged-in admin
   useEffect(() => {
     try {
@@ -406,10 +454,10 @@ export default function AdminPage() {
       loadUsers('')
       loadReports(reportFilter)
       loadAdminNotifications()
+      // preload conversations
+      loadConversations()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, adminEmail])
-
+    // eslint-disable-next-line react-hooks
   if (!allowed) {
     return (
       <div className="center">
@@ -628,6 +676,7 @@ export default function AdminPage() {
             { key: 'reports', label: 'Reports' },
             { key: 'banners', label: 'Banners' },
             { key: 'notifications', label: 'Notifications' },
+            { key: 'chat', label: 'Chat' },
             { key: 'ai', label: 'AI Config' },
             { key: 'approvals', label: 'Approvals' }
           ].map(t => (
@@ -880,6 +929,58 @@ export default function AdminPage() {
                 </div>
               </div>
             ))}
+          </>
+        )}
+
+        {/* Chat Management */}
+        {activeTab === 'chat' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>User Chat (last 7 days)</div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button className="btn" onClick={loadConversations}>Refresh</button>
+                </div>
+                {conversations.length === 0 && <p className="text-muted" style={{ marginTop: 8 }}>No conversations.</p>}
+                {conversations.map(c => (
+                  <div key={c.user_email} className="card" style={{ marginTop: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <strong>{c.user_email}</strong>
+                      <small className="text-muted">{new Date(c.last_ts).toLocaleString()}</small>
+                    </div>
+                    <div className="text-muted" style={{ marginTop: 6 }}>{c.last_sender === 'admin' ? 'Admin: ' : 'User: '}{c.last_message}</div>
+                    <div style={{ marginTop: 8 }}>
+                      <button className="btn" onClick={() => loadChatMessages(c.user_email)}>Open</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="h2">Conversation</div>
+                {!selectedChatEmail && <p className="text-muted">Select a conversation.</p>}
+                {selectedChatEmail && (
+                  <>
+                    <div className="pill">With: {selectedChatEmail}</div>
+                    <div style={{ maxHeight: 360, overflowY: 'auto', marginTop: 8 }}>
+                      {chatMessages.map(m => (
+                        <div key={m.id} className="card" style={{ marginBottom: 6, background: m.sender === 'admin' ? 'rgba(108,127,247,0.12)' : 'rgba(0,209,255,0.10)', borderColor: 'transparent' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                            <strong>{m.sender === 'admin' ? 'Admin' : selectedChatEmail}</strong>
+                            <small className="text-muted">{new Date(m.created_at).toLocaleString()}</small>
+                          </div>
+                          <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{m.message}</div>
+                        </div>
+                      ))}
+                      {chatMessages.length === 0 && <p className="text-muted">No messages yet.</p>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <input className="input" placeholder="Type a reply..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendAdminReply(); } }} />
+                      <button className="btn primary" onClick={sendAdminReply}>Send</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </>
         )}
 

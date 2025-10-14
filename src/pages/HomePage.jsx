@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
+import ChatWidget from '../components/ChatWidget.jsx'
 
 import CustomSelect from '../components/CustomSelect.jsx'
 
@@ -818,6 +819,9 @@ export default function HomePage() {
           </div>
         );
       })()}
+
+      {/* Bottom-right chat widget (homepage) */}
+      <ChatWidget />
     </div>
   )
 }
