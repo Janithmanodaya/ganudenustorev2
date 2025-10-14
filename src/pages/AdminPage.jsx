@@ -29,6 +29,7 @@ export default function AdminPage() {
   // Users management
   const [users, setUsers] = useState([])
   const [userQuery, setUserQuery] = useState('')
+  const [suspendDays, setSuspendDays] = useState(7)
 
   // Reports management
   const [reports, setReports] = useState([])
@@ -238,9 +239,24 @@ export default function AdminPage() {
 
   async function suspend7Days(id) {
     try {
-      const r = await fetch(`/api/admin/users/${id}/suspend7`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/users/${id}/suspend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+        body: JSON.stringify({ days: Number(suspendDays) || 7 })
+      })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Failed to suspend user')
+      loadUsers(userQuery)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function unsuspendUser(id) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}/unsuspend`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to unsuspend user')
       loadUsers(userQuery)
     } catch (e) {
       setStatus(`Error: ${e.message}`)
@@ -797,6 +813,22 @@ export default function AdminPage() {
               </div>
             </div>
             <div className="grid two" style={{ marginTop: 8 }}>
+              <div>
+                <label className="text-muted">Suspend days</label>
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={suspendDays}
+                  onChange={e => setSuspendDays(Math.max(1, Math.min(365, Number(e.target.value || 1))))}
+                />
+              </div>
+              <div className="text-muted" style={{ display: 'flex', alignItems: 'center' }}>
+                This value is used when clicking “Suspend” on a user.
+              </div>
+            </div>
+            <div className="grid two" style={{ marginTop: 8 }}>
               <div className="card">
                 <div className="h2">Results</div>
                 {users.length === 0 && <p className="text-muted">No users.</p>}
@@ -810,7 +842,12 @@ export default function AdminPage() {
                     <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                       {!u.is_banned && <button className="btn" onClick={() => banUser(u.id)}>Ban</button>}
                       {u.is_banned && <button className="btn" onClick={() => unbanUser(u.id)}>Unban</button>}
-                      <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend 7 days</button>
+                      {/* Show Unsuspend if currently suspended */}
+                      {u.suspended_until && (new Date(u.suspended_until) > new Date()) ? (
+                        <button className="btn" onClick={() => unsuspendUser(u.id)}>Unsuspend</button>
+                      ) : (
+                        <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend 7 days</button>
+                      )}
                     </div>
                   </div>
                 ))}

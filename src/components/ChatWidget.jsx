@@ -9,6 +9,8 @@ export default function ChatWidget() {
   const [input, setInput] = useState('');
   const [status, setStatus] = useState('');
   const listRef = useRef(null);
+  const inputRef = useRef(null);
+  const panelRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -26,7 +28,6 @@ export default function ChatWidget() {
       const data = await r.json();
       if (r.ok) {
         setMessages(Array.isArray(data.results) ? data.results : []);
-        // Scroll to bottom on update
         const el = listRef.current;
         if (el) { el.scrollTop = el.scrollHeight; }
       }
@@ -57,13 +58,57 @@ export default function ChatWidget() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || 'Failed to send');
       setInput('');
-      // Optimistic append
       setMessages(prev => [...prev, { id: Date.now(), sender: 'user', message: msg, created_at: new Date().toISOString() }]);
       const el = listRef.current;
       if (el) { el.scrollTop = el.scrollHeight; }
     } catch (e) {
       setStatus(`Error: ${e.message}`);
     }
+  }
+
+  function updatePopupPosition() {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    // Default bottom spacing when no keyboard (desktop or unsupported)
+    let bottomBase = 74;
+
+    // If visualViewport is available, compute keyboard overlap
+    const vv = window.visualViewport;
+    if (vv) {
+      const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      panel.style.bottom = `${bottomBase + keyboardHeight + 8}px`;
+    } else {
+      panel.style.bottom = `${bottomBase}px`;
+    }
+  }
+
+  function adjustForInputFocus() {
+    // Ensure latest messages visible
+    const list = listRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+
+    // Move popup above keyboard if present
+    updatePopupPosition();
+
+    // Bring input into view (useful on mobile keyboards)
+    const inp = inputRef.current;
+    if (inp) {
+      setTimeout(() => {
+        try {
+          inp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          const panel = panelRef.current || document.getElementById('chat-popup');
+          if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (_) {}
+      }, 50);
+    }
+  }
+
+  function handleInputBlur() {
+    const panel = panelRef.current;
+    if (!panel) return;
+    // Reset to default bottom when input loses focus
+    panel.style.bottom = '74px';
   }
 
   // Close popup when clicking outside
@@ -79,6 +124,27 @@ export default function ChatWidget() {
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [open]);
+
+  // Adjust popup position when the virtual keyboard shows/hides (mobile)
+  useEffect(() => {
+    if (!open) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const handler = () => {
+      updatePopupPosition();
+    };
+
+    vv.addEventListener('resize', handler);
+    vv.addEventListener('scroll', handler);
+    // Initialize once opened
+    handler();
+
+    return () => {
+      vv.removeEventListener('resize', handler);
+      vv.removeEventListener('scroll', handler);
+    };
   }, [open]);
 
   return (
@@ -113,6 +179,7 @@ export default function ChatWidget() {
       {open && (
         <div
           id="chat-popup"
+          ref={panelRef}
           className="card"
           role="dialog"
           aria-label="Support chat"
@@ -126,7 +193,9 @@ export default function ChatWidget() {
             flexDirection: 'column',
             gap: 8,
             zIndex: 1200,
-            boxShadow: '0 10px 25px rgba(0,0,0,0.35)'
+            boxShadow: '0 10px 25px rgba(0,0,0,0.45)',
+            background: 'rgba(18,22,31,0.96)',
+            borderColor: 'var(--border)'
           }}
         >
           <div className="h2" style={{ marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -135,7 +204,7 @@ export default function ChatWidget() {
           </div>
 
           {!userEmail && (
-            <div className="card" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <div className="card" style={{ background: 'rgba(18,22,31,0.9)', borderColor: 'var(--border)' }}>
               <div className="text-muted">Please login to chat with admin.</div>
               <div className="text-muted" style={{ marginTop: 6 }}>Try to contact admin after you log into the website.</div>
               <div style={{ marginTop: 8 }}>
@@ -154,8 +223,8 @@ export default function ChatWidget() {
                     className="card"
                     style={{
                       marginBottom: 6,
-                      background: m.sender === 'admin' ? 'rgba(108,127,247,0.12)' : 'rgba(0,209,255,0.10)',
-                      borderColor: 'transparent'
+                      background: m.sender === 'admin' ? 'rgba(108,127,247,0.22)' : 'rgba(0,209,255,0.18)',
+                      borderColor: m.sender === 'admin' ? '#4656cc33' : '#0892b033'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
@@ -168,9 +237,13 @@ export default function ChatWidget() {
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <input
+                  ref={inputRef}
                   className="input"
                   placeholder="Type a message..."
                   value={input}
+                  onFocus={adjustForInputFocus}
+                  onClick={adjustForInputFocus}
+                  onBlur={handleInputBlur}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendMessage(); } }}
                 />

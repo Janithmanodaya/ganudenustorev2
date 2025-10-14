@@ -187,10 +187,24 @@ router.post('/verify-otp-and-register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
-  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path FROM users WHERE email = ?').get(email.toLowerCase());
+  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path, is_banned, suspended_until FROM users WHERE email = ?').get(email.toLowerCase());
   if (!user) return res.status(401).json({ error: 'Invalid credentials.' });
   const match = await bcrypt.compare(password, user.password_hash);
   if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
+
+  // Enforce bans and suspensions for non-admin users
+  if (!user.is_admin) {
+    if (user.is_banned) {
+      return res.status(403).json({ error: 'Your account is banned. Please contact support.' });
+    }
+    if (user.suspended_until) {
+      const now = new Date();
+      const until = new Date(user.suspended_until);
+      if (until > now) {
+        return res.status(403).json({ error: `Your account is suspended until ${until.toLocaleString()}.` });
+      }
+    }
+  }
 
   // For admin accounts: require OTP after password is verified
   if (user.is_admin) {
@@ -339,6 +353,28 @@ router.post('/reset-password', async (req, res) => {
     return res.json({ ok: true, message: 'Password reset successfully.' });
   } catch (e) {
     console.error(e);
+    return res.status(500).json({ error: 'Unexpected error.' });
+  }
+});
+
+// Public user status endpoint (used by client to enforce bans/suspensions)
+router.get('/status', (req, res) => {
+  try {
+    const hdrEmail = String(req.header('X-User-Email') || '').toLowerCase().trim();
+    const qEmail = String(req.query.email || '').toLowerCase().trim();
+    const email = hdrEmail || qEmail;
+    if (!email) return res.status(400).json({ error: 'Email required.' });
+    const user = db.prepare('SELECT id, email, is_admin, is_banned, suspended_until, username FROM users WHERE email = ?').get(email);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    return res.json({
+      ok: true,
+      email: user.email,
+      username: user.username || null,
+      is_admin: !!user.is_admin,
+      is_banned: !!user.is_banned,
+      suspended_until: user.suspended_until || null
+    });
+  } catch (e) {
     return res.status(500).json({ error: 'Unexpected error.' });
   }
 });
