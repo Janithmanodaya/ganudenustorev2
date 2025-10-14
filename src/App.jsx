@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Routes, Route, Link, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import HomePage from './pages/HomePage.jsx'
 import ViewListingPage from './pages/ViewListingPage.jsx'
@@ -21,9 +21,76 @@ export default function App() {
   const location = useLocation()
   const isHome = location.pathname === '/'
 
+  // Notifications state (top-right bell)
+  const [userEmail, setUserEmail] = useState('')
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifications, setNotifications] = useState([])
+  const notifBtnRef = useRef(null)
+
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null')
+      setUserEmail(user?.email || '')
+    } catch (_) {
+      setUserEmail('')
+    }
+  }, [location])
+
+  async function loadUnread() {
+    if (!userEmail) { setUnreadCount(0); return }
+    try {
+      const r = await fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': userEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed')
+      setUnreadCount(Number(data.unread_count || 0))
+    } catch (_) {
+      setUnreadCount(0)
+    }
+  }
+
+  async function loadNotifications() {
+    if (!userEmail) { setNotifications([]); return }
+    try {
+      const r = await fetch('/api/notifications', { headers: { 'X-User-Email': userEmail } })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed')
+      setNotifications(Array.isArray(data.results) ? data.results : [])
+      setUnreadCount(Number(data.unread_count || 0))
+    } catch (_) {
+      setNotifications([])
+    }
+  }
+
+  useEffect(() => {
+    loadUnread()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userEmail])
+
+  function toggleNotif() {
+    const next = !notifOpen
+    setNotifOpen(next)
+    if (next) loadNotifications()
+  }
+
+  async function markAllRead() {
+    if (!userEmail) return
+    const unread = notifications.filter(n => !n.is_read)
+    for (const n of unread) {
+      try {
+        await fetch(`/api/notifications/${n.id}/read`, {
+          method: 'POST',
+          headers: { 'X-User-Email': userEmail }
+        })
+      } catch (_) {}
+    }
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })))
+    setUnreadCount(0)
+  }
+
   return (
     <div className="app light">
-      <header className="topbar">
+      <header className="topbar" style={{ position: 'sticky' }}>
         <div className="topbar-left">
           {!isHome && (
             <button
@@ -41,13 +108,78 @@ export default function App() {
             <span className="domain">Marketplace</span>
           </div>
         </div>
-        <nav className="nav">
+        <nav className="nav" style={{ alignItems: 'center', gap: 10 }}>
           <Link to="/">Home</Link>
           <Link to="/new">Sell</Link>
           <Link to="/jobs">Jobs</Link>
           <Link to="/my-ads">My Ads</Link>
           <Link to="/account">Account</Link>
+
+          {/* Bell icon for notifications (only visible when logged in) */}
+          {userEmail ? (
+            <div style={{ position: 'relative' }}>
+              <button
+                ref={notifBtnRef}
+                className="back-btn"
+                type="button"
+                aria-label="Notifications"
+                title="Notifications"
+                onClick={toggleNotif}
+              >
+                🔔
+              </button>
+              {unreadCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    width: 16,
+                    height: 16,
+                    borderRadius: '999px',
+                    background: '#ef4444',
+                    color: '#fff',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    boxShadow: '0 0 0 2px rgba(10,12,18,0.9)'
+                  }}
+                >
+                  {unreadCount}
+                </span>
+              )}
+            </div>
+          ) : null}
         </nav>
+
+        {/* Dropdown panel */}
+        {notifOpen && (
+          <div style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
+            <div className="card" style={{ width: 340, maxHeight: 420, overflow: 'auto' }}>
+              <div className="h2" style={{ marginTop: 0 }}>Notifications</div>
+              {notifications.length === 0 && <p className="text-muted">No notifications.</p>}
+              {notifications.map(n => (
+                <div key={n.id} className="card" style={{ marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <strong>{n.title}</strong>
+                    {!n.is_read && <span className="pill" style={{ background: 'rgba(108,127,247,0.15)', borderColor: 'transparent', color: '#c9d1ff' }}>New</span>}
+                  </div>
+                  <div className="text-muted" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.message}</div>
+                  <div className="text-muted" style={{ marginTop: 6, fontSize: 12 }}>
+                    {new Date(n.created_at).toLocaleString()}
+                    {n.target_email ? <span> • to {n.target_email}</span> : <span> • to All</span>}
+                  </div>
+                </div>
+              ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8 }}>
+                <button className="btn" onClick={() => setNotifOpen(false)}>Close</button>
+                <button className="btn" onClick={markAllRead} disabled={unreadCount === 0}>Mark all read</button>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
       <main className="content">
         <Routes>

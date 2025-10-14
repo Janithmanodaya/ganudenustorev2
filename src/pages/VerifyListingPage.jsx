@@ -42,6 +42,29 @@ export default function VerifyListingPage() {
   const year = struct.manufacture_year != null && struct.manufacture_year !== '' ? String(struct.manufacture_year) : ''
   const subCategory = String(struct.sub_category || '')
 
+  // Category flags
+  const mainCat = String(draft?.main_category || '')
+  const isVehicle = mainCat === 'Vehicle'
+  const isJob = mainCat === 'Job'
+  const isProperty = mainCat === 'Property'
+  const isMobile = mainCat === 'Mobile'
+  const isElectronic = mainCat === 'Electronic'
+  const isHomeGarden = mainCat === 'Home Garden'
+
+  // Job-specific fields
+  const employmentType = String(struct.employment_type || '')
+  const company = String(struct.company || '')
+
+  // Property-specific fields (optional)
+  const bedrooms = struct.bedrooms != null && struct.bedrooms !== '' ? String(struct.bedrooms) : ''
+  const bathrooms = struct.bathrooms != null && struct.bathrooms !== '' ? String(struct.bathrooms) : ''
+  const sizeText = String(struct.size || '')
+  const furnishing = String(struct.furnishing || '')
+  const parking = Boolean(struct.parking)
+
+  // Generic optional brand (useful for Mobile/Electronic/Home Garden)
+  const brand = String(struct.brand || '')
+
   useEffect(() => {
     async function load() {
       if (!draftId) return;
@@ -92,27 +115,39 @@ export default function VerifyListingPage() {
   }, [images])
 
   async function submitPost() {
-    // Enforce required fields: location, price, pricing_type, phone, model_name, manufacture_year, description
-    // Vehicle-only: require sub_category (Bike/Car/Van/Bus)
+    // Category-aware field validation
     const s = parseStruct()
     const hasLoc = String(s.location || '').trim().length > 0
     const nPrice = Number(s.price)
     const hasPrice = !Number.isNaN(nPrice) && nPrice >= 0
     const hasPricing = ['Fixed Price', 'Negotiable'].includes(String(s.pricing_type || ''))
     const hasPhone = /^\+94\d{9}$/.test(String(s.phone || '').trim())
-    const hasModel = String(s.model_name || '').trim().length >= 2
-    const nYear = Number(s.manufacture_year)
-    const hasYear = Number.isFinite(nYear) && nYear >= 1950 && nYear <= 2100
     const hasDesc = String(descriptionText || '').trim().length >= 20
-    const isVehicle = String(draft?.main_category || '') === 'Vehicle'
-    const validSubCats = new Set(['Bike','Car','Van','Bus'])
-    const hasSubCat = !isVehicle || validSubCats.has(String(s.sub_category || '').trim())
 
-    if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasModel || !hasYear || !hasDesc || !hasSubCat) {
-      const baseMsg = 'Please provide Location, Price, Pricing Type, Phone (+94), Model Name, Manufacture Year (1950-2100), and a Description (min 20 chars).'
-      const subMsg = isVehicle ? ' Also select the Vehicle Sub-category (Bike, Car, Van, or Bus).' : ''
-      setStatus(baseMsg + subMsg)
-      return
+    if (isVehicle) {
+      const hasModel = String(s.model_name || '').trim().length >= 2
+      const nYear = Number(s.manufacture_year)
+      const hasYear = Number.isFinite(nYear) && nYear >= 1950 && nYear <= 2100
+      const validSubCats = new Set(['Bike','Car','Van','Bus'])
+      const hasSubCat = validSubCats.has(String(s.sub_category || '').trim())
+
+      if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasModel || !hasYear || !hasDesc || !hasSubCat) {
+        setStatus('Please provide Location, Price, Pricing Type, Phone (+94), Model Name, Manufacture Year (1950-2100), Vehicle Sub-category (Bike/Car/Van/Bus), and a Description (min 20 chars).')
+        return
+      }
+    } else if (isJob) {
+      const hasSubCat = String(s.sub_category || '').trim().length > 0
+      const hasEmpType = String(s.employment_type || '').trim().length > 0
+      if (!hasLoc || !hasPhone || !hasDesc || !hasSubCat || !hasEmpType) {
+        setStatus('For Job: please provide Location, Phone (+94), Employment Type, Job Sub-category (e.g., Driver), and a Description (min 20 chars). Salary is optional.')
+        return
+      }
+    } else {
+      // Other categories: require base commerce fields but not vehicle specifics
+      if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasDesc) {
+        setStatus('Please provide Location, Price, Pricing Type, Phone (+94), and a Description (min 20 chars).')
+        return
+      }
     }
 
     try {
@@ -188,6 +223,7 @@ export default function VerifyListingPage() {
                   <small className="text-muted">Please review and complete the details below.</small>
                 </div>
 
+                {/* Location (always required) */}
                 <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Location</label>
                 <input
                   className="input"
@@ -196,65 +232,332 @@ export default function VerifyListingPage() {
                   onChange={e => { const s = parseStruct(); s.location = e.target.value; patchStruct(s) }}
                 />
 
-                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
-                <input
-                  className="input"
-                  type="number"
-                  placeholder="Price (required)"
-                  value={price}
-                  onChange={e => { const s = parseStruct(); const v = e.target.value; s.price = v === '' ? '' : Number(v); patchStruct(s) }}
-                />
+                {/* Category-specific fields */}
+                {isVehicle && (
+                  <>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Price (required)"
+                      value={price}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.price = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
 
-                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Pricing Type</label>
-                <select
-                  className="select"
-                  value={pricingType || ''}
-                  onChange={e => { const s = parseStruct(); s.pricing_type = e.target.value; patchStruct(s) }}
-                >
-                  <option value="">Select pricing type</option>
-                  <option value="Fixed Price">Fixed Price</option>
-                  <option value="Negotiable">Negotiable</option>
-                </select>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Pricing Type</label>
+                    <select
+                      className="select"
+                      value={pricingType || ''}
+                      onChange={e => { const s = parseStruct(); s.pricing_type = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select pricing type</option>
+                      <option value="Fixed Price">Fixed Price</option>
+                      <option value="Negotiable">Negotiable</option>
+                    </select>
 
-                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Phone</label>
-                <input
-                  className="input"
-                  placeholder="Phone (+94XXXXXXXXX)"
-                  value={phone}
-                  onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
-                />
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Phone</label>
+                    <input
+                      className="input"
+                      placeholder="Phone (+94XXXXXXXXX)"
+                      value={phone}
+                      onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
+                    />
 
-                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Model Name</label>
-                <input
-                  className="input"
-                  placeholder="Model Name (required)"
-                  value={modelName}
-                  onChange={e => { const s = parseStruct(); s.model_name = e.target.value; patchStruct(s) }}
-                />
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Model Name</label>
+                    <input
+                      className="input"
+                      placeholder="Model Name (required)"
+                      value={modelName}
+                      onChange={e => { const s = parseStruct(); s.model_name = e.target.value; patchStruct(s) }}
+                    />
 
-                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Manufacture Year</label>
-                <input
-                  className="input"
-                  type="number"
-                  placeholder="Manufacture Year (required)"
-                  value={year}
-                  onChange={e => { const s = parseStruct(); const v = e.target.value; s.manufacture_year = v === '' ? '' : Number(v); patchStruct(s) }}
-                />
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Manufacture Year</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Manufacture Year (required)"
+                      value={year}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.manufacture_year = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
 
-                {/* Show Sub-category as a non-editable field for all categories */}
-                <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
-                {String(draft?.main_category || '') === 'Vehicle' ? (
-                  <select className="select" value={subCategory} disabled>
-                    <option value="">Vehicle Sub-category</option>
-                    <option value="Bike">Bike</option>
-                    <option value="Car">Car</option>
-                    <option value="Van">Van</option>
-                    <option value="Bus">Bus</option>
-                  </select>
-                ) : (
-                  <select className="select" value={subCategory || ''} disabled>
-                    <option value="">{subCategory ? subCategory : 'None'}</option>
-                  </select>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
+                    <select className="select" value={subCategory} disabled>
+                      <option value="">Vehicle Sub-category</option>
+                      <option value="Bike">Bike</option>
+                      <option value="Car">Car</option>
+                      <option value="Van">Van</option>
+                      <option value="Bus">Bus</option>
+                    </select>
+                  </>
+                )}
+
+                {isJob && (
+                  <>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Salary</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Salary (optional)"
+                      value={price}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.price = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Salary Type</label>
+                    <select
+                      className="select"
+                      value={pricingType || ''}
+                      onChange={e => { const s = parseStruct(); s.pricing_type = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select salary type</option>
+                      <option value="Negotiable">Negotiable</option>
+                      <option value="Fixed Price">Fixed Salary</option>
+                    </select>
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Phone</label>
+                    <input
+                      className="input"
+                      placeholder="Phone (+94XXXXXXXXX)"
+                      value={phone}
+                      onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Company</label>
+                    <input
+                      className="input"
+                      placeholder="Company or employer name"
+                      value={company}
+                      onChange={e => { const s = parseStruct(); s.company = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Employment Type</label>
+                    <select
+                      className="select"
+                      value={employmentType || ''}
+                      onChange={e => { const s = parseStruct(); s.employment_type = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select employment type</option>
+                      <option value="Full-time">Full-time</option>
+                      <option value="Part-time">Part-time</option>
+                      <option value="Contract">Contract</option>
+                      <option value="Internship">Internship</option>
+                      <option value="Temporary">Temporary</option>
+                    </select>
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Job Sub-category</label>
+                    <select
+                      className="select"
+                      value={subCategory || ''}
+                      onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select job sub-category</option>
+                      <option value="Driver">Driver</option>
+                      <option value="IT/Software">IT/Software</option>
+                      <option value="Sales/Marketing">Sales/Marketing</option>
+                      <option value="Education">Education</option>
+                      <option value="Logistics/Delivery">Logistics/Delivery</option>
+                      <option value="Accounting/Finance">Accounting/Finance</option>
+                      <option value="Healthcare">Healthcare</option>
+                      <option value="Construction/Trades">Construction/Trades</option>
+                      <option value="Customer Service">Customer Service</option>
+                      <option value="Security">Security</option>
+                      <option value="Cleaning/Housekeeping">Cleaning/Housekeeping</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </>
+                )}
+
+                {isProperty && (
+                  <>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Price (required)"
+                      value={price}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.price = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Pricing Type</label>
+                    <select
+                      className="select"
+                      value={pricingType || ''}
+                      onChange={e => { const s = parseStruct(); s.pricing_type = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select pricing type</option>
+                      <option value="Fixed Price">Fixed Price</option>
+                      <option value="Negotiable">Negotiable</option>
+                    </select>
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Phone</label>
+                    <input
+                      className="input"
+                      placeholder="Phone (+94XXXXXXXXX)"
+                      value={phone}
+                      onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Property Type</label>
+                    <select
+                      className="select"
+                      value={subCategory || ''}
+                      onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select property type</option>
+                      <option value="House">House</option>
+                      <option value="Apartment">Apartment</option>
+                      <option value="Land">Land</option>
+                      <option value="Room/Annex">Room/Annex</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Other">Other</option>
+                    </select>
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Bedrooms</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Bedrooms (optional)"
+                      value={bedrooms}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.bedrooms = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Bathrooms</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Bathrooms (optional)"
+                      value={bathrooms}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.bathrooms = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Size</label>
+                    <input
+                      className="input"
+                      placeholder="Size (e.g., 1200 sqft or 10 perches)"
+                      value={sizeText}
+                      onChange={e => { const s = parseStruct(); s.size = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Furnishing</label>
+                    <select
+                      className="select"
+                      value={furnishing || ''}
+                      onChange={e => { const s = parseStruct(); s.furnishing = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select furnishing (optional)</option>
+                      <option value="Unfurnished">Unfurnished</option>
+                      <option value="Semi-furnished">Semi-furnished</option>
+                      <option value="Fully furnished">Fully furnished</option>
+                    </select>
+
+                    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                      <input
+                        id="parking"
+                        type="checkbox"
+                        checked={parking}
+                        onChange={e => { const s = parseStruct(); s.parking = e.target.checked; patchStruct(s) }}
+                      />
+                      <label htmlFor="parking" className="text-muted">Parking available</label>
+                    </div>
+                  </>
+                )}
+
+                {(isMobile || isElectronic || isHomeGarden) && (
+                  <>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Price (required)"
+                      value={price}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.price = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Pricing Type</label>
+                    <select
+                      className="select"
+                      value={pricingType || ''}
+                      onChange={e => { const s = parseStruct(); s.pricing_type = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select pricing type</option>
+                      <option value="Fixed Price">Fixed Price</option>
+                      <option value="Negotiable">Negotiable</option>
+                    </select>
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Phone</label>
+                    <input
+                      className="input"
+                      placeholder="Phone (+94XXXXXXXXX)"
+                      value={phone}
+                      onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Model Name</label>
+                    <input
+                      className="input"
+                      placeholder="Model Name (optional)"
+                      value={modelName}
+                      onChange={e => { const s = parseStruct(); s.model_name = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Brand</label>
+                    <input
+                      className="input"
+                      placeholder="Brand (optional)"
+                      value={brand}
+                      onChange={e => { const s = parseStruct(); s.brand = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Manufacture Year</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Manufacture Year (optional)"
+                      value={year}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.manufacture_year = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
+                    <select className="select" value={subCategory || ''} disabled>
+                      <option value="">{subCategory ? subCategory : 'None'}</option>
+                    </select>
+                  </>
+                )}
+
+                {!isVehicle && !isJob && !isProperty && !(isMobile || isElectronic || isHomeGarden) && (
+                  <>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Price (required)"
+                      value={price}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.price = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Pricing Type</label>
+                    <select
+                      className="select"
+                      value={pricingType || ''}
+                      onChange={e => { const s = parseStruct(); s.pricing_type = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select pricing type</option>
+                      <option value="Fixed Price">Fixed Price</option>
+                      <option value="Negotiable">Negotiable</option>
+                    </select>
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Phone</label>
+                    <input
+                      className="input"
+                      placeholder="Phone (+94XXXXXXXXX)"
+                      value={phone}
+                      onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
+                    <select className="select" value={subCategory || ''} disabled>
+                      <option value="">{subCategory ? subCategory : 'None'}</option>
+                    </select>
+                  </>
                 )}
               </div>
             </div>

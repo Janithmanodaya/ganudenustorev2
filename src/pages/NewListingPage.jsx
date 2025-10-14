@@ -16,7 +16,11 @@ export default function NewListingPage() {
   const hiddenFileInput = useRef(null)
   const pendingSlotRef = useRef(null)
 
-  const maxImages = useMemo(() => (mainCategory === 'Job' ? 1 : 5), [mainCategory])
+  const maxImages = useMemo(() => {
+    if (mainCategory === 'Job') return 1
+    if (mainCategory === 'Mobile' || mainCategory === 'Electronic' || mainCategory === 'Home Garden') return 4
+    return 5
+  }, [mainCategory])
 
   // Initialize/resize image slots whenever category changes
   useEffect(() => {
@@ -155,6 +159,9 @@ export default function NewListingPage() {
 
   const helperText = useMemo(() => {
     if (mainCategory === 'Job') return 'Step 1 • Provide details and 1 company logo/banner image.'
+    if (mainCategory === 'Mobile' || mainCategory === 'Electronic' || mainCategory === 'Home Garden') {
+      return 'Step 1 • Provide details and up to 4 photos. Continue to review and publish.'
+    }
     return 'Step 1 • Provide details and up to 5 photos. Continue to review and publish.'
   }, [mainCategory])
 

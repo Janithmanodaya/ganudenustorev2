@@ -21,6 +21,7 @@ import authRouter from './routes/auth.js';
 import adminRouter from './routes/admin.js';
 import listingsRouter from './routes/listings.js';
 import jobsRouter from './routes/jobs.js';
+import notificationsRouter from './routes/notifications.js';
 
 let helmet = null;
 try {
@@ -226,6 +227,16 @@ const jobsLimiter = rateLimit({
   legacyHeaders: false
 });
 app.use('/api/jobs', jobsLimiter, jobsRouter);
+
+// Notifications endpoints (separate limiter)
+const notificationsLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/notifications', notificationsLimiter, notificationsRouter);
+
 
 // Public banners endpoint
 app.get('/api/banners', (req, res) => {
