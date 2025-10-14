@@ -363,8 +363,7 @@ export default function ViewListingPage() {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <a
                     className="btn primary"
-                    href={isLoggedIn() ? `tel:${listing.phone}` : '#'}
-                    onClick={onDial}
+                    href={`tel:${listing.phone}`}
                   >
                     {formatPhoneDisplay(listing.phone)}
                   </a>
@@ -414,8 +413,7 @@ export default function ViewListingPage() {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <a
                     className="btn primary"
-                    href={isLoggedIn() ? `tel:${listing.phone}` : '#'}
-                    onClick={onDial}
+                    href={`tel:${listing.phone}`}
                   >
                     {formatPhoneDisplay(listing.phone)}
                   </a>
@@ -449,8 +447,18 @@ export default function ViewListingPage() {
           {listing?.phone && (
             <a
               className="btn accent"
-              href={isLoggedIn() ? `tel:${listing.phone}` : '#'}
-              onClick={onDial}
+              href={`tel:${listing.phone}`}
+              aria-label="Call seller"
+              title="Call seller"
+            >
+              Call
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
               aria-label="Call seller"
               title="Call seller"
             >
