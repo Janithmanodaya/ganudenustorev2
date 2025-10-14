@@ -67,6 +67,7 @@ export default function ViewListingPage() {
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [prevViewportContent, setPrevViewportContent] = useState(null)
 
   // Responsive: detect mobile to tailor lightbox UI
   const [isMobile, setIsMobile] = useState(false)
@@ -90,6 +91,15 @@ export default function ViewListingPage() {
     setLightboxIndex(idx)
     setZoom(1)
     setPan({ x: 0, y: 0 })
+    // Lock body scroll and disable page pinch-zoom for mobile to avoid whole-site zoom/lag
+    try {
+      document.body.style.overflow = 'hidden'
+      const vp = document.querySelector('meta[name="viewport"]')
+      if (vp) {
+        setPrevViewportContent(vp.getAttribute('content'))
+        vp.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+      }
+    } catch (_) {}
     setLightboxOpen(true)
   }
   function closeLightbox() {
@@ -97,6 +107,14 @@ export default function ViewListingPage() {
     setZoom(1)
     setPan({ x: 0, y: 0 })
     setDragging(false)
+    // Restore body scroll and viewport scaling
+    try {
+      document.body.style.overflow = ''
+      const vp = document.querySelector('meta[name="viewport"]')
+      if (vp && prevViewportContent != null) {
+        vp.setAttribute('content', prevViewportContent)
+      }
+    } catch (_) {}
   }
   function lbPrev() {
     setLightboxIndex(i => {
@@ -591,7 +609,9 @@ export default function ViewListingPage() {
             zIndex: 2000,
             display: 'grid',
             gridTemplateRows: 'auto 1fr auto',
-            backdropFilter: 'blur(2px)'
+            backdropFilter: 'blur(2px)',
+            touchAction: 'none',
+            overscrollBehavior: 'contain'
           }}
         >
           {/* Top bar */}
