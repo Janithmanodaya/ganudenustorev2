@@ -115,13 +115,12 @@ router.post('/config', requireAdmin, (req, res) => {
       const amount = Number(rule.amount);
       const enabled = rule.enabled ? 1 : 0;
       if (!cat) continue;
-      if (!Number.isFinite(amount) || amoun <t 0 || amount > 1000000) continue;
+      if (!Number.isFinite(amount) || amount < 0 || amount > 1000000) continue;
       up.run(cat, Math.round(amount), enabled);
     }
   }
 
-  res.json({ ok: true });_code
-}new)</;
+  res.json({ ok: true });
 });
 
 // Test Gemini API key by calling a lightweight public endpoint
