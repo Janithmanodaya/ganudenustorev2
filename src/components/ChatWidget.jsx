@@ -126,7 +126,9 @@ export default function ChatWidget() {
             flexDirection: 'column',
             gap: 8,
             zIndex: 1200,
-            boxShadow: '0 10px 25px rgba(0,0,0,0.35)'
+            boxShadow: '0 10px 25px rgba(0,0,0,0.45)',
+            background: 'rgba(18,22,31,0.96)',        // less transparent for readability
+            borderColor: 'var(--border)'
           }}
         >
           <div className="h2" style={{ marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -135,7 +137,7 @@ export default function ChatWidget() {
           </div>
 
           {!userEmail && (
-            <div className="card" style={{ background: 'rgba(255,255,255,0.05)' }}>
+            <div className="card" style={{ background: 'rgba(18,22,31,0.9)', borderColor: 'var(--border)' }}>
               <div className="text-muted">Please login to chat with admin.</div>
               <div className="text-muted" style={{ marginTop: 6 }}>Try to contact admin after you log into the website.</div>
               <div style={{ marginTop: 8 }}>
@@ -154,8 +156,8 @@ export default function ChatWidget() {
                     className="card"
                     style={{
                       marginBottom: 6,
-                      background: m.sender === 'admin' ? 'rgba(108,127,247,0.12)' : 'rgba(0,209,255,0.10)',
-                      borderColor: 'transparent'
+                      background: m.sender === 'admin' ? 'rgba(108,127,247,0.22)' : 'rgba(0,209,255,0.18)', // higher opacity
+                      borderColor: m.sender === 'admin' ? '#4656cc33' : '#0892b033'
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
