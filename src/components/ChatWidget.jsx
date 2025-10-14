@@ -10,6 +10,7 @@ export default function ChatWidget() {
   const [status, setStatus] = useState('');
   const listRef = useRef(null);
   const inputRef = useRef(null);
+  const panelRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -65,22 +66,49 @@ export default function ChatWidget() {
     }
   }
 
+  function updatePopupPosition() {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    // Default bottom spacing when no keyboard (desktop or unsupported)
+    let bottomBase = 74;
+
+    // If visualViewport is available, compute keyboard overlap
+    const vv = window.visualViewport;
+    if (vv) {
+      const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      panel.style.bottom = `${bottomBase + keyboardHeight + 8}px`;
+    } else {
+      panel.style.bottom = `${bottomBase}px`;
+    }
+  }
+
   function adjustForInputFocus() {
     // Ensure latest messages visible
     const list = listRef.current;
     if (list) list.scrollTop = list.scrollHeight;
 
-    // Try to bring input into view (useful on mobile keyboards)
+    // Move popup above keyboard if present
+    updatePopupPosition();
+
+    // Bring input into view (useful on mobile keyboards)
     const inp = inputRef.current;
     if (inp) {
       setTimeout(() => {
         try {
           inp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          const panel = document.getElementById('chat-popup');
+          const panel = panelRef.current || document.getElementById('chat-popup');
           if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         } catch (_) {}
       }, 50);
     }
+  }
+
+  function handleInputBlur() {
+    const panel = panelRef.current;
+    if (!panel) return;
+    // Reset to default bottom when input loses focus
+    panel.style.bottom = '74px';
   }
 
   // Close popup when clicking outside
@@ -96,6 +124,27 @@ export default function ChatWidget() {
     }
     document.addEventListener('mousedown', onDocMouseDown);
     return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [open]);
+
+  // Adjust popup position when the virtual keyboard shows/hides (mobile)
+  useEffect(() => {
+    if (!open) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const handler = () => {
+      updatePopupPosition();
+    };
+
+    vv.addEventListener('resize', handler);
+    vv.addEventListener('scroll', handler);
+    // Initialize once opened
+    handler();
+
+    return () => {
+      vv.removeEventListener('resize', handler);
+      vv.removeEventListener('scroll', handler);
+    };
   }, [open]);
 
   return (
@@ -130,6 +179,7 @@ export default function ChatWidget() {
       {open && (
         <div
           id="chat-popup"
+          ref={panelRef}
           className="card"
           role="dialog"
           aria-label="Support chat"
@@ -193,6 +243,7 @@ export default function ChatWidget() {
                   value={input}
                   onFocus={adjustForInputFocus}
                   onClick={adjustForInputFocus}
+                  onBlur={handleInputBlur}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendMessage(); } }}
                 />
