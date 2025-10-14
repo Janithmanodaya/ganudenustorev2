@@ -9,6 +9,7 @@ export default function ChatWidget() {
   const [input, setInput] = useState('');
   const [status, setStatus] = useState('');
   const listRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -26,7 +27,6 @@ export default function ChatWidget() {
       const data = await r.json();
       if (r.ok) {
         setMessages(Array.isArray(data.results) ? data.results : []);
-        // Scroll to bottom on update
         const el = listRef.current;
         if (el) { el.scrollTop = el.scrollHeight; }
       }
@@ -57,12 +57,29 @@ export default function ChatWidget() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || 'Failed to send');
       setInput('');
-      // Optimistic append
       setMessages(prev => [...prev, { id: Date.now(), sender: 'user', message: msg, created_at: new Date().toISOString() }]);
       const el = listRef.current;
       if (el) { el.scrollTop = el.scrollHeight; }
     } catch (e) {
       setStatus(`Error: ${e.message}`);
+    }
+  }
+
+  function adjustForInputFocus() {
+    // Ensure latest messages visible
+    const list = listRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+
+    // Try to bring input into view (useful on mobile keyboards)
+    const inp = inputRef.current;
+    if (inp) {
+      setTimeout(() => {
+        try {
+          inp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          const panel = document.getElementById('chat-popup');
+          if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (_) {}
+      }, 50);
     }
   }
 
@@ -127,7 +144,7 @@ export default function ChatWidget() {
             gap: 8,
             zIndex: 1200,
             boxShadow: '0 10px 25px rgba(0,0,0,0.45)',
-            background: 'rgba(18,22,31,0.96)',        // less transparent for readability
+            background: 'rgba(18,22,31,0.96)',
             borderColor: 'var(--border)'
           }}
         >
@@ -156,7 +173,7 @@ export default function ChatWidget() {
                     className="card"
                     style={{
                       marginBottom: 6,
-                      background: m.sender === 'admin' ? 'rgba(108,127,247,0.22)' : 'rgba(0,209,255,0.18)', // higher opacity
+                      background: m.sender === 'admin' ? 'rgba(108,127,247,0.22)' : 'rgba(0,209,255,0.18)',
                       borderColor: m.sender === 'admin' ? '#4656cc33' : '#0892b033'
                     }}
                   >
@@ -170,9 +187,12 @@ export default function ChatWidget() {
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <input
+                  ref={inputRef}
                   className="input"
                   placeholder="Type a message..."
                   value={input}
+                  onFocus={adjustForInputFocus}
+                  onClick={adjustForInputFocus}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendMessage(); } }}
                 />
