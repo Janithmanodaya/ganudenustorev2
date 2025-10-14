@@ -24,6 +24,7 @@ export default function CustomSelect({
   const rootRef = useRef(null)
   const btnRef = useRef(null)
   const listRef = useRef(null)
+  const searchInputRef = useRef(null)
 
   const selectedIndex = useMemo(() => {
     return options.findIndex(o => String(o.value) === String(value))
@@ -51,6 +52,24 @@ export default function CustomSelect({
       // Reset hover to selected (or first) when opening
       setHoverIndex(selectedIndex >= 0 ? selectedIndex : (filteredOptions.length ? 0 : -1))
       setSearchTerm('') // reset search each time menu opens
+
+      // On mobile, ensure the field is visible above the keyboard by scrolling into view
+      setTimeout(() => {
+        // Focus search input if available
+        if (searchable && searchInputRef.current) {
+          try { searchInputRef.current.focus() } catch (_) {}
+        }
+        if (rootRef.current) {
+          try {
+            const rect = rootRef.current.getBoundingClientRect()
+            const top = rect.top + window.scrollY - 100 // small offset
+            window.scrollTo({ top, behavior: 'smooth' })
+          } catch (_) {
+            // fallback: scroll into view
+            try { rootRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch (_) {}
+          }
+        }
+      }, 10)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, selectedIndex])
@@ -163,31 +182,27 @@ export default function CustomSelect({
           {searchable && (
             <div style={{ padding: '6px 6px 8px 6px' }}>
               <input
+                ref={searchInputRef}
                 className="input"
                 type="text"
                 placeholder="Type to filter..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
+                onFocus={() => {
+                  // When keyboard opens, make sure the control stays visible
+                  if (rootRef.current) {
+                    try {
+                      const rect = rootRef.current.getBoundingClientRect()
+                      const top = rect.top + window.scrollY - 100
+                      window.scrollTo({ top, behavior: 'smooth' })
+                    } catch (_) {
+                      try { rootRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' }) } catch (_) {}
+                    }
+                  }
+                }}
                 style={{ width: '100%' }}
                 aria-label="Filter options"
               />
-              {allowCustom && searchTerm.trim() && filteredOptions.findIndex(o => String(o.value).toLowerCase() === searchTerm.trim().toLowerCase()) === -1 && (
-                <div
-                  className="custom-select-option"
-                  onClick={() => commitCustom(searchTerm.trim())}
-                  style={{
-                    marginTop: 6,
-                    padding: '8px 10px',
-                    borderRadius: 8,
-                    cursor: 'pointer',
-                    background: '#1a2332',
-                    color: 'var(--text)',
-                    fontSize: 14
-                  }}
-                >
-                  Use "{searchTerm.trim()}"
-                </div>
-              )}
             </div>
           )}
 
