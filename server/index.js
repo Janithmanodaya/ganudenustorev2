@@ -235,7 +235,8 @@ const notificationsLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 });
-app.use('/api/);
+app.use('/api/notifications', notificationsLimiter, notificationsRouter);
+
 
 // Public banners endpoint
 app.get('/api/banners', (req, res) => {

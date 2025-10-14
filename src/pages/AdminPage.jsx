@@ -408,7 +408,7 @@ export default function AdminPage() {
       loadAdminNotifications()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, adminEmail</])])
+  }, [allowed, adminEmail])
 
   if (!allowed) {
     return (
@@ -457,12 +457,16 @@ export default function AdminPage() {
   }
 
   function StackedBars({ a, b, aLabel = 'A', bLabel = 'B', aColor = '#34d399', bColor = '#ef4444' }) {
-    const len = Math.max(a?.length || 0, b?.length || 0)
-    const merged = Array.from({ length: len }, (_, i) => ({
-      date: a?.[i]?.date || b?.[i]?.date || '',
-      a: a?.[i]?.count || 0,
-      b: b?.[i]?.count || 0
-    }))
+    const len = Math.max((a && a.length) || 0, (b && b.length) || 0)
+    const merged = Array.from({ length: len }, (_, i) => {
+      const ai = Array.isArray(a) ? a[i] : undefined
+      const bi = Array.isArray(b) ? b[i] : undefined
+      return {
+        date: (ai && ai.date) || (bi && bi.date) || '',
+        a: (ai && ai.count) || 0,
+        b: (bi && bi.count) || 0
+      }
+    })
     const max = Math.max(1, ...merged.map(x => x.a + x.b))
     return (
       <div>
