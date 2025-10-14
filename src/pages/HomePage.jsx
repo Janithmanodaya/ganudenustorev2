@@ -377,13 +377,30 @@ export default function HomePage() {
                     options={(() => {
                       // Prefer dynamic values from filtersDef if provided for the selected category
                       const vals = (filtersDef.valuesByKey['location'] || []);
-                      const uniq = Array.from(new Set(vals.map(v => String(v).trim()).filter(Boolean)));
-                      const opts = uniq.map(v => ({ value: v, label: v }));
+                      const base = Array.from(new Set(vals.map(v => String(v).trim()).filter(Boolean)));
+
+                      // Also collect distinct locations from currently loaded listings as a fallback
+                      const fromLatest = Array.from(
+                        new Set(
+                          (latest || [])
+                            .map(it => String(it.location || '').trim())
+                            .filter(Boolean)
+                        )
+                      );
+
                       // Fallback to suggestions previously fetched (if any)
-                      const extra = Array.from(new Set((locSuggestions || []).map(v => String(v).trim()).filter(Boolean)))
-                        .filter(v => !uniq.includes(v))
-                        .map(v => ({ value: v, label: v }));
-                      return [{ value: '', label: 'Any' }, ...opts, ...extra];
+                      const fromSuggest = Array.from(
+                        new Set((locSuggestions || []).map(v => String(v).trim()).filter(Boolean))
+                      );
+
+                      // Merge all sources preserving order preference: filtersDef -> latest -> suggestions
+                      const merged = [];
+                      for (const v of [...base, ...fromLatest, ...fromSuggest]) {
+                        if (!merged.includes(v)) merged.push(v);
+                      }
+
+                      const opts = merged.map(v => ({ value: v, label: v }));
+                      return [{ value: '', label: 'Any' }, ...opts];
                     })()}
                     searchable={true}
                     allowCustom={true}
