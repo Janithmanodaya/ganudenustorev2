@@ -43,12 +43,27 @@ export default function VerifyListingPage() {
   const subCategory = String(struct.sub_category || '')
 
   // Category flags
-  const isVehicle = String(draft?.main_category || '') === 'Vehicle'
-  const isJob = String(draft?.main_category || '') === 'Job'
+  const mainCat = String(draft?.main_category || '')
+  const isVehicle = mainCat === 'Vehicle'
+  const isJob = mainCat === 'Job'
+  const isProperty = mainCat === 'Property'
+  const isMobile = mainCat === 'Mobile'
+  const isElectronic = mainCat === 'Electronic'
+  const isHomeGarden = mainCat === 'Home Garden'
 
   // Job-specific fields
   const employmentType = String(struct.employment_type || '')
   const company = String(struct.company || '')
+
+  // Property-specific fields (optional)
+  const bedrooms = struct.bedrooms != null && struct.bedrooms !== '' ? String(struct.bedrooms) : ''
+  const bathrooms = struct.bathrooms != null && struct.bathrooms !== '' ? String(struct.bathrooms) : ''
+  const sizeText = String(struct.size || '')
+  const furnishing = String(struct.furnishing || '')
+  const parking = Boolean(struct.parking)
+
+  // Generic optional brand (useful for Mobile/Electronic/Home Garden)
+  const brand = String(struct.brand || '')
 
   useEffect(() => {
     async function load() {
@@ -351,7 +366,164 @@ export default function VerifyListingPage() {
                   </>
                 )}
 
-                {!isVehicle && !isJob && (
+                {isProperty && (
+                  <>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Price (required)"
+                      value={price}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.price = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Pricing Type</label>
+                    <select
+                      className="select"
+                      value={pricingType || ''}
+                      onChange={e => { const s = parseStruct(); s.pricing_type = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select pricing type</option>
+                      <option value="Fixed Price">Fixed Price</option>
+                      <option value="Negotiable">Negotiable</option>
+                    </select>
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Phone</label>
+                    <input
+                      className="input"
+                      placeholder="Phone (+94XXXXXXXXX)"
+                      value={phone}
+                      onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Property Type</label>
+                    <select
+                      className="select"
+                      value={subCategory || ''}
+                      onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select property type</option>
+                      <option value="House">House</option>
+                      <option value="Apartment">Apartment</option>
+                      <option value="Land">Land</option>
+                      <option value="Room/Annex">Room/Annex</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Other">Other</option>
+                    </select>
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Bedrooms</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Bedrooms (optional)"
+                      value={bedrooms}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.bedrooms = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Bathrooms</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Bathrooms (optional)"
+                      value={bathrooms}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.bathrooms = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Size</label>
+                    <input
+                      className="input"
+                      placeholder="Size (e.g., 1200 sqft or 10 perches)"
+                      value={sizeText}
+                      onChange={e => { const s = parseStruct(); s.size = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Furnishing</label>
+                    <select
+                      className="select"
+                      value={furnishing || ''}
+                      onChange={e => { const s = parseStruct(); s.furnishing = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select furnishing (optional)</option>
+                      <option value="Unfurnished">Unfurnished</option>
+                      <option value="Semi-furnished">Semi-furnished</option>
+                      <option value="Fully furnished">Fully furnished</option>
+                    </select>
+
+                    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                      <input
+                        id="parking"
+                        type="checkbox"
+                        checked={parking}
+                        onChange={e => { const s = parseStruct(); s.parking = e.target.checked; patchStruct(s) }}
+                      />
+                      <label htmlFor="parking" className="text-muted">Parking available</label>
+                    </div>
+                  </>
+                )}
+
+                {(isMobile || isElectronic || isHomeGarden) && (
+                  <>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Price (required)"
+                      value={price}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.price = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Pricing Type</label>
+                    <select
+                      className="select"
+                      value={pricingType || ''}
+                      onChange={e => { const s = parseStruct(); s.pricing_type = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select pricing type</option>
+                      <option value="Fixed Price">Fixed Price</option>
+                      <option value="Negotiable">Negotiable</option>
+                    </select>
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Phone</label>
+                    <input
+                      className="input"
+                      placeholder="Phone (+94XXXXXXXXX)"
+                      value={phone}
+                      onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Model Name</label>
+                    <input
+                      className="input"
+                      placeholder="Model Name (optional)"
+                      value={modelName}
+                      onChange={e => { const s = parseStruct(); s.model_name = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Brand</label>
+                    <input
+                      className="input"
+                      placeholder="Brand (optional)"
+                      value={brand}
+                      onChange={e => { const s = parseStruct(); s.brand = e.target.value; patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Manufacture Year</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Manufacture Year (optional)"
+                      value={year}
+                      onChange={e => { const s = parseStruct(); const v = e.target.value; s.manufacture_year = v === '' ? '' : Number(v); patchStruct(s) }}
+                    />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
+                    <select className="select" value={subCategory || ''} disabled>
+                      <option value="">{subCategory ? subCategory : 'None'}</option>
+                    </select>
+                  </>
+                )}
+
+                {!isVehicle && !isJob && !isProperty && !(isMobile || isElectronic || isHomeGarden) && (
                   <>
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
                     <input
