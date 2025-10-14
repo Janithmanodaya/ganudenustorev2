@@ -457,7 +457,9 @@ export default function AdminPage() {
       // preload conversations
       loadConversations()
     }
-    // eslint-disable-next-line react-hooks
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed, adminEmail])
+
   if (!allowed) {
     return (
       <div className="center">
