@@ -388,9 +388,9 @@ export default function ViewListingPage() {
               )}
             </div>
 
-            {/* Actions */}
-            <div style={{ margin: '14px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn" onClick={onReport}>Report this listing</button>
+            {/* Mobile: Report button moved below contact card */}
+            <div className="report-mobile" style={{ marginTop: 8 }}>
+              <button className="btn" onClick={onReport} type="button">Report this listing</button>
             </div>
           </div>
 
@@ -423,6 +423,11 @@ export default function ViewListingPage() {
                 </div>
               </div>
             )}
+
+            {/* Desktop: Report button moved under contact card, right-aligned */}
+            <div className="report-desktop" style={{ marginTop: 8, textAlign: 'right' }}>
+              <button className="btn" onClick={onReport} type="button">Report this listing</button>
+            </div>
           </div>
           </div>
         </div>

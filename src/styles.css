@@ -447,6 +447,8 @@ body {
 .contact-desktop { display: block; }
 .desc-mobile { display: none; }
 .desc-desktop { display: block; }
+.report-mobile { display: none; }
+.report-desktop { display: block; }
 
 /* ——— Mobile-first redesign without changing desktop look ——— */
 @media (max-width: 780px) {
@@ -555,4 +557,5 @@ body {
   }
   .mobile-actionbar .btn { height: 42px; }
   .mobile-actionbar .btn.accent { min-width: 90px; }
-}
+
+  /* Show mobile report button; hide desktop one */
