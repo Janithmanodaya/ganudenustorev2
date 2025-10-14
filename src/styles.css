@@ -502,19 +502,24 @@ body {
 
   /* Update title sizing on mobile */
   .viewlisting-title {
-    font-size: 20px !important;
+    font-size: 22px !important;   /* slightly increased */
     line-height: 1.25;
-    margin-bottom: 6px !important;
+    margin-bottom: 4px !important; /* closer to keywords */
   }
 
-  /* Horizontally organize SEO keys (chips) */
+  /* Horizontally organize SEO keys (chips) and bring them closer */
   .seo-keys {
     display: flex !important;
-    gap: 8px !important;
+    gap: 6px !important;           /* tighter spacing between pills */
     flex-wrap: nowrap !important;
     overflow-x: auto;
     padding-bottom: 2px;
+    margin-top: 2px;               /* closer to title */
     -webkit-overflow-scrolling: touch;
+  }
+  .seo-keys .pill {
+    font-size: 11px;               /* reduced chip text size */
+    padding: 4px 8px;              /* smaller chip height */
   }
   .seo-keys::-webkit-scrollbar { height: 6px; }
   .seo-keys::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
