@@ -79,6 +79,12 @@ body {
 .nav-desktop { display: flex; gap: 10px; align-items: center; }
 .nav-mobile { display: none; gap: 8px; align-items: center; }
 
+/* Treat tablets as mobile for the top nav: hide desktop links up to 1024px */
+@media (max-width: 1024px) {
+  .nav-desktop { display: none !important; }
+  .nav-mobile { display: flex !important; }
+}
+
 /* Dropdown panel links inside mobile menu */
 .dropdown-panel a {
   display: block;
