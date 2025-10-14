@@ -207,7 +207,7 @@ export default function App() {
         </div>
 
         {/* Navigation */}
-        <nav className="nav" style={{ alignItems: 'center', gap: 10 }}>
+        <nav className="nav" style={{ alignItems: 'center', gap: 10, flex: 1 }}>
           {/* Desktop navigation (unchanged) */}
           <div className="nav-desktop">
             <Link to="/">Home</Link>
