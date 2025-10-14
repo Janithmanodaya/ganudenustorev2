@@ -35,12 +35,39 @@ export default function PaymentPendingPage() {
   const remark = String(info?.listing?.remark_number || '')
   const title = String(info?.listing?.title || '')
   const price = info?.listing?.price
+  const category = String(info?.listing?.main_category || '')
+  const payAmount = Number(info?.payment_amount ?? 0)
+  const payEnabled = !!info?.payments_enabled
 
   function openWhatsApp() {
     if (!wa) return
     const msg = `Payment done for listing #${id} (${title}). Remark: ${remark}. Please approve.`
     const url = `https://wa.me/${wa.replace(/\D+/g, '')}?text=${encodeURIComponent(msg)}`
     window.open(url, '_blank')
+  }
+
+  function renderPaymentBlock() {
+    if (!payEnabled) {
+      return (
+        <div className="card" style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <div className="h2" style={{ marginTop: 0 }}>Payment Requirement</div>
+          <p className="text-muted">Payments are currently disabled for {category || 'this category'}. Your ad will be reviewed without payment.</p>
+        </div>
+      )
+    }
+    return (
+      <div className="card" style={{ background: 'rgba(255,255,255,0.04)' }}>
+        <div className="h2" style={{ marginTop: 0 }}>Payment Requirement</div>
+        {payAmount > 0 ? (
+          <>
+            <p>Required amount for {category}: <strong>Rs. {payAmount.toLocaleString('en-US')}</strong></p>
+            <p className="text-muted">Please include the remark number in your bank transfer to speed up approval.</p>
+          </>
+        ) : (
+          <p className="text-muted">No payment required for {category}. You may still send your receipt if applicable.</p>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -50,13 +77,13 @@ export default function PaymentPendingPage() {
         {!info && <p className="text-muted">Loading payment details...</p>}
         {info && (
           <>
-            <p className="text-muted">
-              Your ad is created and pending approval. To publish, please make the payment and include the remark number below in your transfer.
-            </p>
-            <div className="card">
+            {renderPaymentBlock()}
+
+            <div className="card" style={{ marginTop: 12 }}>
               <div className="h2">Ad Summary</div>
               <div><strong>Listing ID:</strong> {id}</div>
               <div><strong>Title:</strong> {title}</div>
+              <div><strong>Category:</strong> {category || 'N/A'}</div>
               <div><strong>Price:</strong> {price != null ? price : 'N/A'}</div>
               <div className="pill" style={{ marginTop: 6 }}>
                 Remark Number: {remark}

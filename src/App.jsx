@@ -15,6 +15,7 @@ import AccountPage from './pages/AccountPage.jsx'
 import JobSearchResultsPage from './pages/JobSearchResultsPage.jsx'
 import PolicyPage from './pages/PolicyPage.jsx'
 import PaymentPendingPage from './pages/PaymentPendingPage.jsx'
+import Modal from './components/Modal.jsx'
 
 export default function App() {
   const navigate = useNavigate()
@@ -28,6 +29,7 @@ export default function App() {
   const [notifications, setNotifications] = useState([])
   const notifBtnRef = useRef(null)
   const notifPanelRef = useRef(null)
+  const [rejectNotifModal, setRejectNotifModal] = useState({ open: false, title: '', reason: '' })
 
   useEffect(() => {
     try {
@@ -135,10 +137,13 @@ export default function App() {
     const type = String(n.type || '').toLowerCase()
     const listingId = n.listing_id
     let dest = null
+    let openRejectModal = false
     if (type === 'pending' && listingId) {
       dest = `/payment/${listingId}`
     } else if (type === 'approved' && listingId) {
       dest = `/listing/${listingId}`
+    } else if (type === 'rejected') {
+      openRejectModal = true
     }
     try {
       await fetch(`/api/notifications/${n.id}/read`, {
@@ -149,6 +154,11 @@ export default function App() {
     setNotifications(prev => prev.map(x => x.id === n.id ? ({ ...x, is_read: 1 }) : x))
     setUnreadCount(c => c - (n.is_read ? 0 : 1))
     setNotifOpen(false)
+    if (openRejectModal) {
+      const msg = String(n.message || '').trim()
+      setRejectNotifModal({ open: true, title: n.title || 'Listing Rejected', reason: msg })
+      return
+    }
     if (dest) navigate(dest)
   }
 
@@ -276,6 +286,17 @@ export default function App() {
           <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Service Policy</Link>
         </div>
       </footer>
+
+      <Modal
+        open={rejectNotifModal.open}
+        title={rejectNotifModal.title}
+        onClose={() => setRejectNotifModal({ open: false, title: '', reason: '' })}
+      >
+        <div className="card" style={{ background: 'rgba(239,68,68,0.08)', borderColor: '#ef44441a' }}>
+          <strong>Reject Reason</strong>
+          <div className="text-muted" style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{rejectNotifModal.reason}</div>
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -1249,7 +1249,7 @@ router.get('/my', (req, res) => {
     if (!email) return res.status(401).json({ error: 'Missing user email' });
 
     const rows = db.prepare(`
-      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason
       FROM listings
       WHERE owner_email = ?
       ORDER BY created_at DESC
@@ -1371,14 +1371,31 @@ router.get('/payment-info/:id', (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid ID' });
-    const listing = db.prepare('SELECT id, title, price, owner_email, status, remark_number FROM listings WHERE id = ?').get(id);
+    const listing = db.prepare('SELECT id, title, price, owner_email, status, remark_number, main_category FROM listings WHERE id = ?').get(id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
     const cfg = db.prepare('SELECT bank_details, whatsapp_number FROM admin_config WHERE id = 1').get();
+
+    // Determine payment amount and enabled from payment_rules, with sensible defaults
+    const rule = db.prepare(`SELECT amount, enabled FROM payment_rules WHERE category = ?`).get(String(listing.main_category || 'Other'));
+    const defaults = {
+      'Vehicle': 300,
+      'Property': 500,
+      'Job': 200,
+      'Electronic': 200,
+      'Mobile': 0,
+      'Home Garden': 200,
+      'Other': 200
+    };
+    const payment_amount = Number(rule?.amount ?? defaults[listing.main_category] ?? defaults['Other']);
+    const payments_enabled = rule ? !!rule.enabled : true;
+
     res.json({
       ok: true,
       listing,
       bank_details: cfg?.bank_details || '',
-      whatsapp_number: cfg?.whatsapp_number || ''
+      whatsapp_number: cfg?.whatsapp_number || '',
+      payment_amount,
+      payments_enabled
     });
   } catch (e) {
     console.error('[listings] /payment-info/:id error:', e && e.message ? e.message : e);

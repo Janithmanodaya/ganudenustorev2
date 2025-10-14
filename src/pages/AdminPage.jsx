@@ -521,6 +521,99 @@ export default function AdminPage() {
     )
   }
 
+  function AdminPaymentRules({ adminEmail, onStatus }) {
+    const [rules, setRules] = useState([])
+    const [loading, setLoading] = useState(false)
+
+    async function loadRules() {
+      setLoading(true)
+      try {
+        const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail } })
+        const data = await r.json()
+        if (!r.ok) throw new Error(data.error || 'Failed to load rules')
+        setRules(Array.isArray(data.payment_rules) ? data.payment_rules : [])
+      } catch (e) {
+        onStatus && onStatus(`Error: ${e.message}`)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    useEffect(() => {
+      if (adminEmail) loadRules()
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [adminEmail])
+
+    function updateRule(idx, patch) {
+      setRules(prev => prev.map((r, i) => i === idx ? { ...r, ...patch } : r))
+    }
+
+    async function saveRules() {
+      try {
+        const payload = {
+          paymentRules: rules.map(r => ({
+            category: r.category,
+            amount: Number(r.amount) || 0,
+            enabled: !!r.enabled
+          }))
+        }
+        const r = await fetch('/api/admin/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+          body: JSON.stringify(payload)
+        })
+        const data = await r.json()
+        if (!r.ok) throw new Error(data.error || 'Failed to save rules')
+        onStatus && onStatus('Payment rules updated.')
+        loadRules()
+      } catch (e) {
+        onStatus && onStatus(`Error: ${e.message}`)
+      }
+    }
+
+    return (
+      <div className="card" style={{ marginTop: 8 }}>
+        {loading && <p className="text-muted">Loading payment rules...</p>}
+        {!loading && rules.length === 0 && <p className="text-muted">No rules found.</p>}
+        {!loading && rules.length > 0 && (
+          <>
+            {rules.map((r, idx) => (
+              <div key={r.category} className="card" style={{ marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <strong>{r.category}</strong>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      type="checkbox"
+                      checked={!!r.enabled}
+                      onChange={e => updateRule(idx, { enabled: e.target.checked ? 1 : 0 })}
+                    />
+                    <span className="text-muted">Enabled</span>
+                  </label>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="text-muted">Amount (Rs.)</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      value={r.amount}
+                      onChange={e => updateRule(idx, { amount: Math.max(0, Number(e.target.value || 0)) })}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn primary" onClick={saveRules}>Save Payment Rules</button>
+              <button className="btn" onClick={loadRules}>Refresh</button>
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="center">
       <div className="card">
@@ -808,6 +901,10 @@ export default function AdminPage() {
             <textarea className="textarea" placeholder="Bank details (Account Name, Number, Bank/Branch)" value={bankDetails} onChange={e => setBankDetails(e.target.value)} />
             <div className="h2" style={{ marginTop: 12 }}>WhatsApp Number (for receipts)</div>
             <input className="input" placeholder="+94XXXXXXXXX" value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)} />
+
+            <div className="h2" style={{ marginTop: 16 }}>Category Payment Rules</div>
+            <AdminPaymentRules adminEmail={adminEmail} onStatus={setStatus} />
+
             <div style={{ marginTop: 8 }}>
               <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
             </div>
