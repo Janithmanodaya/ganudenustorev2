@@ -559,6 +559,14 @@ body {
   .mobile-actionbar .btn.accent { min-width: 90px; }
 
   /* Show mobile report button; hide desktop one */
-  .report-mobile { display: block; }
+  .report-mobile { 
+    display: block; 
+    margin: 16px 14px 12px !important;  /* lift it a bit and add space */
+    padding-top: 12px; 
+    border-top: 1px solid var(--border); /* visual separation from content above */
+  }
+  .report-mobile .btn { 
+    width: 100%;                 /* easier to tap */
+  }
   .report-desktop { display: none; }
 }
