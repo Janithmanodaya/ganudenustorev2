@@ -724,43 +724,44 @@ export default function HomePage() {
                 cursor: 'pointer'
               }}
             >
-              <div style={{ maxWidth: 420 }}>
-                <div style={{ fontWeight: 700 }}>Start making money!</div>
-              </div>
-              <button
-                className="btn primary"
-                onClick={() => navigate('/new')}
-                aria-label="Post your first ad"
-                style={{
-                  width: 46,
-                  height: 46,
-                  borderRadius: '50%',
-                  padding: 0,
-                  fontSize: 24,
-                  display: 'grid',
-                  placeItems: 'center',
-                  background:
-                    'radial-gradient(120px 80px at 30% 0%, rgba(255,255,255,0.25), transparent 60%), ' +
-                    '#6c7ff7',
-                  boxShadow: '0 10px 25px rgba(108,127,247,0.55)',
-                  position: 'relative',
-                  overflow: 'visible'
-                }}
-                title="Post an ad"
-              >
-                +
-                <span
-                  aria-hidden="true"
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, textAlign: 'center' }}>
+                <button
+                  className="btn primary"
+                  onClick={() => navigate('/new')}
+                  aria-label="Post your first ad"
                   style={{
-                    content: '""',
-                    position: 'absolute',
-                    inset: -6,
+                    width: 46,
+                    height: 46,
                     borderRadius: '50%',
-                    boxShadow: '0 0 0 0 rgba(108,127,247,0.6)',
-                    animation: 'pulse 1.6s ease-out infinite'
+                    padding: 0,
+                    fontSize: 24,
+                    display: 'grid',
+                    placeItems: 'center',
+                    background:
+                      'radial-gradient(120px 80px at 30% 0%, rgba(255,255,255,0.25), transparent 60%), ' +
+                      '#6c7ff7',
+                    boxShadow: '0 10px 25px rgba(108,127,247,0.55)',
+                    position: 'relative',
+                    overflow: 'visible'
                   }}
-                />
-              </button>
+                  title="Post an ad"
+                >
+                  +
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      content: '""',
+                      position: 'absolute',
+                      inset: -6,
+                      borderRadius: '50%',
+                      boxShadow: '0 0 0 0 rgba(108,127,247,0.6)',
+                      animation: 'pulse 1.6s ease-out infinite'
+                    }}
+                  />
+                </button>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Start making money</div>
+                <div className="text-muted" style={{ fontSize: 12 }}>Post your first ad in minutes</div>
+              </div>
               <style>{`
                 @keyframes pulse {
                   0% { box-shadow: 0 0 0 0 rgba(108,127,247,0.6); }
