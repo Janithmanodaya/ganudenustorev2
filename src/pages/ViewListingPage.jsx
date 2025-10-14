@@ -104,7 +104,7 @@ export default function ViewListingPage() {
     if (!listing) return
     const rawTitle = listing.seo_title || listing.title || 'Listing'
     const title = formatTitleCase(rawTitle)
-    const desc = listing.seo_description || listing.description || ''
+    const desc = listing.seo_description || listing.enhanced_description || listing.description || ''
     const url = `https://ganudenu.store/listing/${listing.id}`
     document.title = title
 
@@ -412,29 +412,26 @@ export default function ViewListingPage() {
             ) : null}
 
             <div className="h2" style={{ marginTop: 16 }}>Description</div>
-            {/* Desktop full description */}
+            {/* Desktop full description (preserve line breaks + **bold**) */}
             <div className="desc-desktop">
-              <p>{listing?.description}</p>
+              <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
             </div>
             {/* Mobile collapsible description */}
             <div className="desc-mobile">
-              <p style={{ whiteSpace: 'pre-wrap' }}>
-                {descOpen ? (listing?.description || '') : String(listing?.description || '').slice(0, 180)}
-                {(!descOpen && String(listing?.description || '').length > 180) ? '…' : ''}
-              </p>
-              {String(listing?.description || '').length > 180 && (
+              {descOpen ? (
+                <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
+              ) : (
+                <p style={{ whiteSpace: 'pre-wrap' }}>
+                  {String(listing?.enhanced_description || listing?.description || '').slice(0, 180)}
+                  {String(listing?.enhanced_description || listing?.description || '').length > 180 ? '…' : ''}
+                </p>
+              )}
+              {String(listing?.enhanced_description || listing?.description || '').length > 180 && (
                 <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
                   {descOpen ? 'Show less' : 'Read more'}
                 </button>
               )}
             </div>
-
-            
-          </div>
-
-          {/* Right: Key details */}
-          <div>
-            <div className="h2">Key Details</div>
             {structuredEntries.length === 0 && <p className="text-muted">No structured data available.</p>}
             <div className="details-grid">
               {structuredEntries.map(([k, v]) => (
