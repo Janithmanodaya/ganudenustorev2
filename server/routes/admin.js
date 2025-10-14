@@ -210,12 +210,34 @@ router.post('/pending/:id/update', requireAdmin, (req, res) => {
 
 router.post('/pending/:id/approve', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
+
+  // Load listing to get owner and title
+  const listing = db.prepare(`SELECT id, title, owner_email FROM listings WHERE id = ?`).get(id);
+
   // Set status to 'Approved' to match public listing queries
   db.prepare(`UPDATE listings SET status = 'Approved', reject_reason = NULL WHERE id = ?`).run(id);
   db.prepare(`
     INSERT INTO admin_actions (admin_id, listing_id, action, ts)
     VALUES (?, ?, 'approve', ?)
   `).run(req.admin.id, id, new Date().toISOString());
+
+  // Remove any pending notifications for this listing and create an approved notification
+  try {
+    if (listing?.owner_email) {
+      db.prepare(`DELETE FROM notifications WHERE listing_id = ? AND type = 'pending'`).run(id);
+      db.prepare(`
+        INSERT INTO notifications (title, message, target_email, created_at, type, listing_id)
+        VALUES (?, ?, ?, ?, 'approved', ?)
+      `).run(
+        'Listing Approved',
+        `Good news! Your ad "${listing.title}" (#${id}) has been approved and is now live.`,
+        String(listing.owner_email).toLowerCase().trim(),
+        new Date().toISOString(),
+        id
+      );
+    }
+  } catch (_) {}
+
   res.json({ ok: true });
 });
 
@@ -225,11 +247,32 @@ router.post('/pending/:id/reject', requireAdmin, (req, res) => {
   if (!reason || typeof reason !== 'string' || !reason.trim()) {
     return res.status(400).json({ error: 'Reject reason is required.' });
   }
+  // Load listing to get owner and title (for targeted notification)
+  const listing = db.prepare(`SELECT id, title, owner_email FROM listings WHERE id = ?`).get(id);
+
   db.prepare(`UPDATE listings SET status = 'Rejected', reject_reason = ? WHERE id = ?`).run(reason.trim(), id);
   db.prepare(`
     INSERT INTO admin_actions (admin_id, listing_id, action, reason, ts)
     VALUES (?, ?, 'reject', ?, ?)
   `).run(req.admin.id, id, reason.trim(), new Date().toISOString());
+
+  // Remove any pending notifications and create a rejected notification
+  try {
+    if (listing?.owner_email) {
+      db.prepare(`DELETE FROM notifications WHERE listing_id = ? AND type = 'pending'`).run(id);
+      db.prepare(`
+        INSERT INTO notifications (title, message, target_email, created_at, type, listing_id)
+        VALUES (?, ?, ?, ?, 'rejected', ?)
+      `).run(
+        'Listing Rejected',
+        `We’re sorry. Your ad "${listing.title}" (#${id}) was rejected.\nReason: ${reason.trim()}`,
+        String(listing.owner_email).toLowerCase().trim(),
+        new Date().toISOString(),
+        id
+      );
+    }
+  } catch (_) {}
+
   res.json({ ok: true });
 });
 
@@ -237,14 +280,37 @@ router.post('/pending/:id/reject', requireAdmin, (req, res) => {
 router.post('/pending/approve_many', requireAdmin, (req, res) => {
   const { ids } = req.body || {};
   if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids array required' });
-  // Set status to 'Approved' to match public listing queries
+
   const stmt = db.prepare(`UPDATE listings SET status = 'Approved', reject_reason = NULL WHERE id = ?`);
   const audit = db.prepare(`INSERT INTO admin_actions (admin_id, listing_id, action, ts) VALUES (?, ?, 'approve', ?)`);
-  for (const id of ids) {
-    stmt.run(Number(id));
-    audit.run(req.admin.id, Number(id), new Date().toISOString());
+  const delPending = db.prepare(`DELETE FROM notifications WHERE listing_id = ? AND type = 'pending'`);
+  const insApproved = db.prepare(`
+    INSERT INTO notifications (title, message, target_email, created_at, type, listing_id)
+    VALUES (?, ?, ?, ?, 'approved', ?)
+  `);
+
+  let notified = 0;
+  for (const rawId of ids) {
+    const id = Number(rawId);
+    stmt.run(id);
+    audit.run(req.admin.id, id, new Date().toISOString());
+
+    try {
+      const listing = db.prepare(`SELECT id, title, owner_email FROM listings WHERE id = ?`).get(id);
+      if (listing?.owner_email) {
+        delPending.run(id);
+        insApproved.run(
+          'Listing Approved',
+          `Good news! Your ad "${listing.title}" (#${id}) has been approved and is now live.`,
+          String(listing.owner_email).toLowerCase().trim(),
+          new Date().toISOString(),
+          id
+        );
+        notified++;
+      }
+    } catch (_) {}
   }
-  res.json({ ok: true, count: ids.length });
+  res.json({ ok: true, count: ids.length, notified });
 });
 
 // Flag listing

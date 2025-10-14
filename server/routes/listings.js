@@ -873,6 +873,22 @@ router.post('/submit', async (req, res) => {
       );
     }
 
+    // Create a pending notification for the owner
+    try {
+      if (ownerEmail) {
+        db.prepare(`
+          INSERT INTO notifications (title, message, target_email, created_at, type, listing_id)
+          VALUES (?, ?, ?, ?, 'pending', ?)
+        `).run(
+          'Listing submitted – Pending Approval',
+          `Your ad "${draft.title}" (#${listingId}) has been submitted and is awaiting admin review.`,
+          ownerEmail,
+          new Date().toISOString(),
+          listingId
+        );
+      }
+    } catch (_) {}
+
     // Delete child rows first to satisfy FK constraints, then delete parent draft
     db.prepare('DELETE FROM listing_draft_images WHERE draft_id = ?').run(draftId);
     db.prepare('DELETE FROM listing_drafts WHERE id = ?').run(draftId);
