@@ -75,6 +75,23 @@ body {
   background: rgba(255,255,255,0.04);
 }
 
+/* Desktop vs Mobile nav containers */
+.nav-desktop { display: flex; gap: 10px; align-items: center; }
+.nav-mobile { display: none; gap: 8px; align-items: center; }
+
+/* Dropdown panel links inside mobile menu */
+.dropdown-panel a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+.dropdown-panel a:hover {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+}
+
 /* Glassy circular back button (icon only) */
 .back-btn {
   appearance: none;
@@ -422,21 +439,12 @@ body {
     flex-wrap: wrap;
   }
   .brand { font-size: 16px; }
-  .nav {
-    width: 100%;
-    overflow-x: auto;
-    gap: 6px;
-    padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .nav::-webkit-scrollbar { display: none; }
-  .nav a {
-    white-space: nowrap;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    background: rgba(255,255,255,0.04);
-  }
+
+  /* Switch to dropdown-based mobile nav */
+  .nav { width: 100%; overflow: visible; gap: 6px; padding-bottom: 0; }
+  .nav-desktop { display: none; }
+  .nav-mobile { display: flex; }
+  .dropdown-panel { position: absolute; top: 46px; left: 0; z-index: 20; }
 
   .content { padding: 14px; }
   .center { max-width: 100%; padding: 0 2px; }
