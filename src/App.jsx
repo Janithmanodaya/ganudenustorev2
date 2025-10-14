@@ -254,7 +254,7 @@ export default function App() {
           </div>
 
           {/* Mobile navigation: dropdown on the right corner, then profile and notifications */}
-          <div className="nav-mobile" style={{ position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 8_codeend', gap: 8 }}>
+          <div className="nav-mobile" style={{ position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
             {/* Right: Menu dropdown toggle (anchored to right corner) */}
             <div style={{ position: 'relative' }}>
               <button
