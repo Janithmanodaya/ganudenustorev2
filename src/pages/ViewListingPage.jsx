@@ -351,118 +351,123 @@ export default function ViewListingPage() {
         <div style={{ padding: 18 }}>
           {/* Gallery + Details */}
           <div className="grid two" style={{ marginTop: 0 }}>
-          {/* Left: Image carousel & description */}
-          <div>
-            <div className="h2">Gallery</div>
-            {images.length > 0 ? (
-              <div className="carousel">
-                <div className="carousel-main">
-                  {mainImage?.url ? (
-                    <img src={mainImage.url} alt={mainImage.original_name || 'Image'} />
-                  ) : (
-                    <div className="carousel-empty text-muted">No preview available</div>
-                  )}
-                  {images.length > 1 && (
-                    <>
-                      <button className="btn nav prev" onClick={prevImage} aria-label="Previous image">‹</button>
-                      <button className="btn nav next" onClick={nextImage} aria-label="Next image">›</button>
-                    </>
-                  )}
-                </div>
-                {images.length > 1 && (
-                  <div className="carousel-thumbs">
-                    {images.map((img, idx) => (
-                      <button
-                        key={img.id ?? idx}
-                        className={`thumb ${idx === currentIndex ? 'active' : ''}`}
-                        onClick={() => selectImage(idx)}
-                        aria-label={`Show image ${idx + 1}`}
-                        title={img.original_name || `Image ${idx + 1}`}
-                      >
-                        {img.url ? (
-                          <img src={img.url} alt={img.original_name || `Image ${idx + 1}`} />
-                        ) : (
-                          <span className="text-muted">{img.path || 'Image'}</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
+            {/* Left: Description only */}
+            <div>
+              <div className="h2" style={{ marginTop: 0 }}>Description</div>
+              {/* Desktop full description (preserve line breaks + **bold**) */}
+              <div className="desc-desktop">
+                <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
+              </div>
+              {/* Mobile collapsible description */}
+              <div className="desc-mobile">
+                {descOpen ? (
+                  <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
+                ) : (
+                  <p style={{ whiteSpace: 'pre-wrap' }}>
+                    {String(listing?.enhanced_description || listing?.description || '').slice(0, 180)}
+                    {String(listing?.enhanced_description || listing?.description || '').length > 180 ? '…' : ''}
+                  </p>
+                )}
+                {String(listing?.enhanced_description || listing?.description || '').length > 180 && (
+                  <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
+                    {descOpen ? 'Show less' : 'Read more'}
+                  </button>
                 )}
               </div>
-            ) : (
-              <div className="card" style={{ textAlign: 'center' }}>
-                <div className="text-muted">No images uploaded for this listing.</div>
-              </div>
-            )}
-
-            {/* Contact (mobile-first duplicate, hidden on desktop via CSS) */}
-            {listing?.phone ? (
-              <div className="card contact-mobile" style={{ marginTop: 16 }}>
-                <div className="h2" style={{ marginTop: 0 }}>Contact</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <a
-                    className="btn primary"
-                    href={`tel:${listing.phone}`}
-                  >
-                    {formatPhoneDisplay(listing.phone)}
-                  </a>
-                  {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="h2" style={{ marginTop: 16 }}>Description</div>
-            {/* Desktop full description (preserve line breaks + **bold**) */}
-            <div className="desc-desktop">
-              <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
             </div>
-            {/* Mobile collapsible description */}
-            <div className="desc-mobile">
-              {descOpen ? (
-                <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
+
+            {/* Right: Gallery, Key Details, Contact, Report */}
+            <div>
+              <div className="h2">Gallery</div>
+              {images.length > 0 ? (
+                <div className="carousel">
+                  <div className="carousel-main">
+                    {mainImage?.url ? (
+                      <img src={mainImage.url} alt={mainImage.original_name || 'Image'} />
+                    ) : (
+                      <div className="carousel-empty text-muted">No preview available</div>
+                    )}
+                    {images.length > 1 && (
+                      <>
+                        <button className="btn nav prev" onClick={prevImage} aria-label="Previous image">‹</button>
+                        <button className="btn nav next" onClick={nextImage} aria-label="Next image">›</button>
+                      </>
+                    )}
+                  </div>
+                  {images.length > 1 && (
+                    <div className="carousel-thumbs">
+                      {images.map((img, idx) => (
+                        <button
+                          key={img.id ?? idx}
+                          className={`thumb ${idx === currentIndex ? 'active' : ''}`}
+                          onClick={() => selectImage(idx)}
+                          aria-label={`Show image ${idx + 1}`}
+                          title={img.original_name || `Image ${idx + 1}`}
+                        >
+                          {img.url ? (
+                            <img src={img.url} alt={img.original_name || `Image ${idx + 1}`} />
+                          ) : (
+                            <span className="text-muted">{img.path || 'Image'}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ) : (
-                <p style={{ whiteSpace: 'pre-wrap' }}>
-                  {String(listing?.enhanced_description || listing?.description || '').slice(0, 180)}
-                  {String(listing?.enhanced_description || listing?.description || '').length > 180 ? '…' : ''}
-                </p>
-              )}
-              {String(listing?.enhanced_description || listing?.description || '').length > 180 && (
-                <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
-                  {descOpen ? 'Show less' : 'Read more'}
-                </button>
-              )}
-            </div>
-            {structuredEntries.length === 0 && <p className="text-muted">No structured data available.</p>}
-            <div className="details-grid">
-              {structuredEntries.map(([k, v]) => (
-                <div key={k} className="detail">
-                  <div className="label">{prettyLabel(k)}</div>
-                  <div className="value">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</div>
+                <div className="card" style={{ textAlign: 'center' }}>
+                  <div className="text-muted">No images uploaded for this listing.</div>
                 </div>
-              ))}
-            </div>
+              )}
 
-            {/* Contact info card (desktop) */}
-            {listing?.phone && (
-              <div className="card contact-desktop" style={{ marginTop: 16 }}>
-                <div className="h2" style={{ marginTop: 0 }}>Contact</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <a
-                    className="btn primary"
-                    href={`tel:${listing.phone}`}
-                  >
-                    {formatPhoneDisplay(listing.phone)}
-                  </a>
-                  {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
+              {/* Contact (mobile-first duplicate, hidden on desktop via CSS) */}
+              {listing?.phone ? (
+                <div className="card contact-mobile" style={{ marginTop: 16 }}>
+                  <div className="h2" style={{ marginTop: 0 }}>Contact</div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <a
+                      className="btn primary"
+                      href={`tel:${listing.phone}`}
+                    >
+                      {formatPhoneDisplay(listing.phone)}
+                    </a>
+                    {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
+                  </div>
                 </div>
+              ) : null}
+
+              <div className="h2" style={{ marginTop: 16 }}>Key Details</div>
+              {structuredEntries.length === 0 && <p className="text-muted">No structured data available.</p>}
+              <div className="details-grid">
+                {structuredEntries.map(([k, v]) => (
+                  <div key={k} className="detail">
+                    <div className="label">{prettyLabel(k)}</div>
+                    <div className="value">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</div>
+                  </div>
+                ))}
               </div>
-            )}
 
-            {/* Desktop: Report button moved under contact card, right-aligned */}
-            <div className="report-desktop" style={{ marginTop: 8, textAlign: 'right' }}>
-              <button className="btn" onClick={onReport} type="button">Report this listing</button>
+              {/* Contact info card (desktop) */}
+              {listing?.phone && (
+                <div className="card contact-desktop" style={{ marginTop: 16 }}>
+                  <div className="h2" style={{ marginTop: 0 }}>Contact</div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <a
+                      className="btn primary"
+                      href={`tel:${listing.phone}`}
+                    >
+                      {formatPhoneDisplay(listing.phone)}
+                    </a>
+                    {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
+                  </div>
+                </div>
+              )}
+
+              {/* Desktop: Report button moved under contact card, right-aligned */}
+              <div className="report-desktop" style={{ marginTop: 8, textAlign: 'right' }}>
+                <button className="btn" onClick={onReport} type="button">Report this listing</button>
+              </div>
             </div>
-          </div>
           </div>
         </div>
 
