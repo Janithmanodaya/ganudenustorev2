@@ -62,11 +62,15 @@ function requireUser(req, res, next) {
   next();
 }
 
-// Get notifications for user (broadcast + targeted), with TTL for read items (24h)
+// Get notifications for user (broadcast + targeted), with TTLs:
+// - Read items are shown only for 24h after read
+// - Unread non-pending items are shown only for 7 days after creation
+// - Pending items are always shown until approved/rejected (regardless of read state)
 router.get('/', requireUser, (req, res) => {
   const email = req.user.email;
   const limit = Math.min(Number(req.query.limit) || 50, 200);
-  const cutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const readCutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const unreadCutoffIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const rows = db.prepare(`
     SELECT n.id, n.title, n.message, n.target_email, n.created_at, n.type, n.listing_id,
@@ -76,19 +80,24 @@ router.get('/', requireUser, (req, res) => {
     LEFT JOIN notification_reads r
       ON r.notification_id = n.id AND LOWER(r.user_email) = LOWER(?)
     WHERE (n.target_email IS NULL OR LOWER(n.target_email) = LOWER(?))
-      AND (r.id IS NULL OR r.read_at >= ? OR n.type = 'pending')
+      AND (
+        n.type = 'pending'
+        OR (r.id IS NOT NULL AND r.read_at >= ?)
+        OR (r.id IS NULL AND n.created_at >= ?)
+      )
     ORDER BY n.id DESC
     LIMIT ?
-  `).all(email, email, cutoffIso, limit);
+  `).all(email, email, readCutoffIso, unreadCutoffIso, limit);
 
   const unreadCount = rows.reduce((acc, r) => acc + (r.is_read ? 0 : 1), 0);
 
   res.json({ results: rows, unread_count: unreadCount });
 });
 
-// Unread count only (counts all unread, regardless of age)
+// Unread count only (exclude non-pending older than 7 days)
 router.get('/unread-count', requireUser, (req, res) => {
   const email = req.user.email;
+  const unreadCutoffIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const count = db.prepare(`
     SELECT COUNT(*) as c
     FROM notifications n
@@ -96,7 +105,8 @@ router.get('/unread-count', requireUser, (req, res) => {
       ON r.notification_id = n.id AND LOWER(r.user_email) = LOWER(?)
     WHERE (n.target_email IS NULL OR LOWER(n.target_email) = LOWER(?))
       AND r.id IS NULL
-  `).get(email, email).c || 0;
+      AND (n.type = 'pending' OR n.created_at >= ?)
+  `).get(email, email, unreadCutoffIso).c || 0;
 
   res.json({ unread_count: count });
 });

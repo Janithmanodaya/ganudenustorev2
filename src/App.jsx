@@ -88,6 +88,28 @@ export default function App() {
     setUnreadCount(0)
   }
 
+  async function handleNotificationClick(n) {
+    if (!userEmail) return
+    const type = String(n.type || '').toLowerCase()
+    const listingId = n.listing_id
+    let dest = null
+    if (type === 'pending' && listingId) {
+      dest = `/payment/${listingId}`
+    } else if (type === 'approved' && listingId) {
+      dest = `/listing/${listingId}`
+    }
+    try {
+      await fetch(`/api/notifications/${n.id}/read`, {
+        method: 'POST',
+        headers: { 'X-User-Email': userEmail }
+      })
+    } catch (_) {}
+    setNotifications(prev => prev.map(x => x.id === n.id ? ({ ...x, is_read: 1 }) : x))
+    setUnreadCount(c => c - (n.is_read ? 0 : 1))
+    setNotifOpen(false)
+    if (dest) navigate(dest)
+  }
+
   return (
     <div className="app light">
       <header className="topbar" style={{ position: 'sticky' }}>
@@ -161,7 +183,12 @@ export default function App() {
               <div className="h2" style={{ marginTop: 0 }}>Notifications</div>
               {notifications.length === 0 && <p className="text-muted">No notifications.</p>}
               {notifications.map(n => (
-                <div key={n.id} className="card" style={{ marginBottom: 8 }}>
+                <div
+                  key={n.id}
+                  className="card"
+                  onClick={() => handleNotificationClick(n)}
+                  style={{ marginBottom: 8, cursor: 'pointer' }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                     <strong>{n.title}</strong>
                     {!n.is_read && <span className="pill" style={{ background: 'rgba(108,127,247,0.15)', borderColor: 'transparent', color: '#c9d1ff' }}>New</span>}
