@@ -60,6 +60,70 @@ export default function ViewListingPage() {
     }
   }
 
+  // Lightbox state for full-size image with zoom and slide controls
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+
+  function openLightbox(idx = 0) {
+    setLightboxIndex(idx)
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
+    setLightboxOpen(true)
+  }
+  function closeLightbox() {
+    setLightboxOpen(false)
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
+    setDragging(false)
+  }
+  function lbPrev() {
+    setLightboxIndex(i => {
+      const n = images.length || 0
+      if (!n) return 0
+      const ni = (i - 1 + n) % n
+      setZoom(1); setPan({ x: 0, y: 0 })
+      return ni
+    })
+  }
+  function lbNext() {
+    setLightboxIndex(i => {
+      const n = images.length || 0
+      if (!n) return 0
+      const ni = (i + 1) % n
+      setZoom(1); setPan({ x: 0, y: 0 })
+      return ni
+    })
+  }
+  function zoomIn() { setZoom(z => Math.min(4, Number((z + 0.2).toFixed(2)))) }
+  function zoomOut() { setZoom(z => Math.max(1, Number((z - 0.2).toFixed(2)))) }
+  function resetZoom() { setZoom(1); setPan({ x: 0, y: 0 }) }
+
+  function onWheelZoom(e) {
+    e.preventDefault()
+    const delta = e.deltaY
+    if (delta > 0) {
+      zoomOut()
+    } else {
+      zoomIn()
+    }
+  }
+  function onDragStart(e) {
+    e.preventDefault()
+    setDragging(true)
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y })
+  }
+  function onDragMove(e) {
+    if (!dragging) return
+    setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y })
+  }
+  function onDragEnd() {
+    setDragging(false)
+  }
+
   // Load listing
   useEffect(() => {
     async function load() {
@@ -358,8 +422,13 @@ export default function ViewListingPage() {
                 <div className="carousel">
                   <div className="carousel-main">
                     {mainImage?.url ? (
-                      <img src={mainImage.url} alt={mainImage.original_name || 'Image'} />
-                    ) : (
+                    <img
+                      src={mainImage.url}
+                      alt={mainImage.original_name || 'Image'}
+                      onClick={() => openLightbox(currentIndex)}
+                      style={{ cursor: 'zoom-in' }}
+                    />
+                  ) : (
                       <div className="carousel-empty text-muted">No preview available</div>
                     )}
                     {images.length > 1 && (
@@ -478,6 +547,99 @@ export default function ViewListingPage() {
 
         {status && <p style={{ marginTop: 8 }}>{status}</p>}
       </div>
+
+      {/* Fullscreen Lightbox for images */}
+      {lightboxOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => { if (e.target === e.currentTarget) closeLightbox() }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.78)',
+            zIndex: 2000,
+            display: 'grid',
+            gridTemplateRows: 'auto 1fr auto',
+            backdropFilter: 'blur(2px)'
+          }}
+        >
+          {/* Top bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 10 }}>
+            <div className="pill" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              {lightboxIndex + 1} / {images.length || 0}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn" type="button" onClick={zoomOut} aria-label="Zoom out">−</button>
+              <button className="btn" type="button" onClick={resetZoom} aria-label="Reset zoom">Reset</button>
+              <button className="btn" type="button" onClick={zoomIn} aria-label="Zoom in">+</button>
+              <button className="btn" type="button" onClick={closeLightbox} aria-label="Close">✕</button>
+            </div>
+          </div>
+
+          {/* Image stage */}
+          <div
+            onWheel={onWheelZoom}
+            onMouseDown={onDragStart}
+            onMouseMove={onDragMove}
+            onMouseUp={onDragEnd}
+            onMouseLeave={onDragEnd}
+            style={{ display: 'grid', placeItems: 'center', overflow: 'hidden', cursor: dragging ? 'grabbing' : (zoom > 1 ? 'grab' : 'default') }}
+          >
+            {images[lightboxIndex]?.url ? (
+              <img
+                src={images[lightboxIndex].url}
+                alt={images[lightboxIndex].original_name || 'Image'}
+                draggable={false}
+                onDoubleClick={resetZoom}
+                style={{
+                  maxWidth: '90vw',
+                  maxHeight: '80vh',
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transition: dragging ? 'none' : 'transform 120ms ease',
+                  boxShadow: '0 12px 48px rgba(0,0,0,0.5)',
+                  borderRadius: 10,
+                  userSelect: 'none'
+                }}
+              />
+            ) : (
+              <div className="text-muted">No image</div>
+            )}
+          </div>
+
+          {/* Bottom nav buttons */}
+          <div style={{ position: 'relative', padding: 12 }}>
+            <button
+              className="btn"
+              type="button"
+              onClick={lbPrev}
+              aria-label="Previous image"
+              style={{
+                position: 'absolute',
+                left: 12,
+                bottom: 12,
+                borderRadius: '999px',
+                width: 44,
+                height: 44
+              }}
+            >‹</button>
+            <button
+              className="btn"
+              type="button"
+              onClick={lbNext}
+              aria-label="Next image"
+              style={{
+                position: 'absolute',
+                right: 12,
+                bottom: 12,
+                borderRadius: '999px',
+                width: 44,
+                height: 44
+              }}
+            >›</button>
+          </div>
+        </div>
+      )}
 
       {/* Mobile sticky action bar (hidden on desktop via CSS) */}
       <div className="mobile-actionbar">
