@@ -367,16 +367,28 @@ export default function HomePage() {
                     ]}
                   />
                 </div>
-                <input
-                  className="input"
-                  list="home-location-suggest"
-                  placeholder="Location"
-                  value={filterLocation}
-                  onChange={e => { setFilterLocation(e.target.value); setLocQuery(e.target.value) }}
-                />
-                <datalist id="home-location-suggest">
-                  {locSuggestions.map(loc => <option key={loc} value={loc} />)}
-                </datalist>
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Location</div>
+                  <CustomSelect
+                    value={filterLocation}
+                    onChange={v => setFilterLocation(v)}
+                    ariaLabel="Location"
+                    placeholder="Location"
+                    options={(() => {
+                      // Prefer dynamic values from filtersDef if provided for the selected category
+                      const vals = (filtersDef.valuesByKey['location'] || []);
+                      const uniq = Array.from(new Set(vals.map(v => String(v).trim()).filter(Boolean)));
+                      const opts = uniq.map(v => ({ value: v, label: v }));
+                      // Fallback to suggestions previously fetched (if any)
+                      const extra = Array.from(new Set((locSuggestions || []).map(v => String(v).trim()).filter(Boolean)))
+                        .filter(v => !uniq.includes(v))
+                        .map(v => ({ value: v, label: v }));
+                      return [{ value: '', label: 'Any' }, ...opts, ...extra];
+                    })()}
+                    searchable={true}
+                    allowCustom={true}
+                  />
+                </div>
                 <input className="input" type="number" placeholder="Min price" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
                 <input className="input" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
 
@@ -434,17 +446,6 @@ export default function HomePage() {
                 })()}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <CustomSelect
-                    value={sort}
-                    onChange={v => setSort(v)}
-                    ariaLabel="Sort"
-                    placeholder="Sort"
-                    options={[
-                      { value: 'latest', label: 'Latest' },
-                      { value: 'price_asc', label: 'Price: Low to High' },
-                      { value: 'price_desc', label: 'Price: High to Low' },
-                    ]}
-                  />
                   <button className="btn accent" type="button" onClick={applyHomeFilters}>
                     Apply
                   </button>
@@ -455,6 +456,23 @@ export default function HomePage() {
               </div>
             </div>
           )}
+
+          {/* Sort selector - below filters, right corner */}
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ width: 240 }}>
+              <CustomSelect
+                value={sort}
+                onChange={v => setSort(v)}
+                ariaLabel="Sort"
+                placeholder="Sort"
+                options={[
+                  { value: 'latest', label: 'Latest' },
+                  { value: 'price_desc', label: 'Price: High to Low' },
+                  { value: 'price_asc', label: 'Price: Low to High' },
+                ]}
+              />
+            </div>
+          </div>
 
           {(() => {
             const displayList = filterCategory ? latest.filter(it => (it.main_category || '') === filterCategory) : latest
