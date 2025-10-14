@@ -5,7 +5,6 @@ import { generateOtp, sendEmail } from '../lib/utils.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import fetch from 'node-fetch';
 
 const router = Router();
 
@@ -340,82 +339,6 @@ router.post('/reset-password', async (req, res) => {
     return res.json({ ok: true, message: 'Password reset successfully.' });
   } catch (e) {
     console.error(e);
-    return res.status(500).json({ error: 'Unexpected error.' });
-  }
-});
-
-/**
- * Google Sign-In (passwordless) - expects an ID token from Google Identity Services
- * Body: { id_token: string }
- */
-router.post('/google-signin', async (req, res) => {
-  try {
-    const { id_token } = req.body || {};
-    if (!id_token) return res.status(400).json({ error: 'id_token is required.' });
-
-    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-    if (!GOOGLE_CLIENT_ID) {
-      return res.status(500).json({ error: 'Server not configured for Google Sign-In.' });
-    }
-
-    // Verify token with Google
-    const resp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(id_token)}`);
-    if (!resp.ok) return res.status(401).json({ error: 'Invalid Google token.' });
-    const payload = await resp.json();
-
-    const aud = payload.aud;
-    const email = String(payload.email || '').toLowerCase();
-    const emailVerified = String(payload.email_verified || '') === 'true' || payload.email_verified === true;
-    const name = String(payload.name || '').trim();
-
-    if (!email || !emailVerified) {
-      return res.status(401).json({ error: 'Google account email not verified.' });
-    }
-    if (aud !== GOOGLE_CLIENT_ID) {
-      return res.status(401).json({ error: 'Google token audience mismatch.' });
-    }
-
-    // Find or create user
-    let user = db.prepare('SELECT id, email, is_admin, username, profile_photo_path FROM users WHERE email = ?').get(email);
-    if (!user) {
-      // Generate a random password and store its hash (we don't use it, but schema requires it)
-      const randomSecret = (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 32);
-      const hash = await bcrypt.hash(randomSecret, 12);
-
-      // Derive a username from Google profile name or email local-part; ensure uniqueness
-      let baseUsername = name || email.split('@')[0] || 'user';
-      baseUsername = baseUsername.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase() || 'user';
-      let candidate = baseUsername;
-      let suffix = 1;
-      while (true) {
-        try {
-          const info = db.prepare('INSERT INTO users (email, password_hash, is_admin, created_at, username) VALUES (?, ?, 0, ?, ?)').run(
-            email,
-            hash,
-            new Date().toISOString(),
-            candidate
-          );
-          user = { id: info.lastInsertRowid, email, is_admin: 0, username: candidate, profile_photo_path: null };
-          break;
-        } catch (e) {
-          if (String(e).includes('UNIQUE') && String(e).includes('users.username')) {
-            suffix += 1;
-            candidate = `${baseUsername}${suffix}`;
-            continue;
-          }
-          if (String(e).includes('UNIQUE') && String(e).includes('users.email')) {
-            // race: someone created the user meanwhile
-            user = db.prepare('SELECT id, email, is_admin, username, profile_photo_path FROM users WHERE email = ?').get(email);
-            break;
-          }
-          return res.status(500).json({ error: 'Failed to create user.' });
-        }
-      }
-    }
-
-    const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
-    return res.json({ ok: true, user: { id: user.id, email: user.email, username: user.username, is_admin: !!user.is_admin, photo_url } });
-  } catch (e) {
     return res.status(500).json({ error: 'Unexpected error.' });
   }
 });

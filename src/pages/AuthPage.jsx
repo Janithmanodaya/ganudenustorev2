@@ -70,31 +70,27 @@ export default function AuthPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 
-  async function handleGoogleCredential(resp) {
+  function decodeJwt(token) {
     try {
-      const id_token = resp?.credential
-      if (!id_token) return
-      setSubmitting(true)
-      const r = await fetch('/api/auth/google-signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id_token })
-      })
-      const data = await r.json().catch(() => ({}))
-      if (!r.ok) {
-        setResult({ ok: false, message: data?.error || 'Google sign-in failed.' })
-        setSubmitting(false)
-        return
-      }
-      try {
-        localStorage.setItem('user', JSON.stringify(data.user))
-      } catch (_) {}
-      setResult({ ok: true, message: 'Login successful. Redirecting to home...' })
-      setTimeout(() => navigate('/'), 500)
-    } catch (e) {
-      setResult({ ok: false, message: 'Google sign-in network error.' })
-    } finally {
-      setSubmitting(false)
+      const base64Url = token.split('.')[1]
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))
+      return JSON.parse(jsonPayload)
+    } catch {
+      return null
+    }
+  }
+
+  async function handleGoogleCredential(resp) {
+    const cred = resp?.credential
+    if (!cred) return
+    const payload = decodeJwt(cred)
+    const pickedEmail = String(payload?.email || '').toLowerCase()
+    if (pickedEmail) {
+      setEmail(pickedEmail)
+      setResult({ ok: true, message: 'Email selected from Google. Continue with your normal login or registration flow.' })
+    } else {
+      setResult({ ok: false, message: 'Could not read email from Google.' })
     }
   }
 
@@ -252,18 +248,18 @@ export default function AuthPage() {
           </button>
         </div>
 
-        {/* Google quick login */}
+        {/* Pick email from Google (no login) */}
         {mode === 'login' && (
           <div style={{ marginBottom: 16 }}>
             <div id="googleSignInDiv" />
             {!googleReady && (
               <button className="btn" type="button" onClick={() => { /* noop fallback */ }}>
-                Continue with Google
+                Pick email from Google
               </button>
             )}
             <div style={{ height: 8 }} />
             <div className="text-muted" style={{ fontSize: 12 }}>
-              Sign in with Google does not require OTP.
+              Use the button above to pick your Google email. Then continue with the usual email/password and OTP flow.
             </div>
           </div>
         )}
