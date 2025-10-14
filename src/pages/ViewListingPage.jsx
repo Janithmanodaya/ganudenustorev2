@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
@@ -39,6 +39,251 @@ export default function ViewListingPage() {
       .split(/\s+/)
       .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(' ')
+  }
+
+  // Simple formatter: escape HTML, preserve newlines, support **bold**
+  function renderDescHTML(desc) {
+    try {
+      let s = String(desc || '');
+      // Escape HTML
+      s = s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      // Bold: **text**
+      s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      // Preserve line breaks
+      s = s.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '<br/>');
+      return { __html: s };
+    } catch (_) {
+      return { __html: String(desc || '') };
+    }
+  }
+
+  // Lightbox state for full-size image with zoom and slide controls
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [prevViewportContent, setPrevViewportContent] = useState(null)
+
+  // Responsive: detect mobile to tailor lightbox UI
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    try {
+      const mq = window.matchMedia('(max-width: 780px)')
+      const handle = () => setIsMobile(!!mq.matches)
+      handle()
+      if (mq.addEventListener) mq.addEventListener('change', handle)
+      else if (mq.addListener) mq.addListener(handle)
+      return () => {
+        if (mq.removeEventListener) mq.removeEventListener('change', handle)
+        else if (mq.removeListener) mq.removeListener(handle)
+      }
+    } catch (_) {
+      setIsMobile(false)
+    }
+  }, [])
+
+  function openLightbox(idx = 0) {
+    setLightboxIndex(idx)
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
+    // Lock body scroll and disable page pinch-zoom for mobile to avoid whole-site zoom/lag
+    try {
+      document.body.style.overflow = 'hidden'
+      const vp = document.querySelector('meta[name="viewport"]')
+      if (vp) {
+        setPrevViewportContent(vp.getAttribute('content'))
+        vp.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+      }
+    } catch (_) {}
+    setLightboxOpen(true)
+  }
+  function closeLightbox() {
+    setLightboxOpen(false)
+    setZoom(1)
+    setPan({ x: 0, y: 0 })
+    setDragging(false)
+    // Restore body scroll and viewport scaling
+    try {
+      document.body.style.overflow = ''
+      const vp = document.querySelector('meta[name="viewport"]')
+      if (vp && prevViewportContent != null) {
+        vp.setAttribute('content', prevViewportContent)
+      }
+    } catch (_) {}
+  }
+  function lbPrev() {
+    setLightboxIndex(i => {
+      const n = images.length || 0
+      if (!n) return 0
+      const ni = (i - 1 + n) % n
+      setZoom(1); setPan({ x: 0, y: 0 })
+      return ni
+    })
+  }
+  function lbNext() {
+    setLightboxIndex(i => {
+      const n = images.length || 0
+      if (!n) return 0
+      const ni = (i + 1) % n
+      setZoom(1); setPan({ x: 0, y: 0 })
+      return ni
+    })
+  }
+  function zoomIn() { setZoom(z => Math.min(4, Number((z + 0.2).toFixed(2)))) }
+  function zoomOut() { setZoom(z => Math.max(1, Number((z - 0.2).toFixed(2)))) }
+  function resetZoom() { setZoom(1); setPan({ x: 0, y: 0 }) }
+
+  // Desktop keyboard navigation when lightbox is open
+  useEffect(() => {
+    if (!(lightboxOpen && !isMobile)) return
+    function onKey(e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); lbPrev() }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); lbNext() }
+      else if (e.key === 'Escape') { e.preventDefault(); closeLightbox() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightboxOpen, isMobile, images.length])
+
+  function onWheelZoom(e) {
+    e.preventDefault()
+    const delta = e.deltaY
+    if (delta > 0) {
+      zoomOut()
+    } else {
+      zoomIn()
+    }
+  }
+  function onDragStart(e) {
+    e.preventDefault()
+    setDragging(true)
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y })
+  }
+  function onDragMove(e) {
+    if (!dragging) return
+    setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y })
+  }
+  function onDragEnd() {
+    setDragging(false)
+  }
+
+  // --- Mobile pinch-zoom gesture support (lightbox only) ---
+  const [pinching, setPinching] = useState(false)
+  const [pinchStartDist, setPinchStartDist] = useState(0)
+  const [pinchStartZoom, setPinchStartZoom] = useState(1)
+  const [pinchStartPan, setPinchStartPan] = useState({ x: 0, y: 0 })
+  const [pinchCenter, setPinchCenter] = useState({ x: 0, y: 0 })
+
+  function distance(touches) {
+    if (touches.length < 2) return 0
+    const dx = touches[0].clientX - touches[1].clientX
+    const dy = touches[0].clientY - touches[1].clientY
+    return Math.hypot(dx, dy)
+  }
+  function center(touches) {
+    if (touches.length < 2) return { x: 0, y: 0 }
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2
+    }
+  }
+
+  const lastTapRef = useRef(0)
+
+  function onTouchStart(e) {
+    if (!isMobile) return
+    if (!lightboxOpen) return
+
+    // Double-tap to toggle zoom (mobile)
+    if (e.touches.length === 1) {
+      const now = Date.now()
+      const elapsed = now - (lastTapRef.current || 0)
+      lastTapRef.current = now
+
+      const t = e.touches[0]
+      if (elapsed > 0 && elapsed < 300) {
+        // Double tap detected: toggle zoom around tap point
+        e.preventDefault()
+        if (zoom <= 1.01) {
+          const targetZoom = 2
+          // Pan so that tapped point moves toward center
+          const cx = window.innerWidth / 2
+          const cy = window.innerHeight / 2
+          const dx = t.clientX - cx
+          const dy = t.clientY - cy
+          const dz = targetZoom - 1
+          setZoom(targetZoom)
+          setPan({ x: pan.x - dx * dz, y: pan.y - dy * dz })
+        } else {
+          // Reset
+          setZoom(1)
+          setPan({ x: 0, y: 0 })
+        }
+        return
+      }
+    }
+
+    if (e.touches.length === 2) {
+      e.preventDefault()
+      const dist = distance(e.touches)
+      setPinching(true)
+      setPinchStartDist(dist)
+      setPinchStartZoom(zoom)
+      setPinchStartPan(pan)
+      setPinchCenter(center(e.touches))
+    } else if (e.touches.length === 1 && zoom > 1) {
+      // One-finger pan when zoomed
+      e.preventDefault()
+      const t = e.touches[0]
+      setDragging(true)
+      setDragStart({ x: t.clientX - pan.x, y: t.clientY - pan.y })
+    }
+  }
+
+  function onTouchMove(e) {
+    if (!isMobile) return
+    if (!lightboxOpen) return
+    if (pinching && e.touches.length === 2) {
+      e.preventDefault()
+      const dist = distance(e.touches)
+      if (pinchStartDist > 0) {
+        const scale = dist / pinchStartDist
+        // Update zoom clamped to [1,4]
+        const newZoom = Math.max(1, Math.min(4, Number((pinchStartZoom * scale).toFixed(3))))
+        // Compute pan so that the pinch center stays roughly stable
+        const c = center(e.touches)
+        const dx = c.x - pinchCenter.x
+        const dy = c.y - pinchCenter.y
+        // Adjust pan: base pan plus finger movement; also adjust for zoom delta
+        const zoomDelta = newZoom / (pinchStartZoom || 1)
+        const newPan = {
+          x: pinchStartPan.x + dx + (pinchCenter.x - window.innerWidth / 2) * (zoomDelta - 1),
+          y: pinchStartPan.y + dy + (pinchCenter.y - window.innerHeight / 2) * (zoomDelta - 1)
+        }
+        setZoom(newZoom)
+        setPan(newPan)
+      }
+    } else if (dragging && e.touches.length === 1) {
+      e.preventDefault()
+      const t = e.touches[0]
+      setPan({ x: t.clientX - dragStart.x, y: t.clientY - dragStart.y })
+    }
+  }
+
+  function onTouchEnd(e) {
+    if (!isMobile) return
+    if (!lightboxOpen) return
+    if (pinching && e.touches.length < 2) {
+      setPinching(false)
+    }
+    if (dragging && e.touches.length === 0) {
+      setDragging(false)
+    }
   }
 
   // Load listing
@@ -85,7 +330,7 @@ export default function ViewListingPage() {
     if (!listing) return
     const rawTitle = listing.seo_title || listing.title || 'Listing'
     const title = formatTitleCase(rawTitle)
-    const desc = listing.seo_description || listing.description || ''
+    const desc = listing.seo_description || listing.enhanced_description || listing.description || ''
     const url = `https://ganudenu.store/listing/${listing.id}`
     document.title = title
 
@@ -271,7 +516,7 @@ export default function ViewListingPage() {
   }
 
   const mainImage = images[currentIndex]
-
+  const isInteracting = (pinching || dragging || zoom > 1)
   return (
     <div className="center viewlisting has-actionbar">
       {loading && <LoadingOverlay message="Loading listing..." />}
@@ -332,121 +577,128 @@ export default function ViewListingPage() {
         <div style={{ padding: 18 }}>
           {/* Gallery + Details */}
           <div className="grid two" style={{ marginTop: 0 }}>
-          {/* Left: Image carousel & description */}
-          <div>
-            <div className="h2">Gallery</div>
-            {images.length > 0 ? (
-              <div className="carousel">
-                <div className="carousel-main">
-                  {mainImage?.url ? (
-                    <img src={mainImage.url} alt={mainImage.original_name || 'Image'} />
+            {/* Left: Gallery + Description */}
+            <div>
+              <div className="h2">Gallery</div>
+              {images.length > 0 ? (
+                <div className="carousel">
+                  <div className="carousel-main">
+                    {mainImage?.url ? (
+                    <img
+                      src={mainImage.url}
+                      alt={mainImage.original_name || 'Image'}
+                      onClick={() => openLightbox(currentIndex)}
+                      style={{ cursor: 'zoom-in' }}
+                    />
                   ) : (
-                    <div className="carousel-empty text-muted">No preview available</div>
-                  )}
+                      <div className="carousel-empty text-muted">No preview available</div>
+                    )}
+                    {images.length > 1 && (
+                      <>
+                        <button className="btn nav prev" onClick={prevImage} aria-label="Previous image">‹</button>
+                        <button className="btn nav next" onClick={nextImage} aria-label="Next image">›</button>
+                      </>
+                    )}
+                  </div>
                   {images.length > 1 && (
-                    <>
-                      <button className="btn nav prev" onClick={prevImage} aria-label="Previous image">‹</button>
-                      <button className="btn nav next" onClick={nextImage} aria-label="Next image">›</button>
-                    </>
+                    <div className="carousel-thumbs">
+                      {images.map((img, idx) => (
+                        <button
+                          key={img.id ?? idx}
+                          className={`thumb ${idx === currentIndex ? 'active' : ''}`}
+                          onClick={() => selectImage(idx)}
+                          aria-label={`Show image ${idx + 1}`}
+                          title={img.original_name || `Image ${idx + 1}`}
+                        >
+                          {img.url ? (
+                            <img src={img.url} alt={img.original_name || `Image ${idx + 1}`} />
+                          ) : (
+                            <span className="text-muted">{img.path || 'Image'}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
-                {images.length > 1 && (
-                  <div className="carousel-thumbs">
-                    {images.map((img, idx) => (
-                      <button
-                        key={img.id ?? idx}
-                        className={`thumb ${idx === currentIndex ? 'active' : ''}`}
-                        onClick={() => selectImage(idx)}
-                        aria-label={`Show image ${idx + 1}`}
-                        title={img.original_name || `Image ${idx + 1}`}
-                      >
-                        {img.url ? (
-                          <img src={img.url} alt={img.original_name || `Image ${idx + 1}`} />
-                        ) : (
-                          <span className="text-muted">{img.path || 'Image'}</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
+              ) : (
+                <div className="card" style={{ textAlign: 'center' }}>
+                  <div className="text-muted">No images uploaded for this listing.</div>
+                </div>
+              )}
+
+              <div className="h2" style={{ marginTop: 16 }}>Description</div>
+              {/* Desktop full description (preserve line breaks + **bold**) */}
+              <div className="desc-desktop">
+                <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
+              </div>
+              {/* Mobile collapsible description */}
+              <div className="desc-mobile">
+                {descOpen ? (
+                  <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
+                ) : (
+                  <p style={{ whiteSpace: 'pre-wrap' }}>
+                    {String(listing?.enhanced_description || listing?.description || '').slice(0, 180)}
+                    {String(listing?.enhanced_description || listing?.description || '').length > 180 ? '…' : ''}
+                  </p>
+                )}
+                {String(listing?.enhanced_description || listing?.description || '').length > 180 && (
+                  <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
+                    {descOpen ? 'Show less' : 'Read more'}
+                  </button>
                 )}
               </div>
-            ) : (
-              <div className="card" style={{ textAlign: 'center' }}>
-                <div className="text-muted">No images uploaded for this listing.</div>
-              </div>
-            )}
-
-            {/* Contact (mobile-first duplicate, hidden on desktop via CSS) */}
-            {listing?.phone ? (
-              <div className="card contact-mobile" style={{ marginTop: 16 }}>
-                <div className="h2" style={{ marginTop: 0 }}>Contact</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <a
-                    className="btn primary"
-                    href={`tel:${listing.phone}`}
-                  >
-                    {formatPhoneDisplay(listing.phone)}
-                  </a>
-                  {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="h2" style={{ marginTop: 16 }}>Description</div>
-            {/* Desktop full description */}
-            <div className="desc-desktop">
-              <p>{listing?.description}</p>
             </div>
-            {/* Mobile collapsible description */}
-            <div className="desc-mobile">
-              <p style={{ whiteSpace: 'pre-wrap' }}>
-                {descOpen ? (listing?.description || '') : String(listing?.description || '').slice(0, 180)}
-                {(!descOpen && String(listing?.description || '').length > 180) ? '…' : ''}
-              </p>
-              {String(listing?.description || '').length > 180 && (
-                <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
-                  {descOpen ? 'Show less' : 'Read more'}
-                </button>
+
+            {/* Right: Key Details, Contact, Report */}
+            <div>
+              {/* Contact (mobile-first duplicate, hidden on desktop via CSS) */}
+              {listing?.phone ? (
+                <div className="card contact-mobile" style={{ marginTop: 0 }}>
+                  <div className="h2" style={{ marginTop: 0 }}>Contact</div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <a
+                      className="btn primary"
+                      href={`tel:${listing.phone}`}
+                    >
+                      {formatPhoneDisplay(listing.phone)}
+                    </a>
+                    {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="h2" style={{ marginTop: 16 }}>Key Details</div>
+              {structuredEntries.length === 0 && <p className="text-muted">No structured data available.</p>}
+              <div className="details-grid">
+                {structuredEntries.map(([k, v]) => (
+                  <div key={k} className="detail">
+                    <div className="label">{prettyLabel(k)}</div>
+                    <div className="value">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Contact info card (desktop) */}
+              {listing?.phone && (
+                <div className="card contact-desktop" style={{ marginTop: 16 }}>
+                  <div className="h2" style={{ marginTop: 0 }}>Contact</div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <a
+                      className="btn primary"
+                      href={`tel:${listing.phone}`}
+                    >
+                      {formatPhoneDisplay(listing.phone)}
+                    </a>
+                    {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
+                  </div>
+                </div>
               )}
-            </div>
 
-            
-          </div>
-
-          {/* Right: Key details */}
-          <div>
-            <div className="h2">Key Details</div>
-            {structuredEntries.length === 0 && <p className="text-muted">No structured data available.</p>}
-            <div className="details-grid">
-              {structuredEntries.map(([k, v]) => (
-                <div key={k} className="detail">
-                  <div className="label">{prettyLabel(k)}</div>
-                  <div className="value">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Contact info card (desktop) */}
-            {listing?.phone && (
-              <div className="card contact-desktop" style={{ marginTop: 16 }}>
-                <div className="h2" style={{ marginTop: 0 }}>Contact</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <a
-                    className="btn primary"
-                    href={`tel:${listing.phone}`}
-                  >
-                    {formatPhoneDisplay(listing.phone)}
-                  </a>
-                  {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
-                </div>
+              {/* Desktop: Report button moved under contact card, right-aligned */}
+              <div className="report-desktop" style={{ marginTop: 8, textAlign: 'right' }}>
+                <button className="btn" onClick={onReport} type="button">Report this listing</button>
               </div>
-            )}
-
-            {/* Desktop: Report button moved under contact card, right-aligned */}
-            <div className="report-desktop" style={{ marginTop: 8, textAlign: 'right' }}>
-              <button className="btn" onClick={onReport} type="button">Report this listing</button>
             </div>
-          </div>
           </div>
         </div>
 
@@ -457,6 +709,159 @@ export default function ViewListingPage() {
 
         {status && <p style={{ marginTop: 8 }}>{status}</p>}
       </div>
+
+      {/* Fullscreen Lightbox for images */}
+      {lightboxOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => { if (e.target === e.currentTarget) closeLightbox() }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.78)',
+            zIndex: 2000,
+            display: 'grid',
+            gridTemplateRows: 'auto 1fr auto',
+            backdropFilter: 'blur(2px)',
+            touchAction: 'none',
+            overscrollBehavior: 'contain'
+          }}
+        >
+          {/* Top bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 10, position: 'relative', zIndex: 2101 }}>
+            <div className="pill" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              {lightboxIndex + 1} / {images.length || 0}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {!isMobile && (
+                <>
+                  <button className="btn" type="button" onClick={zoomOut} aria-label="Zoom out">−</button>
+                  <button className="btn" type="button" onClick={resetZoom} aria-label="Reset zoom">Reset</button>
+                  <button className="btn" type="button" onClick={zoomIn} aria-label="Zoom in">+</button>
+                </>
+              )}
+              <button className="btn" type="button" onClick={(e) => { e.stopPropagation(); closeLightbox() }} aria-label="Close">✕</button>
+            </div>
+          </div>
+
+          {/* Image stage */}
+          <div
+            onWheel={!isMobile ? onWheelZoom : undefined}
+            onMouseDown={!isMobile ? onDragStart : undefined}
+            onMouseMove={!isMobile ? onDragMove : undefined}
+            onMouseUp={!isMobile ? onDragEnd : undefined}
+            onMouseLeave={!isMobile ? onDragEnd : undefined}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchEnd}
+            style={{ display: 'grid', placeItems: 'center', overflow: 'hidden', cursor: (!isMobile && dragging) ? 'grabbing' : (!isMobile && zoom > 1 ? 'grab' : 'default') }}
+          >
+            {images[lightboxIndex]?.url ? (
+              <img
+                src={images[lightboxIndex].url}
+                alt={images[lightboxIndex].original_name || 'Image'}
+                draggable={false}
+                onDoubleClick={!isMobile ? resetZoom : undefined}
+                style={{
+                  maxWidth: '90vw',
+                  maxHeight: '80vh',
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transition: dragging ? 'none' : 'transform 120ms ease',
+                  boxShadow: '0 12px 48px rgba(0,0,0,0.5)',
+                  borderRadius: 10,
+                  userSelect: 'none',
+                  willChange: 'transform'
+                }}
+              />
+            ) : (
+              <div className="text-muted">No image</div>
+            )}
+          </div>
+
+          {/* Desktop bottom nav buttons; Mobile gets large side overlays */}
+          {!isMobile ? (
+            <div style={{ position: 'relative', padding: 12 }}>
+              <button
+                className="btn"
+                type="button"
+                onClick={lbPrev}
+                aria-label="Previous image"
+                style={{
+                  position: 'absolute',
+                  left: 12,
+                  bottom: 12,
+                  borderRadius: '999px',
+                  width: 44,
+                  height: 44
+                }}
+              >‹</button>
+              <button
+                className="btn"
+                type="button"
+                onClick={lbNext}
+                aria-label="Next image"
+                style={{
+                  position: 'absolute',
+                  right: 12,
+                  bottom: 12,
+                  borderRadius: '999px',
+                  width: 44,
+                  height: 44
+                }}
+              >›</button>
+            </div>
+          ) : (
+            <>
+              {!isInteracting && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); lbPrev() }}
+                    aria-label="Previous image"
+                    style={{
+                      position: 'absolute',
+                      top: 56,
+                      left: 0,
+                      bottom: 0,
+                      width: '24%',
+                      background: 'linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0))',
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: 34,
+                      display: 'grid',
+                      placeItems: 'center',
+                      touchAction: 'manipulation',
+                      zIndex: 2050
+                    }}
+                  >‹</button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); lbNext() }}
+                    aria-label="Next image"
+                    style={{
+                      position: 'absolute',
+                      top: 56,
+                      right: 0,
+                      bottom: 0,
+                      width: '24%',
+                      background: 'linear-gradient(to left, rgba(0,0,0,0.25), rgba(0,0,0,0))',
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: 34,
+                      display: 'grid',
+                      placeItems: 'center',
+                      touchAction: 'manipulation',
+                      zIndex: 2050
+                    }}
+                  >›</button>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Mobile sticky action bar (hidden on desktop via CSS) */}
       <div className="mobile-actionbar">

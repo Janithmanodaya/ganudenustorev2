@@ -578,4 +578,6 @@ body {
     background: rgba(255,255,255,0.04);
   }
   .report-desktop { display: none; }
+  /* Hide Our Features slider nav buttons on mobile */
+  .feature-nav { display: none !important; }
 }

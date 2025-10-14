@@ -328,7 +328,7 @@ export default function HomePage() {
           <div className="quick-cats" style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className={`btn ${filterCategory === 'Vehicle' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Vehicle'); setShowFilters(true); }}>🚗 Vehicles</button>
             <button className={`btn ${filterCategory === 'Property' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Property'); setShowFilters(true); }}>🏠 Property</button>
-            <button className={`btn ${filterCategory === 'Job' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Job'); setShowFilters(true); }}>💼 Jobs</button>
+            
             <button className={`btn ${filterCategory === 'Electronic' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Electronic'); setShowFilters(true); }}>🔌 Electronic</button>
             <button className={`btn ${filterCategory === 'Mobile' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Mobile'); setShowFilters(true); }}>📱 Mobile</button>
             <button className={`btn ${filterCategory === 'Home Garden' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Home Garden'); setShowFilters(true); }}>🏡 Home&nbsp;Garden</button>
@@ -381,7 +381,6 @@ export default function HomePage() {
                       { value: '', label: 'Any' },
                       { value: 'Vehicle', label: 'Vehicle' },
                       { value: 'Property', label: 'Property' },
-                      { value: 'Job', label: 'Job' },
                       { value: 'Electronic', label: 'Electronic' },
                       { value: 'Mobile', label: 'Mobile' },
                       { value: 'Home Garden', label: 'Home Garden' },
@@ -494,7 +493,8 @@ export default function HomePage() {
           </div>
 
           {(() => {
-            const displayList = filterCategory ? latest.filter(it => (it.main_category || '') === filterCategory) : latest
+            const baseList = filterCategory ? latest.filter(it => (it.main_category || '') === filterCategory) : latest
+            const displayList = baseList.filter(it => (it.main_category || '') !== 'Job')
             return (
               <div className="grid three">
                 {displayList.map(item => {
@@ -664,7 +664,7 @@ export default function HomePage() {
 
           {/* Glass-morphism sliding buttons */}
           <button
-            className="btn"
+            className="btn feature-nav"
             type="button"
             aria-label="Scroll features left"
             onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: -300, behavior: 'smooth' }) }}
@@ -691,7 +691,7 @@ export default function HomePage() {
             onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
           >{'<'}</button>
           <button
-            className="btn"
+            className="btn feature-nav"
             type="button"
             aria-label="Scroll features right"
             onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: 300, behavior: 'smooth' }) }}
