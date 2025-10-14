@@ -351,32 +351,7 @@ export default function ViewListingPage() {
         <div style={{ padding: 18 }}>
           {/* Gallery + Details */}
           <div className="grid two" style={{ marginTop: 0 }}>
-            {/* Left: Description only */}
-            <div>
-              <div className="h2" style={{ marginTop: 0 }}>Description</div>
-              {/* Desktop full description (preserve line breaks + **bold**) */}
-              <div className="desc-desktop">
-                <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
-              </div>
-              {/* Mobile collapsible description */}
-              <div className="desc-mobile">
-                {descOpen ? (
-                  <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
-                ) : (
-                  <p style={{ whiteSpace: 'pre-wrap' }}>
-                    {String(listing?.enhanced_description || listing?.description || '').slice(0, 180)}
-                    {String(listing?.enhanced_description || listing?.description || '').length > 180 ? '…' : ''}
-                  </p>
-                )}
-                {String(listing?.enhanced_description || listing?.description || '').length > 180 && (
-                  <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
-                    {descOpen ? 'Show less' : 'Read more'}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Right: Gallery, Key Details, Contact, Report */}
+            {/* Left: Gallery + Description */}
             <div>
               <div className="h2">Gallery</div>
               {images.length > 0 ? (
@@ -420,9 +395,34 @@ export default function ViewListingPage() {
                 </div>
               )}
 
+              <div className="h2" style={{ marginTop: 16 }}>Description</div>
+              {/* Desktop full description (preserve line breaks + **bold**) */}
+              <div className="desc-desktop">
+                <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
+              </div>
+              {/* Mobile collapsible description */}
+              <div className="desc-mobile">
+                {descOpen ? (
+                  <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
+                ) : (
+                  <p style={{ whiteSpace: 'pre-wrap' }}>
+                    {String(listing?.enhanced_description || listing?.description || '').slice(0, 180)}
+                    {String(listing?.enhanced_description || listing?.description || '').length > 180 ? '…' : ''}
+                  </p>
+                )}
+                {String(listing?.enhanced_description || listing?.description || '').length > 180 && (
+                  <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
+                    {descOpen ? 'Show less' : 'Read more'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Key Details, Contact, Report */}
+            <div>
               {/* Contact (mobile-first duplicate, hidden on desktop via CSS) */}
               {listing?.phone ? (
-                <div className="card contact-mobile" style={{ marginTop: 16 }}>
+                <div className="card contact-mobile" style={{ marginTop: 0 }}>
                   <div className="h2" style={{ marginTop: 0 }}>Contact</div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <a
