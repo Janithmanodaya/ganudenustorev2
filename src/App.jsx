@@ -27,9 +27,15 @@ export default function App() {
   const [notifOpen, setNotifOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState([])
-  const notifBtnRef = useRef(null)
+  const notifBtnRefDesktop = useRef(null)
+  const notifBtnRefMobile = useRef(null)
   const notifPanelRef = useRef(null)
   const [rejectNotifModal, setRejectNotifModal] = useState({ open: false, title: '', reason: '' })
+
+  // Mobile menu (only used on small screens)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const mobileMenuBtnRef = useRef(null)
+  const mobileMenuRef = useRef(null)
 
   useEffect(() => {
     try {
@@ -115,15 +121,17 @@ export default function App() {
     }
   }
 
-  // Close dropdown when clicking outside
+  // Close notification dropdown when clicking outside
   useEffect(() => {
     if (!notifOpen) return
     function onDocMouseDown(e) {
       const panel = notifPanelRef.current
-      const btn = notifBtnRef.current
+      const btnDesk = notifBtnRefDesktop.current
+      const btnMob = notifBtnRefMobile.current
       const target = e.target
       if (panel && panel.contains(target)) return
-      if (btn && btn.contains(target)) return
+      if (btnDesk && btnDesk.contains(target)) return
+      if (btnMob && btnMob.contains(target)) return
       setNotifOpen(false)
     }
     document.addEventListener('mousedown', onDocMouseDown)
@@ -131,6 +139,21 @@ export default function App() {
       document.removeEventListener('mousedown', onDocMouseDown)
     }
   }, [notifOpen])
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    if (!mobileMenuOpen) return
+    function onDocMouseDown(e) {
+      const panel = mobileMenuRef.current
+      const btn = mobileMenuBtnRef.current
+      const target = e.target
+      if (panel && panel.contains(target)) return
+      if (btn && btn.contains(target)) return
+      setMobileMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => document.removeEventListener('mousedown', onDocMouseDown)
+  }, [mobileMenuOpen])
 
   async function handleNotificationClick(n) {
     if (!userEmail) return
@@ -182,53 +205,126 @@ export default function App() {
             <span className="domain">Marketplace</span>
           </div>
         </div>
-        <nav className="nav" style={{ alignItems: 'center', gap: 10 }}>
-          <Link to="/">Home</Link>
-          <Link to="/new">Sell</Link>
-          <Link to="/jobs">Jobs</Link>
-          <Link to="/my-ads">My Ads</Link>
-          <Link to="/account">Account</Link>
 
-          {/* Bell icon for notifications (only visible when logged in) */}
-          {userEmail ? (
+        {/* Navigation */}
+        <nav className="nav" style={{ alignItems: 'center', gap: 10, flex: 1 }}>
+          {/* Desktop navigation aligned to right */}
+          <div className="nav-desktop" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Link to="/">Home</Link>
+            <Link to="/new">Sell</Link>
+            <Link to="/jobs">Jobs</Link>
+            <Link to="/my-ads">My Ads</Link>
+            <Link to="/account">Account</Link>
+            {userEmail ? (
+              <div style={{ position: 'relative' }}>
+                <button
+                  ref={notifBtnRefDesktop}
+                  className="back-btn"
+                  type="button"
+                  aria-label="Notifications"
+                  title="Notifications"
+                  onClick={toggleNotif}
+                >
+                  🔔
+                </button>
+                {unreadCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      top: -2,
+                      right: -2,
+                      width: 16,
+                      height: 16,
+                      borderRadius: '999px',
+                      background: '#ef4444',
+                      color: '#fff',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      boxShadow: '0 0 0 2px rgba(10,12,18,0.9)'
+                    }}
+                  >
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          {/* Mobile navigation: dropdown on the right corner, then profile and notifications */}
+          <div className="nav-mobile" style={{ position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 8_codeend', gap: 8 }}>
+            {/* Right: Menu dropdown toggle (anchored to right corner) */}
             <div style={{ position: 'relative' }}>
               <button
-                ref={notifBtnRef}
+                ref={mobileMenuBtnRef}
                 className="back-btn"
                 type="button"
-                aria-label="Notifications"
-                title="Notifications"
-                onClick={toggleNotif}
+                aria-label="Menu"
+                title="Menu"
+                onClick={() => setMobileMenuOpen(o => !o)}
               >
-                🔔
+                ☰
               </button>
-              {unreadCount > 0 && (
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    top: -2,
-                    right: -2,
-                    width: 16,
-                    height: 16,
-                    borderRadius: '999px',
-                    background: '#ef4444',
-                    color: '#fff',
-                    display: 'grid',
-                    placeItems: 'center',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    boxShadow: '0 0 0 2px rgba(10,12,18,0.9)'
-                  }}
+              {mobileMenuOpen && (
+                <div
+                  ref={mobileMenuRef}
+                  className="card dropdown-panel"
+                  style={{ width: 200, padding: 8, right: 0, left: 'auto' }}
                 >
-                  {unreadCount}
-                </span>
+                  <Link to="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
+                  <Link to="/new" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
+                  <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}>Jobs</Link>
+                  <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}>My Ads</Link>
+                </div>
               )}
             </div>
-          ) : null}
+
+            {/* Account icon */}
+            <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
+
+            {/* Notifications icon */}
+            {userEmail ? (
+              <div style={{ position: 'relative' }}>
+                <button
+                  ref={notifBtnRefMobile}
+                  className="back-btn"
+                  type="button"
+                  aria-label="Notifications"
+                  title="Notifications"
+                  onClick={toggleNotif}
+                >
+                  🔔
+                </button>
+                {unreadCount > 0 && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      top: -2,
+                      right: -2,
+                      width: 16,
+                      height: 16,
+                      borderRadius: '999px',
+                      background: '#ef4444',
+                      color: '#fff',
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      boxShadow: '0 0 0 2px rgba(10,12,18,0.9)'
+                    }}
+                  >
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+            ) : null}
+          </div>
         </nav>
 
-        {/* Dropdown panel */}
+        {/* Notifications dropdown panel */}
         {notifOpen && (
           <div ref={notifPanelRef} style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
             <div className="card" style={{ width: 340, maxHeight: 420, overflow: 'auto' }}>
