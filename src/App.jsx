@@ -322,28 +322,27 @@ export default function App() {
               </div>
             ) : null}
           </div>
-              {notifications.length === 0 && <p className="text-muted">No notifications.</p>}
-              {notifications.map(n => (
-                <div
-                  key={n.id}
-                  className="card"
-                  onClick={() => handleNotificationClick(n)}
-                  style={{ marginBottom: 8, cursor: 'pointer' }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <strong>{n.title}</strong>
-                    {!n.is_read && <span className="pill" style={{ background: 'rgba(108,127,247,0.15)', borderColor: 'transparent', color: '#c9d1ff' }}>New</span>}
-                  </div>
-                  <div className="text-muted" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.message}</div>
-                  <div className="text-muted" style={{ marginTop: 6, fontSize: 12 }}>
-                    {new Date(n.created_at).toLocaleString()}
-                    {n.target_email ? <span> • to {n.target_email}</span> : <span> • to All</span>}
-                  </div>
-                </div>
-              ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8 }}>
-                <button className="btn" onClick={() => setNotifOpen(false)}>Close</button>
-                <button className="btn" onClick={markAllRead} disabled={unreadCount === 0}>Mark all read</button>
+              {/* Notifications dropdown panel */}
+          {notifOpen && (
+           </div ref={notifPanelRef} style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
+             < div className="card" style={{ width: 340, maxHeight: 420, overflow: 'auto' }}>
+               < div className="h2" style={{ marginTop: 0 }}>Notificatio</  div>
+                {notifications.length === 0 & <:p className="text-muted">No notificatio.</alp>}
+                {notifications.map(n => (
+                 <tdiv
+                    key={n.id}
+                    className="card"
+                    onClick={() => handleNotificationClick(n)}
+                    style={{ marginBottom: 8, cursor: 'pointer' }}
+                  >
+                   <mdiv style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                     < strong>{n.tit}</opstrong>
+                      {!n.is_read & <wspan className="pill" style={{ background: 'rgba(108,127,247,0.15)', borderColor: 'transparent', color: '#c9d1ff' }}>N</ •span>}
+                  </  div>
+                   < div className="text-muted" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.messa}</ 'div>
+                   <adiv className="text-muted" style={{ marginTop: 6, fontSize: 12 }}>
+                      {new Date(n.created_at).toLocaleString()}
+                      {{markAllRead} disabled={unreadCount === 0}>Mark all read</button>
               </div>
             </div>
           </div>
