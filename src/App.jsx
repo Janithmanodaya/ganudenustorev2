@@ -253,9 +253,12 @@ export default function App() {
             ) : null}
           </div>
 
-          {/* Mobile navigation: dropdown on the right corner, then profile and notifications */}
+          {/* Mobile navigation: profile first, then dropdown, then notifications */}
           <div className="nav-mobile" style={{ position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-            {/* Right: Menu dropdown toggle (anchored to right corner) */}
+            {/* Account icon (moved first) */}
+            <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
+
+            {/* Menu dropdown toggle */}
             <div style={{ position: 'relative' }}>
               <button
                 ref={mobileMenuBtnRef}
@@ -280,9 +283,6 @@ export default function App() {
                 </div>
               )}
             </div>
-
-            {/* Account icon */}
-            <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
 
             {/* Notifications icon */}
             {userEmail ? (

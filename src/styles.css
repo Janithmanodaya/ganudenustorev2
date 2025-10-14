@@ -448,8 +448,8 @@ body {
 
   /* Switch to dropdown-based mobile nav */
   .nav { width: 100%; overflow: visible; gap: 6px; padding-bottom: 0; }
-  .nav-desktop { display: none !important; }
-  .nav-mobile { display: flex !important; }
+  .nav-desktop { display: none; }
+  .nav-mobile { display: flex; }
   .dropdown-panel { position: absolute; top: 46px; left: 0; z-index: 20; }
 
   .content { padding: 14px; }
