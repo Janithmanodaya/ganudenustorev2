@@ -50,15 +50,19 @@ export default function App() {
   }
 
   async function loadNotifications() {
-    if (!userEmail) { setNotifications([]); return }
+    if (!userEmail) { setNotifications([]); return { results: [], unread: 0 } }
     try {
       const r = await fetch('/api/notifications', { headers: { 'X-User-Email': userEmail } })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Failed')
-      setNotifications(Array.isArray(data.results) ? data.results : [])
-      setUnreadCount(Number(data.unread_count || 0))
+      const results = Array.isArray(data.results) ? data.results : []
+      const unread = Number(data.unread_count || 0)
+      setNotifications(results)
+      setUnreadCount(unread)
+      return { results, unread }
     } catch (_) {
       setNotifications([])
+      return { results: [], unread: 0 }
     }
   }
 
@@ -67,10 +71,29 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail])
 
-  function toggleNotif() {
+  async function toggleNotif() {
     const next = !notifOpen
     setNotifOpen(next)
-    if (next) loadNotifications()
+    if (next) {
+      const { results } = await loadNotifications()
+      if (userEmail && Array.isArray(results) && results.length) {
+        const unreadItems = results.filter(n => !n.is_read)
+        if (unreadItems.length) {
+          try {
+            await Promise.all(
+              unreadItems.map(n =>
+                fetch(`/api/notifications/${n.id}/read`, {
+                  method: 'POST',
+                  headers: { 'X-User-Email': userEmail }
+                }).catch(() => {})
+              )
+            )
+          } catch (_) {}
+          setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })))
+          setUnreadCount(0)
+        }
+      }
+    }
   }
 
   async function markAllRead() {
