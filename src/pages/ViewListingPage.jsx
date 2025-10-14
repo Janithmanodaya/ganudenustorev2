@@ -41,6 +41,25 @@ export default function ViewListingPage() {
       .join(' ')
   }
 
+  // Simple formatter: escape HTML, preserve newlines, support **bold**
+  function renderDescHTML(desc) {
+    try {
+      let s = String(desc || '');
+      // Escape HTML
+      s = s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      // Bold: **text**
+      s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      // Preserve line breaks
+      s = s.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '<br/>');
+      return { __html: s };
+    } catch (_) {
+      return { __html: String(desc || '') };
+    }
+  }
+
   // Load listing
   useEffect(() => {
     async function load() {
