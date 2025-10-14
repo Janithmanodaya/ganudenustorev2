@@ -452,8 +452,7 @@ export default function ViewListingPage() {
               title="Call seller"
             >
               Call
-          <//aa>
-
+            </a>
           )}
         </div>
       </div>
