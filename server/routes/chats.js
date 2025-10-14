@@ -66,8 +66,30 @@ router.post('/', (req, res) => {
   }
   try {
     const ts = new Date().toISOString();
+    const msg = String(message).trim().slice(0, 2000);
     db.prepare(`INSERT INTO chats (user_email, sender, message, created_at) VALUES (?, 'user', ?, ?)`)
-      .run(email, String(message).trim().slice(0, 2000), ts);
+      .run(email, msg, ts);
+
+    // Notify all admins via targeted notifications (admin-only visibility)
+    try {
+      const admins = db.prepare(`SELECT email FROM users WHERE is_admin = 1`).all();
+      const insNotif = db.prepare(`
+        INSERT INTO notifications (title, message, target_email, created_at, type)
+        VALUES (?, ?, ?, ?, 'chat')
+      `);
+      const preview = msg.length > 160 ? msg.slice(0, 157) + '...' : msg;
+      for (const a of admins) {
+        const target = String(a.email || '').toLowerCase().trim();
+        if (!target) continue;
+        insNotif.run(
+          'New Chat Message',
+          `User ${email} sent: ${preview}`,
+          target,
+          ts
+        );
+      }
+    } catch (_) {}
+
     res.json({ ok: true, created_at: ts });
   } catch (e) {
     res.status(500).json({ error: 'Failed to send message.' });
