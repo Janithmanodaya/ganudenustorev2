@@ -729,7 +729,7 @@ export default function ViewListingPage() {
           }}
         >
           {/* Top bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 10, position: 'relative', zIndex: 2101 }}>
             <div className="pill" style={{ background: 'rgba(255,255,255,0.08)' }}>
               {lightboxIndex + 1} / {images.length || 0}
             </div>
@@ -741,7 +741,7 @@ export default function ViewListingPage() {
                   <button className="btn" type="button" onClick={zoomIn} aria-label="Zoom in">+</button>
                 </>
               )}
-              <button className="btn" type="button" onClick={closeLightbox} aria-label="Close">✕</button>
+              <button className="btn" type="button" onClick={(e) => { e.stopPropagation(); closeLightbox() }} aria-label="Close"</>✕but_codetonewn</>
             </div>
           </div>
 
@@ -822,7 +822,7 @@ export default function ViewListingPage() {
                     aria-label="Previous image"
                     style={{
                       position: 'absolute',
-                      top: 0,
+                      top: 56,
                       left: 0,
                       bottom: 0,
                       width: '24%',
@@ -832,7 +832,8 @@ export default function ViewListingPage() {
                       fontSize: 34,
                       display: 'grid',
                       placeItems: 'center',
-                      touchAction: 'manipulation'
+                      touchAction: 'manipulation',
+                      zIndex: 2050
                     }}
                   >‹</button>
                   <button
@@ -841,7 +842,7 @@ export default function ViewListingPage() {
                     aria-label="Next image"
                     style={{
                       position: 'absolute',
-                      top: 0,
+                      top: 56,
                       right: 0,
                       bottom: 0,
                       width: '24%',
@@ -851,7 +852,8 @@ export default function ViewListingPage() {
                       fontSize: 34,
                       display: 'grid',
                       placeItems: 'center',
-                      touchAction: 'manipulation'
+                      touchAction: 'manipulation',
+                      zIndex: 2050
                     }}
                   >›</button>
                 </>
