@@ -391,10 +391,7 @@ export default function ViewListingPage() {
               )}
             </div>
 
-            {/* Mobile: Report button moved below contact card */}
-            <div className="report-mobile" style={{ marginTop: 8 }}>
-              <button className="btn" onClick={onReport} type="button">Report this listing</button>
-            </div>
+            
           </div>
 
           {/* Right: Key details */}
@@ -433,6 +430,11 @@ export default function ViewListingPage() {
             </div>
           </div>
           </div>
+        </div>
+
+        {/* Mobile: Report button moved away from description read-more, placed at bottom of card */}
+        <div className="report-mobile" style={{ margin: '12px 18px 0' }}>
+          <button className="btn" onClick={onReport} type="button">Report this listing</button>
         </div>
 
         {status && <p style={{ marginTop: 8 }}>{status}</p>}
