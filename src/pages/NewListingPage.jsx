@@ -249,10 +249,9 @@ export default function NewListingPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div className="card" style={{ maxWidth: 420 }}>
             <div className="h2">Login required</div>
-            <p className="text-muted">You must be logged in to create a listing.</p>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <p className="text-muted">You must be logged in to create a listing. Please login to continue.</p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button className="btn primary" onClick={() => navigate('/auth')}>Go to Login</button>
-              <button className="btn" onClick={() => setShowAuthPrompt(false)}>Cancel</button>
             </div>
           </div>
         </div>

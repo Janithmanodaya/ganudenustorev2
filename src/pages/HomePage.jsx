@@ -349,21 +349,24 @@ export default function HomePage() {
           {showFilters && (
             <div className="card" style={{ padding: 12, marginBottom: 12 }}>
               <div className="grid two">
-                <CustomSelect
-                  value={filterCategory}
-                  onChange={v => setFilterCategory(v)}
-                  ariaLabel="Category"
-                  placeholder="Category (any)"
-                  options={[
-                    { value: '', label: 'Category (any)' },
-                    { value: 'Vehicle', label: 'Vehicle' },
-                    { value: 'Property', label: 'Property' },
-                    { value: 'Job', label: 'Job' },
-                    { value: 'Electronic', label: 'Electronic' },
-                    { value: 'Mobile', label: 'Mobile' },
-                    { value: 'Home Garden', label: 'Home Garden' },
-                  ]}
-                />
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Category</div>
+                  <CustomSelect
+                    value={filterCategory}
+                    onChange={v => setFilterCategory(v)}
+                    ariaLabel="Category"
+                    placeholder="Category"
+                    options={[
+                      { value: '', label: 'Any' },
+                      { value: 'Vehicle', label: 'Vehicle' },
+                      { value: 'Property', label: 'Property' },
+                      { value: 'Job', label: 'Job' },
+                      { value: 'Electronic', label: 'Electronic' },
+                      { value: 'Mobile', label: 'Mobile' },
+                      { value: 'Home Garden', label: 'Home Garden' },
+                    ]}
+                  />
+                </div>
                 <input
                   className="input"
                   list="home-location-suggest"
@@ -392,38 +395,40 @@ export default function HomePage() {
                     // Fallback: title-case underscores
                     return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
                   };
-                  const asInputKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
+                  const hybridKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
                   return filtersDef.keys
                     .filter(k => !['location','pricing_type','price'].includes(k))
                     .map(key => {
                       const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
-                      if (asInputKeys.has(key)) {
-                        const listId = `home-filter-${key}-list`;
+                      const opts = [{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))];
+                      if (hybridKeys.has(key)) {
+                        // Searchable select with ability to type custom text AND choose from dropdown (mobile-friendly)
                         return (
                           <div key={key}>
-                            <input
-                              className="input"
-                              list={listId}
-                              placeholder={`${pretty(key)} (any)`}
+                            <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
+                            <CustomSelect
                               value={filters[key] || ''}
-                              onChange={e => updateFilter(key, e.target.value)}
-                              aria-label={key}
+                              onChange={val => updateFilter(key, val)}
+                              ariaLabel={key}
+                              placeholder={pretty(key)}
+                              options={opts}
+                              searchable={true}
+                              allowCustom={false}
                             />
-                            <datalist id={listId}>
-                              {values.map(v => <option key={v} value={v} />)}
-                            </datalist>
                           </div>
                         );
                       }
                       return (
-                        <CustomSelect
-                          key={key}
-                          value={filters[key] || ''}
-                          onChange={val => updateFilter(key, val)}
-                          ariaLabel={key}
-                          placeholder={`${pretty(key)} (any)`}
-                          options={[{ value: '', label: `${pretty(key)} (any)` }, ...values.map(v => ({ value: v, label: v }))]}
-                        />
+                        <div key={key}>
+                          <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
+                          <CustomSelect
+                            value={filters[key] || ''}
+                            onChange={val => updateFilter(key, val)}
+                            ariaLabel={key}
+                            placeholder={pretty(key)}
+                            options={opts}
+                          />
+                        </div>
                       );
                     });
                 })()}

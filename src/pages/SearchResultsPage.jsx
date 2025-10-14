@@ -174,17 +174,20 @@ export default function SearchResultsPage() {
                     {locSuggestions.map(loc => <option key={loc} value={loc} />)}
                   </datalist>
                 </div>
-                <CustomSelect
-                  value={pricingType}
-                  onChange={v => setPricingType(v)}
-                  ariaLabel="Pricing"
-                  placeholder="Pricing (any)"
-                  options={[
-                    { value: '', label: 'Pricing (any)' },
-                    { value: 'Fixed Price', label: 'Fixed Price' },
-                    { value: 'Negotiable', label: 'Negotiable' },
-                  ]}
-                />
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Pricing</div>
+                  <CustomSelect
+                    value={pricingType}
+                    onChange={v => setPricingType(v)}
+                    ariaLabel="Pricing"
+                    placeholder="Pricing"
+                    options={[
+                      { value: '', label: 'Any' },
+                      { value: 'Fixed Price', label: 'Fixed Price' },
+                      { value: 'Negotiable', label: 'Negotiable' },
+                    ]}
+                  />
+                </div>
                 <input className="input" type="number" placeholder="Min price" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
                 <input className="input" type="number" placeholder="Max price" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
 
@@ -214,7 +217,7 @@ export default function SearchResultsPage() {
                             <input
                               className="input"
                               list={listId}
-                              placeholder={`${pretty(key)} (any)`}
+                              placeholder={pretty(key)}
                               value={filters[key] || ''}
                               onChange={e => updateFilter(key, e.target.value)}
                               aria-label={key}
@@ -226,14 +229,16 @@ export default function SearchResultsPage() {
                         );
                       }
                       return (
-                        <CustomSelect
-                          key={key}
-                          value={filters[key] || ''}
-                          onChange={val => updateFilter(key, val)}
-                          ariaLabel={key}
-                          placeholder={`${pretty(key)} (any)`}
-                          options={[{ value: '', label: `${pretty(key)} (any)` }, ...values.map(v => ({ value: v, label: v }))]}
-                        />
+                        <div key={key}>
+                          <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
+                          <CustomSelect
+                            value={filters[key] || ''}
+                            onChange={val => updateFilter(key, val)}
+                            ariaLabel={key}
+                            placeholder={pretty(key)}
+                            options={[{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))]}
+                          />
+                        </div>
                       );
                     });
                 })()}
