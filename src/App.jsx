@@ -253,12 +253,9 @@ export default function App() {
             ) : null}
           </div>
 
-          {/* Mobile navigation: profile first, then dropdown, then notifications */}
+          {/* Mobile navigation: menu first, then notifications, then account */}
           <div className="nav-mobile" style={{ position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-            {/* Account icon (moved first) */}
-            <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
-
-            {/* Menu dropdown toggle */}
+            {/* Menu dropdown toggle (moved to first) */}
             <div style={{ position: 'relative' }}>
               <button
                 ref={mobileMenuBtnRef}
@@ -274,7 +271,7 @@ export default function App() {
                 <div
                   ref={mobileMenuRef}
                   className="card dropdown-panel"
-                  style={{ width: 200, padding: 8, right: 0, left: 'auto' }}
+                  style={{ width: 200, padding: 8, left: 0, right: 'auto' }}
                 >
                   <Link to="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
                   <Link to="/new" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
@@ -284,7 +281,7 @@ export default function App() {
               )}
             </div>
 
-            {/* Notifications icon */}
+            {/* Notifications icon (now second) */}
             {userEmail ? (
               <div style={{ position: 'relative' }}>
                 <button
@@ -321,6 +318,9 @@ export default function App() {
                 )}
               </div>
             ) : null}
+
+            {/* Account icon (moved to last) */}
+            <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
           </div>
         </nav>
 
