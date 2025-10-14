@@ -172,6 +172,88 @@ export default function ViewListingPage() {
     setDragging(false)
   }
 
+  // --- Mobile pinch-zoom gesture support (lightbox only) ---
+  const [pinching, setPinching] = useState(false)
+  const [pinchStartDist, setPinchStartDist] = useState(0)
+  const [pinchStartZoom, setPinchStartZoom] = useState(1)
+  const [pinchStartPan, setPinchStartPan] = useState({ x: 0, y: 0 })
+  const [pinchCenter, setPinchCenter] = useState({ x: 0, y: 0 })
+
+  function distance(touches) {
+    if (touches.length < 2) return 0
+    const dx = touches[0].clientX - touches[1].clientX
+    const dy = touches[0].clientY - touches[1].clientY
+    return Math.hypot(dx, dy)
+  }
+  function center(touches) {
+    if (touches.length < 2) return { x: 0, y: 0 }
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2
+    }
+  }
+
+  function onTouchStart(e) {
+    if (!isMobile) return
+    if (!lightboxOpen) return
+    if (e.touches.length === 2) {
+      e.preventDefault()
+      const dist = distance(e.touches)
+      setPinching(true)
+      setPinchStartDist(dist)
+      setPinchStartZoom(zoom)
+      setPinchStartPan(pan)
+      setPinchCenter(center(e.touches))
+    } else if (e.touches.length === 1 && zoom > 1) {
+      // One-finger pan when zoomed
+      e.preventDefault()
+      const t = e.touches[0]
+      setDragging(true)
+      setDragStart({ x: t.clientX - pan.x, y: t.clientY - pan.y })
+    }
+  }
+
+  function onTouchMove(e) {
+    if (!isMobile) return
+    if (!lightboxOpen) return
+    if (pinching && e.touches.length === 2) {
+      e.preventDefault()
+      const dist = distance(e.touches)
+      if (pinchStartDist > 0) {
+        const scale = dist / pinchStartDist
+        // Update zoom clamped to [1,4]
+        const newZoom = Math.max(1, Math.min(4, Number((pinchStartZoom * scale).toFixed(3))))
+        // Compute pan so that the pinch center stays roughly stable
+        const c = center(e.touches)
+        const dx = c.x - pinchCenter.x
+        const dy = c.y - pinchCenter.y
+        // Adjust pan: base pan plus finger movement; also adjust for zoom delta
+        const zoomDelta = newZoom / (pinchStartZoom || 1)
+        const newPan = {
+          x: pinchStartPan.x + dx + (pinchCenter.x - window.innerWidth / 2) * (zoomDelta - 1),
+          y: pinchStartPan.y + dy + (pinchCenter.y - window.innerHeight / 2) * (zoomDelta - 1)
+        }
+        setZoom(newZoom)
+        setPan(newPan)
+      }
+    } else if (dragging && e.touches.length === 1) {
+      e.preventDefault()
+      const t = e.touches[0]
+      setPan({ x: t.clientX - dragStart.x, y: t.clientY - dragStart.y })
+    }
+  }
+
+  function onTouchEnd(e) {
+    if (!isMobile) return
+    if (!lightboxOpen) return
+    if (pinching && e.touches.length < 2) {
+      setPinching(false)
+    }
+    if (dragging && e.touches.length === 0) {
+      setDragging(false)
+    }
+  }
+
   // Load listing
   useEffect(() => {
     async function load() {
@@ -638,7 +720,9 @@ export default function ViewListingPage() {
             onMouseMove={!isMobile ? onDragMove : undefined}
             onMouseUp={!isMobile ? onDragEnd : undefined}
             onMouseLeave={!isMobile ? onDragEnd : undefined}
-            style={{ display: 'grid', placeItems: 'center', overflow: 'hidden', cursor: (!isMobile && dragging) ? 'grabbing' : (!isMobile && zoom > 1 ? 'grab' : 'default') }}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+, cursor: (!isMobile && dragging) ? 'grabbing' : (!isMobile && zoom > 1 ? 'grab' : 'default') }}
           >
             {images[lightboxIndex]?.url ? (
               <img
