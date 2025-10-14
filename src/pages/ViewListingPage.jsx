@@ -741,7 +741,7 @@ export default function ViewListingPage() {
                   <button className="btn" type="button" onClick={zoomIn} aria-label="Zoom in">+</button>
                 </>
               )}
-              <button className="btn" type="button" onClick={(e) => { e.stopPropagation(); closeLightbox() }} aria-label="Close"</>✕but_codetonewn</>
+              <button className="btn" type="button" onClick={(e) => { e.stopPropagation(); closeLightbox() }} aria-label="Close">✕</button>
             </div>
           </div>
 
