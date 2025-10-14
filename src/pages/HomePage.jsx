@@ -22,6 +22,7 @@ export default function HomePage() {
   const [filters, setFilters] = useState({})
   const [locQuery, setLocQuery] = useState('')
   const [locSuggestions, setLocSuggestions] = useState([])
+  const [locationOptionsCache, setLocationOptionsCache] = useState([])
   const [sort, setSort] = useState('latest')
 
   // Global search suggestions
@@ -151,6 +152,25 @@ export default function HomePage() {
     return () => { ctrl.abort(); clearTimeout(timer) }
   }, [locQuery])
 
+  // Keep a stable cache of location options so the dropdown doesn't shrink to only current results
+  useEffect(() => {
+    // If backend provided explicit locations for the selected category, prioritize and reset cache to those.
+    const vals = (filtersDef?.valuesByKey?.['location'] || []).map(v => String(v).trim()).filter(Boolean)
+    if (vals.length) {
+      setLocationOptionsCache(Array.from(new Set(vals)))
+      return
+    }
+    // Otherwise, merge-in locations seen in current listings without removing prior ones.
+    const fromLatest = Array.from(new Set((latest || []).map(it => String(it.location || '').trim()).filter(Boolean)))
+    if (fromLatest.length) {
+      setLocationOptionsCache(prev => {
+        const merged = [...prev]
+        for (const v of fromLatest) if (!merged.includes(v)) merged.push(v)
+        return merged
+      })
+    }
+  }, [filtersDef, latest])
+
   const [cardSlideIndex, setCardSlideIndex] = useState({})
   function nextImage(item) {
     const imgs = Array.isArray(item.small_images) ? item.small_images : []
@@ -263,6 +283,7 @@ export default function HomePage() {
       setFilterPriceMax('');
       setFilters({});
       setShowFilters(false);
+      setLocationOptionsCache([]);
       // Trigger reload of latest listings
       setRefreshKey(k => k + 1)
     } catch (_) {}
@@ -375,32 +396,13 @@ export default function HomePage() {
                     ariaLabel="Location"
                     placeholder="Location"
                     options={(() => {
-                      // Prefer dynamic values from filtersDef if provided for the selected category
-                      const vals = (filtersDef.valuesByKey['location'] || []);
-                      const base = Array.from(new Set(vals.map(v => String(v).trim()).filter(Boolean)));
-
-                      // Also collect distinct locations from currently loaded listings as a fallback
-                      const fromLatest = Array.from(
-                        new Set(
-                          (latest || [])
-                            .map(it => String(it.location || '').trim())
-                            .filter(Boolean)
-                        )
-                      );
-
-                      // Fallback to suggestions previously fetched (if any)
-                      const fromSuggest = Array.from(
-                        new Set((locSuggestions || []).map(v => String(v).trim()).filter(Boolean))
-                      );
-
-                      // Merge all sources preserving order preference: filtersDef -> latest -> suggestions
-                      const merged = [];
-                      for (const v of [...base, ...fromLatest, ...fromSuggest]) {
-                        if (!merged.includes(v)) merged.push(v);
-                      }
-
-                      const opts = merged.map(v => ({ value: v, label: v }));
-                      return [{ value: '', label: 'Any' }, ...opts];
+                      // Build from stable cache so options don't shrink to only current filtered results
+                      const cached = Array.from(new Set((locationOptionsCache || []).map(v => String(v).trim()).filter(Boolean)))
+                      const fromSuggest = Array.from(new Set((locSuggestions || []).map(v => String(v).trim()).filter(Boolean)))
+                        .filter(v => !cached.includes(v))
+                      const merged = [...cached, ...fromSuggest]
+                      const opts = merged.map(v => ({ value: v, label: v }))
+                      return [{ value: '', label: 'Any' }, ...opts]
                     })()}
                     searchable={true}
                     allowCustom={true}
