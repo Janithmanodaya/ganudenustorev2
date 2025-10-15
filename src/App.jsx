@@ -326,8 +326,13 @@ export default function App() {
 
           {/* Mobile navigation: notifications, then account, then menu */}
           <div className="nav-mobile" style={{ position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-            {/* Language pill (mobile) */}
-            <div className="pill" title="Language">Lang: {lang.toUpperCase()}</div>
+            {/* Language selector (mobile) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="pill" title="Language">Lang: {lang.toUpperCase()}</div>
+              <div style={{ width: 140 }}>
+                <CustomLangSelector lang={lang} onChange={setLanguage} />
+              </div>
+            </div>
 
             {/* Notifications icon */}
             {userEmail ? (
@@ -393,6 +398,9 @@ export default function App() {
                   <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.jobs" /></Link>
                   <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.myAds" /></Link>
                 </div>
+              )}
+            </div>
+          </div>
               )}
             </div>
           </div>
