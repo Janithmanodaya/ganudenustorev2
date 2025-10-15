@@ -290,12 +290,12 @@ export default function SearchResultsPage() {
               const imgs = Array.isArray(r.small_images) ? r.small_images : []
               const hero = imgs.length ? imgs[0] : (r.thumbnail_url || null)
 
-              return (
-                function makeSlug(s) {
+              {
+                const makeSlug = (s) => {
                   const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
                   return base || 'listing';
-                }
-                function permalinkForItem(it) {
+                };
+                const permalinkForItem = (it) => {
                   const titleSlug = makeSlug(it.title || '');
                   let year = '';
                   try {
@@ -306,37 +306,39 @@ export default function SearchResultsPage() {
                   const idCode = Number(it.id).toString(36).toUpperCase();
                   const parts = [titleSlug, year, idCode].filter(Boolean);
                   return `/listing/${it.id}-${parts.join('-')}`;
-                }
-                <div
-                  key={r.id}
-                  className="card"
-                  onClick={() => navigate(permalinkForItem(r))}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {hero && (
-                    <img
-                      src={hero}
-                      alt={r.title}
-                      loading="lazy"
-                      sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      style={{ width: '100%', height: 160, borderRadius: 8, marginBottom: 8, objectFit: 'cover' }}
-                    />
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                    <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>
-                    {r.price != null && (
-                      <div style={{ margin: '6px 0', whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
-                        {`LKR ${Number(r.price).toLocaleString('en-US')}`}
-                      </div>
+                };
+                return (
+                  <div
+                    key={r.id}
+                    className="card"
+                    onClick={() => navigate(permalinkForItem(r))}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {hero && (
+                      <img
+                        src={hero}
+                        alt={r.title}
+                        loading="lazy"
+                        sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        style={{ width: '100%', height: 160, borderRadius: 8, marginBottom: 8, objectFit: 'cover' }}
+                      />
                     )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                      <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>
+                      {r.price != null && (
+                        <div style={{ margin: '6px 0', whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
+                          {`LKR ${Number(r.price).toLocaleString('en-US')}`}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-muted" style={{ marginBottom: 6 }}>
+                      {r.location ? r.location : ''}
+                      {r.pricing_type ? ` • ${r.pricing_type}` : ''}
+                      {expires ? ` • ${expires}` : ''}
+                    </div>
                   </div>
-                  <div className="text-muted" style={{ marginBottom: 6 }}>
-                    {r.location ? r.location : ''}
-                    {r.pricing_type ? ` • ${r.pricing_type}` : ''}
-                    {expires ? ` • ${expires}` : ''}
-                  </div>
-                </div>
-              )
+                );
+              }
             })}
             {results.length === 0 && <p className="text-muted">No results yet.</p>}
           </div>
