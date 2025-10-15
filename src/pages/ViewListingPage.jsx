@@ -4,6 +4,13 @@ import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
 export default function ViewListingPage() {
   const { id } = useParams()
+  // Support both legacy "/listing/:id" and SEO-friendly "/listing/:id-:slug"
+  const listingId = (() => {
+    const raw = String(id || '')
+    const first = raw.split('-')[0]
+    const num = Number(first)
+    return Number.isFinite(num) ? num : null
+  })()
   const [listing, setListing] = useState(null)
   const [images, setImages] = useState([])
   const [structured, setStructured] = useState({})
@@ -290,9 +297,7 @@ export default function ViewListingPage() {
   // Load listing
   useEffect(() => {
     async function load() {
-      if (!id) return
-      try {
-        setLoading(true)
+      if (!listingId) { setStatus('       setLoading(true)
         const r = await fetch(`/api/listings/${encodeURIComponent(id)}`)
         const data = await r.json()
         if (!r.ok) throw new Error(data.error || 'Failed to load listing')
@@ -335,13 +340,14 @@ export default function ViewListingPage() {
   // Load favorite status from local storage (client-only favorite)
   useEffect(() => {
     const user = getUser()
-    if (!user?.email || !id) return
+    if (!user?.email || !listingId) return
     try {
       const key = `favorites_${user.email}`
       const arr = JSON.parse(localStorage.getItem(key) || '[]')
-      setFavorited(arr.includes(Number(id)))
+      setFavorited(arr.includes(Number(listingId)))
     } catch (_) {}
-  }, [id])
+  }, [listing_codeIdnew]</)
+
 
   // Dynamic SEO based on listing fields + OpenGraph/Twitter + canonical + JSON-LD
   useEffect(() => {
