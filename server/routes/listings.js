@@ -157,6 +157,7 @@ ensureColumn('listings', 'reject_reason', 'TEXT');
 ensureColumn('listings', 'model_name', 'TEXT');
 ensureColumn('listings', 'manufacture_year', 'INTEGER');
 ensureColumn('listings', 'remark_number', 'TEXT');
+ensureColumn('listings', 'views', 'INTEGER DEFAULT 0');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
 
 try {
@@ -1334,7 +1335,7 @@ router.get('/my', (req, res) => {
     if (!email) return res.status(401).json({ error: 'Missing user email' });
 
     const rows = db.prepare(`
-      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views
       FROM listings
       WHERE owner_email = ?
       ORDER BY created_at DESC
@@ -1369,7 +1370,13 @@ router.get('/:id', (req, res) => {
     
     const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
-    
+
+    // Increment view counter (best-effort)
+    try {
+      db.prepare('UPDATE listings SET views = COALESCE(views, 0) + 1 WHERE id = ?').run(id);
+      listing.views = (listing.views || 0) + 1;
+    } catch (_) {}
+
     const imagesRows = db.prepare('SELECT id, path, original_name FROM listing_images WHERE listing_id = ?').all(id);
     const images = imagesRows.map(img => ({
       id: img.id,
