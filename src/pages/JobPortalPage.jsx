@@ -2,39 +2,19 @@ import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import CustomSelect from '../components/CustomSelect.jsx'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
+import useSEO from '../components/useSEO.js'
 
 export default function JobPortalPage() {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   // Dynamic job filters
 
-  // SEO for job portal
-  useEffect(() => {
-    try {
-      const title = 'Jobs — Ganudenu Marketplace'
-      const desc = 'Find jobs or list vacancies in Sri Lanka. Search roles across IT, Marketing, Sales, Accounting, and more.'
-      document.title = title
-      const setMeta = (name, content) => {
-        let tag = document.querySelector(`meta[name="${name}"]`)
-        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('name', name); document.head.appendChild(tag) }
-        tag.setAttribute('content', content)
-      }
-      const setProp = (property, content) => {
-        let tag = document.querySelector(`meta[property="${property}"]`)
-        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('property', property); document.head.appendChild(tag) }
-        tag.setAttribute('content', content)
-      }
-      let link = document.querySelector('link[rel="canonical"]')
-      if (!link) { link = document.createElement('link'); link.setAttribute('rel', 'canonical'); document.head.appendChild(link) }
-      link.setAttribute('href', 'https://ganudenu.store/jobs')
-      setMeta('description', desc)
-      setProp('og:title', title)
-      setProp('og:description', desc)
-      setProp('og:url', link.getAttribute('href'))
-      setMeta('twitter:title', title)
-      setMeta('twitter:description', desc)
-    } catch (_) {}
-  }, [])
+  // SEO for job portal via helper
+  useSEO({
+    title: 'Jobs — Ganudenu Marketplace',
+    description: 'Find jobs or list vacancies in Sri Lanka. Search roles across IT, Marketing, Sales, Accounting, and more.',
+    canonical: 'https://ganudenu.store/jobs'
+  })
   const [filtersDef, setFiltersDef] = useState({ keys: [], valuesByKey: {} })
   const [filters, setFilters] = useState({})
   const [results, setResults] = useState([])
@@ -340,6 +320,8 @@ export default function JobPortalPage() {
                       <img
                         src={hero}
                         alt={item.title}
+                        loading="lazy"
+                        sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         style={{ width: '100%', borderRadius: 8, objectFit: 'cover', height: 180 }}
                       />
                       {imgs.length > 1 && (

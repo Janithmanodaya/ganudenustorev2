@@ -172,6 +172,7 @@ ensureColumn('listings', 'remark_number', 'TEXT');
 ensureColumn('listings', 'views', 'INTEGER DEFAULT 0');
 ensureColumn('listings', 'og_image_path', 'TEXT');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
+ensureColumn('listing_images', 'medium_path', 'TEXT');
 
 try {
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)").run();
@@ -933,10 +934,23 @@ router.post('/submit', async (req, res) => {
     const listingId = result.lastInsertRowid;
 
     for (const img of images) {
-      db.prepare('INSERT INTO listing_images (listing_id, path, original_name) VALUES (?, ?, ?)').run(
+      let eachMedium = null;
+      if (sharp && img.path) {
+        try {
+          const outDir = path.dirname(img.path);
+          const baseName = path.basename(img.path, path.extname(img.path));
+          eachMedium = path.join(outDir, `${baseName}-m1024.webp`);
+          await sharp(img.path).resize(1024).toFile(eachMedium);
+        } catch (e) {
+          console.error('[sharp] Failed to create per-image medium variant:', e && e.message ? e.message : e);
+          eachMedium = null;
+        }
+      }
+      db.prepare('INSERT INTO listing_images (listing_id, path, original_name, medium_path) VALUES (?, ?, ?, ?)').run(
         listingId,
         img.path,
-        img.original_name
+        img.original_name,
+        eachMedium
       );
     }
 
@@ -1145,17 +1159,17 @@ router.get('/', (req, res) => {
     query += ' LIMIT 100'; // Basic pagination
     
     const rows = db.prepare(query).all(params);
-    const firstImageStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
-    const listImagesStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
+    const firstImageStmt = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
+    const listImagesStmt = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
     const results = rows.map(r => {
       // Prefer generated thumbnail; otherwise fall back to first original image
       let thumbnail_url = filePathToUrl(r.thumbnail_path);
       if (!thumbnail_url) {
         const first = firstImageStmt.get(r.id);
-        thumbnail_url = filePathToUrl(first?.path);
+        thumbnail_url = filePathToUrl(first?.medium_path || first?.path);
       }
       const imgs = listImagesStmt.all(r.id);
-      const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.path)).filter(Boolean) : [];
+      const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.medium_path || x.path)).filter(Boolean) : [];
       const og_image_url = filePathToUrl(r.og_image_path);
       return { ...r, thumbnail_url, small_images, og_image_url };
     });
@@ -1465,13 +1479,15 @@ router.get('/:id', (req, res) => {
       listing.views = (listing.views || 0) + 1;
     } catch (_) {}
 
-    const imagesRows = db.prepare('SELECT id, path, original_name FROM listing_images WHERE listing_id = ?').all(id);
+    const imagesRows = db.prepare('SELECT id, path, original_name, medium_path FROM listing_images WHERE listing_id = ?').all(id);
     const images = imagesRows.map(img => ({
       id: img.id,
       original_name: img.original_name,
       path: img.path,
-      url: filePathToUrl(img.path)
-    }));
+      url: filePathToUrl(img.path),
+      medium_url: filePathToUrl(img.medium_path)
+    _code})new)</;
+);
 
     // Also expose public URLs for thumbnail/medium/og if present
     const thumbnail_url = filePathToUrl(listing.thumbnail_path);

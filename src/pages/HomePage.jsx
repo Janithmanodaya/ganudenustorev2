@@ -585,6 +585,8 @@ export default function HomePage() {
                           <img
                             src={hero}
                             alt={item.title}
+                            loading="lazy"
+                            sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             style={{ width: '100%', borderRadius: 8, objectFit: 'cover', height: 180 }}
                           />
                           {imgs.length > 1 && (

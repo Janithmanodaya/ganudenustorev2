@@ -696,8 +696,18 @@ export default function ViewListingPage() {
                   <div className="carousel-main">
                     {mainImage?.url ? (
                     <img
-                      src={mainImage.url}
+                      src={mainImage.medium_url || mainImage.url}
+                      srcSet={(() => {
+                        const m = mainImage.medium_url || '';
+                        const o = mainImage.url || '';
+                        const parts = [];
+                        if (m) parts.push(`${m} 1024w`);
+                        if (o) parts.push(`${o} 1600w`);
+                        return parts.join(', ');
+                      })()}
+                      sizes="(max-width: 780px) 100vw, 60vw"
                       alt={mainImage.original_name || 'Image'}
+                      loading="eager"
                       onClick={() => openLightbox(currentIndex)}
                       style={{ cursor: 'zoom-in' }}
                     />

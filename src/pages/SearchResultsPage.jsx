@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import CustomSelect from '../components/CustomSelect.jsx'
+import useSEO from '../components/useSEO.js'
 
 export default function SearchResultsPage() {
   const [sp, setSp] = useSearchParams()
@@ -9,38 +10,18 @@ export default function SearchResultsPage() {
   const category = sp.get('category') || ''
   const navigate = useNavigate()
 
-  // SEO for search page
-  useEffect(() => {
-    try {
-      const title = q ? `Search: ${q} — Ganudenu Marketplace` : 'Search — Ganudenu Marketplace'
-      const desc = q
-        ? `Find results for "${q}" across vehicles, property, jobs, electronics, mobiles, and home & garden.`
-        : 'Browse the latest listings across vehicles, property, jobs, electronics, mobiles, and home & garden.'
-      document.title = title
-      const setMeta = (name, content) => {
-        let tag = document.querySelector(`meta[name="${name}"]`)
-        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('name', name); document.head.appendChild(tag) }
-        tag.setAttribute('content', content)
-      }
-      const setProp = (property, content) => {
-        let tag = document.querySelector(`meta[property="${property}"]`)
-        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('property', property); document.head.appendChild(tag) }
-        tag.setAttribute('content', content)
-      }
-      let link = document.querySelector('link[rel="canonical"]')
-      if (!link) { link = document.createElement('link'); link.setAttribute('rel', 'canonical'); document.head.appendChild(link) }
-      const qp = new URLSearchParams()
-      if (q) qp.set('q', q)
-      if (category) qp.set('category', category)
-      link.setAttribute('href', `https://ganudenu.store/search${qp.toString() ? `?${qp.toString()}` : ''}`)
-      setMeta('description', desc)
-      setProp('og:title', title)
-      setProp('og:description', desc)
-      setProp('og:url', link.getAttribute('href'))
-      setMeta('twitter:title', title)
-      setMeta('twitter:description', desc)
-    } catch (_) {}
-  }, [q, category])
+  // SEO for search page via helper
+  const qp = new URLSearchParams()
+  if (q) qp.set('q', q)
+  if (category) qp.set('category', category)
+  const canonical = `https://ganudenu.store/search${qp.toString() ? `?${qp.toString()}` : ''}`
+  useSEO({
+    title: q ? `Search: ${q} — Ganudenu Marketplace` : 'Search — Ganudenu Marketplace',
+    description: q
+      ? `Find results for "${q}" across vehicles, property, jobs, electronics, mobiles, and home & garden.`
+      : 'Browse the latest listings across vehicles, property, jobs, electronics, mobiles, and home & garden.',
+    canonical
+  })
 
   // Advanced filters (query params aware)
   const [location, setLocation] = useState(sp.get('location') || '')
@@ -333,7 +314,13 @@ export default function SearchResultsPage() {
                   style={{ cursor: 'pointer' }}
                 >
                   {hero && (
-                    <img src={hero} alt={r.title} style={{ width: '100%', height: 160, borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
+                    <img
+                      src={hero}
+                      alt={r.title}
+                      loading="lazy"
+                      sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      style={{ width: '100%', height: 160, borderRadius: 8, marginBottom: 8, objectFit: 'cover' }}
+                    />
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                     <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>

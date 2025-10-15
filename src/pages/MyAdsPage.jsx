@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '../components/Modal.jsx'
+import useSEO from '../components/useSEO.js'
 
 export default function MyAdsPage() {
   const [items, setItems] = useState([])
@@ -8,33 +9,12 @@ export default function MyAdsPage() {
   const [rejectModal, setRejectModal] = useState({ open: false, reason: '', title: '' })
   const navigate = useNavigate()
 
-  // SEO for My Ads
-  useEffect(() => {
-    try {
-      const title = 'My Ads — Ganudenu Marketplace'
-      const desc = 'Manage your pending, approved, and rejected listings. Track views and status at a glance.'
-      document.title = title
-      const setMeta = (name, content) => {
-        let tag = document.querySelector(`meta[name="${name}"]`)
-        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('name', name); document.head.appendChild(tag) }
-        tag.setAttribute('content', content)
-      }
-      const setProp = (property, content) => {
-        let tag = document.querySelector(`meta[property="${property}"]`)
-        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('property', property); document.head.appendChild(tag) }
-        tag.setAttribute('content', content)
-      }
-      let link = document.querySelector('link[rel="canonical"]')
-      if (!link) { link = document.createElement('link'); link.setAttribute('rel', 'canonical'); document.head.appendChild(link) }
-      link.setAttribute('href', 'https://ganudenu.store/my-ads')
-      setMeta('description', desc)
-      setProp('og:title', title)
-      setProp('og:description', desc)
-      setProp('og:url', link.getAttribute('href'))
-      setMeta('twitter:title', title)
-      setMeta('twitter:description', desc)
-    } catch (_) {}
-  }, [])
+  // SEO for My Ads via helper
+  useSEO({
+    title: 'My Ads — Ganudenu Marketplace',
+    description: 'Manage your pending, approved, and rejected listings. Track views and status at a glance.',
+    canonical: 'https://ganudenu.store/my-ads'
+  })
 
   // Dashboard: Your Ad Progress
   const [lastUpdated, setLastUpdated] = useState(null)
@@ -150,7 +130,13 @@ export default function MyAdsPage() {
         style={{ cursor: 'pointer', position: 'relative' }}
       >
         {hero && (
-          <img src={hero} alt={item.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
+          <img
+            src={hero}
+            alt={item.title}
+            loading="lazy"
+            sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }}
+          />
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
           <div className="h2" style={{ margin: '6px 0' }}>{item.title}</div>
