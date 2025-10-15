@@ -132,6 +132,16 @@ try {
   if (!hasSuspendedUntil) {
     db.prepare(`ALTER TABLE users ADD COLUMN suspended_until TEXT`).run();
   }
+  // Add public UID and verification status if missing (used by auth and admin)
+  const hasUserUID = cols.some(c => c.name === 'user_uid');
+  if (!hasUserUID) {
+    db.prepare(`ALTER TABLE users ADD COLUMN user_uid TEXT`).run();
+    db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_uid_unique ON users(user_uid)`).run();
+  }
+  const hasIsVerified = cols.some(c => c.name === 'is_verified');
+  if (!hasIsVerified) {
+    db.prepare(`ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0`).run();
+  }
 } catch (_) {}
 
 db.prepare(`
