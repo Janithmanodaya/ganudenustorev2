@@ -163,6 +163,7 @@ export default function JobPortalPage() {
   }, [q, salaryMin, salaryMax, filters])
 
   return (
+    <>
     <div className="center">
       {loading && <LoadingOverlay message="Loading jobs..." />}
       <div className="card" style={{ padding: 0, overflow: 'hidden', ...white }}>
@@ -413,5 +414,6 @@ export default function JobPortalPage() {
         </button>
       </div>
     )}
-  )
+  </>
+)
 }
