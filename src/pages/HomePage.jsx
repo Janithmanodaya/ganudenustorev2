@@ -1042,7 +1042,7 @@ export default function HomePage() {
             }}
             onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
             onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
-          >{'<'}</button>
+          >‹</button>
           <button
             className="btn feature-nav"
             type="button"
@@ -1069,7 +1069,7 @@ export default function HomePage() {
             }}
             onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
             onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
-          >{'>'}</button>
+          >›</button>
 
           {/* Hide scrollbar styling */}
           <style>{`
