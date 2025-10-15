@@ -517,12 +517,26 @@ export default function HomePage() {
             return (
               <div className="grid three">
                 {displayList.map(item => {
-                  let expires = ''
-                  if (item.valid_until) {
-                    const diff = new Date(item.valid_until).getTime() - Date.now()
-                    const days = Math.max(0, Math.ceil(diff / (1000*60*60*24)))
-                    expires = `Expires in ${days} day${days === 1 ? '' : 's'}`
-                  }
+                  // Age label from created_at: minutes in first hour, then hours, then days
+                  let ageStr = ''
+                  try {
+                    if (item.created_at) {
+                      const created = new Date(item.created_at)
+                      const diffMs = Date.now() - created.getTime()
+                      const mins = Math.max(0, Math.floor(diffMs / 60000))
+                      if (mins < 60) {
+                        ageStr = `${mins} min${mins === 1 ? '' : 's'} ago`
+                      } else {
+                        const hours = Math.floor(mins / 60)
+                        if (hours < 24) {
+                          ageStr = `${hours} hour${hours === 1 ? '' : 's'} ago`
+                        } else {
+                          const days = Math.floor(hours / 24)
+                          ageStr = `${days} day${days === 1 ? '' : 's'} ago`
+                        }
+                      }
+                    }
+                  } catch (_) {}
                   const imgs = Array.isArray(item.small_images) ? item.small_images : []
                   const idx = cardSlideIndex[item.id] || 0
                   const hero = imgs.length ? imgs[idx % imgs.length] : (item.thumbnail_url || null)
@@ -567,7 +581,7 @@ export default function HomePage() {
                       <div className="text-muted" style={{ marginBottom: 6, marginTop: 4 }}>
                         {item.location ? item.location : ''}
                         {item.pricing_type ? ` • ${item.pricing_type}` : ''}
-                        {expires ? ` • ${expires}` : ''}
+                        {ageStr ? ` • ${ageStr}` : ''}
                       </div>
                       
                     </div>
