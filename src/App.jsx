@@ -400,11 +400,7 @@ export default function App() {
                 </div>
               )}
             </div>
-          </div>
-              )}
-            </div>
-          </div>
-        </nav>
+          </nav>
 
         {/* Notifications dropdown panel */}
         {notifOpen && (
