@@ -409,9 +409,9 @@ export default function App() {
       <main className="content">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          {/* Permalink with SEO-friendly slug support */}
-          <Route path="/listing/:id" element={<ViewListingPage />} />
+          {/* Permalink with SEO-friendly slug support (place slug route first to avoid matching plain :id) */}
           <Route path="/listing/:id-:slug" element={<ViewListingPage />} />
+          <Route path="/listing/:id" element={<ViewListingPage />} />
           <Route path="/new" element={<NewListingPage />} />
           <Route path="/verify" element={<VerifyListingPage />} />
           <Route path="/verify-employee" element={<VerifyEmployeePage />} />
