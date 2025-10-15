@@ -385,7 +385,12 @@ export default function HomePage() {
                       key={`${label}-${idx}`}
                       role="option"
                       className="custom-select-option"
-                      onClick={() => setQ(label)}
+                      onClick={() => {
+                        const v = String(label || '').trim()
+                        if (!v) return
+                        setQ(v)
+                        navigate(`/search?q=${encodeURIComponent(v)}`)
+                      }}
                       style={{
                         padding: '8px 10px',
                         borderRadius: 8,
