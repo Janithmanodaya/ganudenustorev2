@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import multer from 'multer';
+import { sendEmail } from '../lib/utils.js';
 
 const router = Router();
 
@@ -881,11 +882,30 @@ router.get('/notifications', requireAdmin, (req, res) => {
   }
 });
 
-router.post('/notifications', requireAdmin, (req, res) => {
+router.post('/notifications', requireAdmin, async (req, res) => {
   const { title, message, targetEmail } = req.body || {};
   if (!title || !message) {
     return res.status(400).json({ error: 'title and message are required' });
   }
+
+  // If sending to a specific email, send a real email using the same mailer used for OTP
+  if (targetEmail) {
+    try {
+      const to = String(targetEmail).toLowerCase().trim();
+      // Convert plain text message to basic HTML
+      const html = `<div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+        <h2 style="margin:0 0 10px 0;">${String(title).trim()}</h2>
+        <div>${String(message).trim().replace(/\\n/g, '<br/>')}</div>
+      </div>`;
+      const sent = await sendEmail(to, String(title).trim(), html);
+      if (!sent?.ok) {
+        return res.status(502).json({ error: sent?.error || 'Failed to send email.' });
+      }
+    } catch (e) {
+      return res.status(502).json({ error: 'Failed to send email.' });
+    }
+  }
+
   try {
     db.prepare(`
       INSERT INTO notifications (title, message, target_email, created_at)
