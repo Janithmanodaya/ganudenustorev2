@@ -1510,7 +1510,13 @@ router.get('/:id', (req, res) => {
       if (viewerEmail && ownerEmail && viewerEmail === ownerEmail) {
         shouldCount = false;
       }
-      // Skip duplicate IP views
+      // Purge old view records (older than 24 hours) so IPs don't persist forever
+      try {
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        db.prepare('DELETE FROM listing_views WHERE ts < ?').run(cutoff);
+      } catch (_) {}
+
+      // Skip duplicate IP views (only within the last 24 hours, since older records are purged above)
       if (shouldCount && ip) {
         const exists = db.prepare('SELECT 1 FROM listing_views WHERE listing_id = ? AND ip = ? LIMIT 1').get(id, ip);
         if (exists) {
