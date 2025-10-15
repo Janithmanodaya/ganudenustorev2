@@ -439,8 +439,13 @@ export default function HomePage() {
                         setQ(v)
                         // Scroll a bit to keep the search bar visible while navigating
                         try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
-                        navigate(`/search?q=${encodeURIComponent(v)}`)
-                      }}
+                        // Build a smarter search path based on suggestion type
+                        const params = new URLSearchParams()
+                        if (type === 'location') {
+                          params.set('location', v)
+                        } else if (type === 'sub_category') {
+                          params.set('filters', JSON.stringify({ sub_category: v }))
+                        } else if (             }}
                       style={{
                         padding: '8px 10px',
                         borderRadius: 8,

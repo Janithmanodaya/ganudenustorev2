@@ -44,6 +44,19 @@ export default function SearchResultsPage() {
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(false)
 
+  // Initialize filters from URL param if present (e.g., when clicking a suggestion for model/sub_category)
+  useEffect(() => {
+    const f = sp.get('filters')
+    if (f) {
+      try {
+        const obj = JSON.parse(f)
+        if (obj && typeof obj === 'object') {
+          setFilters(obj)
+        }
+      } catch (_) {}
+    }
+  }, [sp])
+
   // Location autocomplete
   const [locQuery, setLocQuery] = useState(location)
   const [locSuggestions, setLocSuggestions] = useState([])
