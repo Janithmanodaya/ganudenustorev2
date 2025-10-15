@@ -85,8 +85,8 @@ export default function SellerProfilePage() {
         <div className="profile-row" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           {u.photo_url && <img src={u.photo_url} alt="Seller" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }} />}
           <div>
-            <div><strong>{u.username || u.email}</strong></div>
-            <div className="text-muted" style={{ marginTop: 4 }}>{u.email}</div>
+            <div><strong>{u.username || (u.id != null ? `User #${u.id}` : 'User')}</strong></div>
+            <div className="text-muted" style={{ marginTop: 4 }}>ID: {u.id != null ? u.id : '—'}</div>
             <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {p.verified_email ? <span className="pill">Verified Email</span> : null}
               {p.verified_phone ? <span className="pill">Verified Phone</span> : null}
