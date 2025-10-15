@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import CustomSelect from '../components/CustomSelect.jsx'
 
 export default function AdminPage() {
   const navigate = useNavigate()
@@ -974,7 +975,24 @@ export default function AdminPage() {
               </select>
             </div>
             {notifyTargetType === 'email' && (
-              <input className="input" placeholder="Target email (exact match)" value={notifyEmail} onChange={e => setNotifyEmail(e.target.value)} style={{ marginTop: 8 }} />
+              <div style={{ marginTop: 8 }}>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Select user email</div>
+                <CustomSelect
+                  value={notifyEmail}
+                  onChange={v => setNotifyEmail(String(v))}
+                  ariaLabel="Target email"
+                  placeholder={users.length ? 'Pick an email...' : 'No users loaded'}
+                  options={(() => {
+                    const emails = Array.from(new Set((users || []).map(u => String(u.email || '').trim()).filter(Boolean)))
+                    return emails.map(e => ({ value: e, label: e }))
+                  })()}
+                  searchable={true}
+                  allowCustom={true}
+                />
+                <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                  Tip: start typing to filter. You can also enter a custom email not in the list.
+                </small>
+              </div>
             )}
             <textarea className="textarea" placeholder="Message" value={notifyMessage} onChange={e => setNotifyMessage(e.target.value)} style={{ marginTop: 8 }} />
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
