@@ -517,6 +517,16 @@ export default function HomePage() {
             return (
               <div className="grid three">
                 {displayList.map(item => {
+                  // Background: keep expires calculation (not shown to user)
+                  let expires = ''
+                  try {
+                    if (item.valid_until) {
+                      const diff = new Date(item.valid_until).getTime() - Date.now()
+                      const days = Math.max(0, Math.ceil(diff / (1000*60*60*24)))
+                      expires = `Expires in ${days} day${days === 1 ? '' : 's'}`
+                    }
+                  } catch (_) {}
+
                   // Age label from created_at: minutes in first hour, then hours, then days
                   let ageStr = ''
                   try {
@@ -537,6 +547,7 @@ export default function HomePage() {
                       }
                     }
                   } catch (_) {}
+
                   const imgs = Array.isArray(item.small_images) ? item.small_images : []
                   const idx = cardSlideIndex[item.id] || 0
                   const hero = imgs.length ? imgs[idx % imgs.length] : (item.thumbnail_url || null)
