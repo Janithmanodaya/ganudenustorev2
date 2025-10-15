@@ -44,6 +44,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5174;
 
+// Trust the first proxy (e.g., Vite dev proxy or reverse proxy) so express-rate-limit
+// correctly reads client IP from X-Forwarded-For when present.
+app.set('trust proxy', 1);
+
 // Security headers (if helmet available)
 if (helmet) {
   app.use(helmet({
