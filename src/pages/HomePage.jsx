@@ -408,10 +408,10 @@ export default function HomePage() {
                   top: '100%',
                   marginTop: 6,
                   zIndex: 60,
-                  maxHeight: isMobile ? 180 : 300, // keep short on mobile to avoid keyboard overlap
+                  maxHeight: isMobile ? 180 : 300,
                   overflowY: 'auto',
                   padding: 6,
-                  background: 'rgba(18,22,31,0.96)', // darker for readability
+                  background: 'rgba(18,22,31,0.96)',
                   border: '1px solid var(--border)',
                   boxShadow: '0 14px 36px var(--shadow)',
                   borderRadius: 12
