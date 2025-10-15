@@ -33,6 +33,7 @@ export default function SellerProfilePage() {
       const user = getUser()
       const email = user?.email || ''
       if (!email || !data?.user?.email) { setStatus('Please login to rate.'); return }
+      if (email === data.user.email) { setStatus('You cannot rate your own profile.'); return }
       const body = {
         seller_email: data.user.email,
         stars: ratingStars,
@@ -74,6 +75,8 @@ export default function SellerProfilePage() {
   const u = data.user || {}
   const p = data.profile || {}
   const stats = data.stats || {}
+  const viewer = getUser()
+  const isSelf = viewer && viewer.email && (viewer.email.toLowerCase() === String(u.email || '').toLowerCase())
 
   return (
     <div className="center">
@@ -114,19 +117,25 @@ export default function SellerProfilePage() {
             </div>
 
             {/* Add a rating */}
-            <div className="card" style={{ marginTop: 8 }}>
-              <div className="h2" style={{ marginTop: 0 }}>Leave a rating</div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <label>
-                  Stars:
-                  <select className="select" value={ratingStars} onChange={e => setRatingStars(Number(e.target.value))} style={{ marginLeft: 6 }}>
-                    {[1,2,3,4,5].map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </label>
-                <input className="input" placeholder="Optional comment" value={ratingComment} onChange={e => setRatingComment(e.target.value)} />
-                <button className="btn primary" type="button" onClick={addRating}>Submit</button>
+            {!isSelf ? (
+              <div className="card" style={{ marginTop: 8 }}>
+                <div className="h2" style={{ marginTop: 0 }}>Leave a rating</div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label>
+                    Stars:
+                    <select className="select" value={ratingStars} onChange={e => setRatingStars(Number(e.target.value))} style={{ marginLeft: 6 }}>
+                      {[1,2,3,4,5].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </label>
+                  <input className="input" placeholder="Optional comment" value={ratingComment} onChange={e => setRatingComment(e.target.value)} />
+                  <button className="btn primary" type="button" onClick={addRating}>Submit</button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="card" style={{ marginTop: 8 }}>
+                <div className="text-muted">You cannot rate your own profile.</div>
+              </div>
+            )}
           </div>
 
           <div className="card">
