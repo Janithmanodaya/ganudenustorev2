@@ -82,10 +82,11 @@ router.get('/profile', (req, res) => {
     `).get(user.email, nowIso, user.email);
 
     const ratings = db.prepare(`
-      SELECT id, rater_email, listing_id, stars, comment, created_at
-      FROM seller_ratings
-      WHERE LOWER(seller_email) = LOWER(?)
-      ORDER BY id DESC
+      SELECT sr.id, u.id AS rater_id, sr.listing_id, sr.stars, sr.comment, sr.created_at
+      FROM seller_ratings sr
+      LEFT JOIN users u ON LOWER(u.email) = LOWER(sr.rater_email)
+      WHERE LOWER(sr.seller_email) = LOWER(?)
+      ORDER BY sr.id DESC
       LIMIT 3
     `).all(user.email);
 

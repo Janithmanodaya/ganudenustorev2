@@ -114,7 +114,7 @@ export default function SellerProfilePage() {
                 <div key={r.id} className="card" style={{ marginBottom: 8 }}>
                   <div><strong>{r.stars} ⭐</strong></div>
                   {r.comment && <div className="text-muted" style={{ whiteSpace: 'pre-wrap' }}>{r.comment}</div>}
-                  <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>{new Date(r.created_at).toLocaleString()} • by {r.rater_email}</div>
+                  <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>{new Date(r.created_at).toLocaleString()} • by {r.rater_id != null ? `User #${r.rater_id}` : 'User'}</div>
                 </div>
               ))}
               {(data.ratings || []).length === 0 && <p className="text-muted">No ratings yet.</p>}
