@@ -324,7 +324,6 @@ export default function App() {
 
           <div className="nav-mobile" style={{ position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div className="pill" title="Language">Lang: {lang.toUpperCase()}</div>
               <div style={{ width: 140 }}>
                 <CustomLangSelector lang={lang} onChange={setLanguage} />
               </div>
