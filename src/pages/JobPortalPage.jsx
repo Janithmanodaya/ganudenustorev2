@@ -158,6 +158,10 @@ export default function JobPortalPage() {
   const white = { color: '#fff' }
   const pageWindow = [page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1)
 
+  const hasActiveJobFilters = React.useMemo(() => {
+    return !!(q || salaryMin || salaryMax || Object.keys(filters || {}).length)
+  }, [q, salaryMin, salaryMax, filters])
+
   return (
     <div className="center">
       {loading && <LoadingOverlay message="Loading jobs..." />}
@@ -394,5 +398,20 @@ export default function JobPortalPage() {
         </div>
       </div>
     </div>
+
+    {/* Mobile sticky reset action bar for Job Portal */}
+    {hasActiveJobFilters && (
+      <div className="mobile-actionbar" aria-label="Job filter actions">
+        <button className="btn" type="button" onClick={resetJobFilters} title="Reset all job filters">Reset filters</button>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => { try { const el = filtersCardRef.current; if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (_) {} }}
+          title="Show filters"
+        >
+          Filters
+        </button>
+      </div>
+    )}
   )
 }
