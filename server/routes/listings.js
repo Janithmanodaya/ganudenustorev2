@@ -72,7 +72,8 @@ router.get('/debug/temp-extract', (req, res) => {
   }
 });
 
-const uploadsDir = path.resolve(process.cwd(), 'data', 'uploads');
+const uploadsDir = path.resolve(process.cwd(), 'data', 'upload_codes'new)</;
+s');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const upload = multer({
@@ -1134,7 +1135,8 @@ router.get('/', (req, res) => {
     }
 
     const { category, sortBy, order = 'DESC', status } = req.query;
-    let query = "SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location
+    let query = "SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, og_image_path FROM listings WHERE status != 'Archived'";
+    const params = [];
 
     if (status) {
       query += ' AND status = ?';
@@ -1142,7 +1144,7 @@ router.get('/', (req, res) => {
     } else {
       query += " AND status = 'Approved'";
     }
-    
+
     if (category) {
       query += ' AND main_category = ?';
       params.push(category);
@@ -1150,19 +1152,18 @@ router.get('/', (req, res) => {
 
     const validSorts = ['created_at', 'price'];
     const validOrders = ['ASC', 'DESC'];
-    if (sortBy && validSorts.includes(sortBy) && validOrders.includes(order.toUpperCase())) {
-      query += ` ORDER BY ${sortBy} ${order.toUpperCase()}`;
+    if (sortBy && validSorts.includes(sortBy) && validOrders.includes(String(order).toUpperCase())) {
+      query += ` ORDER BY ${sortBy} ${String(order).toUpperCase()}`;
     } else {
       query += ' ORDER BY created_at DESC';
     }
 
-    query += ' LIMIT 100'; // Basic pagination
-    
+    query += ' LIMIT 100';
+
     const rows = db.prepare(query).all(params);
     const firstImageStmt = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
     const listImagesStmt = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
     const results = rows.map(r => {
-      // Prefer generated thumbnail; otherwise fall back to first original image
       let thumbnail_url = filePathToUrl(r.thumbnail_path);
       if (!thumbnail_url) {
         const first = firstImageStmt.get(r.id);
@@ -1182,6 +1183,8 @@ router.get('/', (req, res) => {
     res.status(500).json({ error: 'Failed to fetch listings' });
   }
 });
+  }
+});
 
 // Search listings with optional filters (used by HomePage and Search page)
 router.get('/search', (req, res) => {
@@ -1190,7 +1193,9 @@ router.get('/search', (req, res) => {
     const cacheKey = 'search:' + (req.originalUrl || JSON.stringify(req.query));
     const cached = cacheGet(cacheKey);
     if (cached) {
-      res.set('Cache-Control', 'public, max-age=
+      res.set('Cache-Control', 'public, max-age=15');
+      return res.json(cached);
+
     const lim = Math.max(1, Math.min(100, parseInt(limit, 10) || 12));
     const pg = Math.max(1, parseInt(page, 10) || 1);
     const offset = (pg - 1) * lim;
@@ -1298,9 +1303,8 @@ router.get('/search', (req, res) => {
   } catch (e) {
     console.error('[listings] /search error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to search listings' });
-  }_code
-}new)</;
-;
+  }
+});
 
 // Dynamic filters for a category (keys and value options derived from existing listings)
 router.get('/filters', (req, res) => {
@@ -1313,7 +1317,7 @@ router.get('/filters', (req, res) => {
     }
 
     const category = String(req.query.category || '').trim();
-    if (!category) return res.status(400).jsonall(category);
+    if (!category) return res.status(400).json({ error: 'category is required' });
 
     function normalizeVehicleSubCategory(input) {
       let subCat = String(input || '').trim();
@@ -1394,8 +1398,7 @@ router.get('/suggestions', (req, res) => {
     }
 
     const q = String(req.query.q || '').trim().toLowerCase();
-    if (!q) return res.json({ results: []_code }new)</;
-});
+    if (!q) return res.json({ results: [] });
 
     const rows = db.prepare(`
       SELECT title, location, structured_json
@@ -1486,8 +1489,7 @@ router.get('/:id', (req, res) => {
       path: img.path,
       url: filePathToUrl(img.path),
       medium_url: filePathToUrl(img.medium_path)
-    _code})new)</;
-);
+    }));
 
     // Also expose public URLs for thumbnail/medium/og if present
     const thumbnail_url = filePathToUrl(listing.thumbnail_path);
