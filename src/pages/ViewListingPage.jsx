@@ -349,8 +349,30 @@ export default function ViewListingPage() {
     const rawTitle = listing.seo_title || listing.title || 'Listing'
     const title = formatTitleCase(rawTitle)
     const desc = listing.seo_description || listing.enhanced_description || listing.description || ''
-    const url = `https://ganudenu.store/listing/${listing.id}`
+
+    // Build SEO-friendly permalink: title + optional year + short alphanumeric id
+    function makeSlug(s) {
+      const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+      return base || 'listing'
+    }
+    const year = (() => {
+      const sj = (() => { try { return JSON.parse(listing.structured_json || '{}') } catch (_) { return {} } })()
+      const y = sj.manufacture_year || sj.year || sj.model_year || null
+      return y ? String(y) : ''
+    })()
+    const idCode = Number(listing.id).toString(36).toUpperCase()
+    const parts = [makeSlug(rawTitle), year, idCode].filter(Boolean)
+    const permalinkPath = `/listing/${listing.id}-${parts.join('-')}`
+    const url = `https://ganudenu.store${permalinkPath}`
     document.title = title
+
+    // If current path is missing slug, replace it for better SEO without breaking navigation
+    try {
+      const cur = window.location.pathname
+      if (cur === `/listing/${listing.id}`) {
+        window.history.replaceState({}, title, permalinkPath)
+      }
+    } catch (_) {}
 
     function setMeta(name, content) {
       let tag = document.querySelector(`meta[name="${name}"]`)
