@@ -72,8 +72,7 @@ router.get('/debug/temp-extract', (req, res) => {
   }
 });
 
-const uploadsDir = path.resolve(process.cwd(), 'data', 'upload_codes'new)</;
-s');
+const uploadsDir = path.resolve(process.cwd(), 'data', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const upload = multer({
@@ -1195,6 +1194,9 @@ router.get('/search', (req, res) => {
     if (cached) {
       res.set('Cache-Control', 'public, max-age=15');
       return res.json(cached);
+    }
+
+    const { q = '', category = '', location = '', price_min = '', price_max = '', filters = '', sort = 'latest', page = '1', limit = '12' } = req.query;
 
     const lim = Math.max(1, Math.min(100, parseInt(limit, 10) || 12));
     const pg = Math.max(1, parseInt(page, 10) || 1);
@@ -1283,16 +1285,16 @@ router.get('/search', (req, res) => {
       });
     }
 
-    const firstImageStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
-    const listImagesStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
+    const firstImageStmt = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
+    const listImagesStmt = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
     results = results.map(r => {
       let thumbnail_url = filePathToUrl(r.thumbnail_path);
       if (!thumbnail_url) {
         const first = firstImageStmt.get(r.id);
-        thumbnail_url = filePathToUrl(first?.path);
+        thumbnail_url = filePathToUrl(first?.medium_path || first?.path);
       }
       const imgs = listImagesStmt.all(r.id);
-      const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.path)).filter(Boolean) : [];
+      const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.medium_path || x.path)).filter(Boolean) : [];
       return { ...r, thumbnail_url, small_images };
     });
 
