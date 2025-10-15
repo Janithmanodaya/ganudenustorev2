@@ -82,11 +82,11 @@ router.get('/profile', (req, res) => {
     `).get(user.email, nowIso, user.email);
 
     const ratings = db.prepare(`
-      SELECT id, rater_email, listing_id, stars, comment, created_at
-      FROM seller_ratings
-      WHERE LOWER(seller_email) = LOWER(?)
-      ORDER BY id DESC
-      LIMIT 30
+      SELECT sr.id, u.id AS rater_id, sr.listing_id, sr.stars, sr.comment, sr.created_at
+      FROM seller_ratings sr
+      LEFT JOIN users u ON LOWER(u.email) = LOWER(sr.rater_email)
+      WHERE LOWER(sr.seller_email) = LOWER(?)
+      ORDER BY sr.id DESC
     `).all(user.email);
 
     return res.json({
@@ -140,6 +140,12 @@ router.post('/rate', requireUser, (req, res) => {
     if (!seller || seller === rater) return res.status(400).json({ error: 'Invalid seller' });
     const s = Number(stars);
     if (!Number.isFinite(s) || s < 1 || s > 5) return res.status(400).json({ error: 'Stars must be 1-5' });
+
+    // Enforce one review per rater per seller
+    const existing = db.prepare(`SELECT id FROM seller_ratings WHERE LOWER(seller_email) = LOWER(?) AND LOWER(rater_email) = LOWER(?) LIMIT 1`).get(seller, rater);
+    if (existing) {
+      return res.status(409).json({ error: 'You have already rated this seller.' });
+    }
 
     db.prepare(`
       INSERT INTO seller_ratings (seller_email, rater_email, listing_id, stars, comment, created_at)

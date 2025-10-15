@@ -9,6 +9,7 @@ export default function SearchResultsPage() {
   const q = sp.get('q') || ''
   const category = sp.get('category') || ''
   const navigate = useNavigate()
+  const [advCategory, setAdvCategory] = useState(category)
 
   // SEO for search page via helper
   const qp = new URLSearchParams()
@@ -60,9 +61,9 @@ export default function SearchResultsPage() {
 
   useEffect(() => {
     async function loadFilters() {
-      if (!category) return
+      if (!advCategory) { setFiltersDef({ keys: [], valuesByKey: {} }); return }
       try {
-        const r = await fetch(`/api/listings/filters?category=${encodeURIComponent(category)}`)
+        const r = await fetch(`/api/listings/filters?category=${encodeURIComponent(advCategory)}`)
         const data = await r.json()
         if (!r.ok) throw new Error(data.error || 'Failed to load filters')
         setFiltersDef({ keys: data.keys || [], valuesByKey: data.valuesByKey || {} })
@@ -71,7 +72,7 @@ export default function SearchResultsPage() {
       }
     }
     loadFilters()
-  }, [category])
+  }, [advCategory])
 
   useEffect(() => {
     async function runSearch() {
@@ -135,7 +136,7 @@ export default function SearchResultsPage() {
     // Apply current selections by updating URL params (handled by runSearch above)
     const next = new URLSearchParams()
     if (q) next.set('q', q)
-    if (category) next.set('category', category)
+    if (advCategory) next.set('category', advCategory)
     if (location) next.set('location', location)
     if (pricingType) next.set('pricing_type', pricingType)
     if (priceMin) next.set('price_min', priceMin)
@@ -158,9 +159,9 @@ export default function SearchResultsPage() {
     setSort('latest');
     setKeywordMode('or');
     setPage(1);
+    setAdvCategory('');
     const next = new URLSearchParams()
     if (q) next.set('q', q)
-    if (category) next.set('category', category)
     next.set('page', '1')
     next.set('sort', 'latest')
     next.set('limit', String(limit))
@@ -241,6 +242,24 @@ export default function SearchResultsPage() {
               <div className="h2" style={{ marginTop: 8 }}>Advanced</div>
               <form onSubmit={onApplyAdvanced} className="grid two">
                 <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Category</div>
+                  <CustomSelect
+                    value={advCategory}
+                    onChange={v => setAdvCategory(v)}
+                    ariaLabel="Category"
+                    placeholder="Category"
+                    options={[
+                      { value: '', label: 'Any' },
+                      { value: 'Vehicle', label: 'Vehicle' },
+                      { value: 'Property', label: 'Property' },
+                      { value: 'Electronic', label: 'Electronic' },
+                      { value: 'Mobile', label: 'Mobile' },
+                      { value: 'Home Garden', label: 'Home Garden' },
+                      { value: 'Job', label: 'Job' },
+                    ]}
+                  />
+                </div>
+                <div>
                   <input
                     className="input"
                     list="location-suggest"
@@ -267,29 +286,13 @@ export default function SearchResultsPage() {
                   />
                 </div>
 
-                {/* Price slider (dynamic bounds) */}
+                {/* Price inputs */}
                 <div>
                   <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Min price</div>
-                  <input
-                    type="range"
-                    min={priceBounds.min}
-                    max={priceBounds.max || (Number(priceMin) || 1000000)}
-                    value={Number(priceMin || priceBounds.min)}
-                    onChange={e => setPriceMin(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
                   <input className="input" type="number" placeholder="Min price" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
                 </div>
                 <div>
                   <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Max price</div>
-                  <input
-                    type="range"
-                    min={priceBounds.min}
-                    max={priceBounds.max || (Number(priceMax) || 1000000)}
-                    value={Number(priceMax || priceBounds.max)}
-                    onChange={e => setPriceMax(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
                   <input className="input" type="number" placeholder="Max price" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
                 </div>
 
@@ -309,7 +312,7 @@ export default function SearchResultsPage() {
                 </div>
 
                 {/* Dynamic filters from structured_json */}
-                {category && filtersDef.keys.length > 0 && (() => {
+                {advCategory && filtersDef.keys.length > 0 && (() => {
                   const pretty = (k) => {
                     if (!k) return '';
                     const map = {
@@ -322,41 +325,11 @@ export default function SearchResultsPage() {
                     if (map[k]) return map[k];
                     return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
                   };
-                  const tokenKeys = new Set(['sub_category', 'model', 'model_name']); // multi-select via tags
-                  const inputKeys = new Set(['manufacture_year']);
+                  // Render all dynamic keys as dropdowns (including sub_category and model)
                   return filtersDef.keys
                     .filter(k => !['location','pricing_type','price'].includes(k))
                     .map(key => {
                       const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
-                      if (tokenKeys.has(key)) {
-                        return (
-                          <TagInput
-                            key={key}
-                            label={pretty(key)}
-                            values={Array.isArray(filters[key]) ? filters[key] : []}
-                            suggestions={values}
-                            onChange={(arr) => updateFilterArray(key, arr)}
-                          />
-                        )
-                      }
-                      if (inputKeys.has(key)) {
-                        const listId = `adv-filter-${key}-list`;
-                        return (
-                          <div key={key}>
-                            <input
-                              className="input"
-                              list={listId}
-                              placeholder={pretty(key)}
-                              value={filters[key] || ''}
-                              onChange={e => updateFilter(key, e.target.value)}
-                              aria-label={key}
-                            />
-                            <datalist id={listId}>
-                              {values.map(v => <option key={v} value={v} />)}
-                            </datalist>
-                          </div>
-                        );
-                      }
                       return (
                         <div key={key}>
                           <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
@@ -366,6 +339,8 @@ export default function SearchResultsPage() {
                             ariaLabel={key}
                             placeholder={pretty(key)}
                             options={[{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))]}
+                            searchable={true}
+                            allowCustom={true}
                           />
                         </div>
                       );
@@ -384,8 +359,8 @@ export default function SearchResultsPage() {
                       { value: 'price_desc', label: 'Price: High to Low' },
                     ]}
                   />
-                  <button className="btn accent" type="submit">Apply</button>
-                  <button className="btn" type="button" onClick={resetAdvancedFilters}>Reset</button>
+                  <button className="btn accent compact" type="submit" style={{ flex: '0 0 auto' }}>Apply</button>
+                  <button className="btn compact" type="button" onClick={resetAdvancedFilters} style={{ flex: '0 0 auto' }}>Reset</button>
                 </div>
               </form>
             </>

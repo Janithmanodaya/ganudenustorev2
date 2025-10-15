@@ -10,21 +10,32 @@ db.prepare(`
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     is_admin INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    username TEXT,
+    user_uid TEXT UNIQUE,
+    is_verified INTEGER NOT NULL DEFAULT 0
   )
 `).run();
 
-// Add username column if missing
+// Ensure indexes/columns exist if upgrading from older schema
 try {
   const cols = db.prepare(`PRAGMA table_info(users)`).all();
   const hasUsername = cols.some(c => c.name === 'username');
   if (!hasUsername) {
     db.prepare(`ALTER TABLE users ADD COLUMN username TEXT`).run();
-    // Optional: make username unique if needed by creating unique index
     const existingIdx = db.prepare(`SELECT name FROM sqlite_master WHERE type='index' AND name='idx_users_username_unique'`).get();
     if (!existingIdx) {
       db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users(username)`).run();
     }
+  }
+  const hasUserUID = cols.some(c => c.name === 'user_uid');
+  if (!hasUserUID) {
+    db.prepare(`ALTER TABLE users ADD COLUMN user_uid TEXT`).run();
+    db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_uid_unique ON users(user_uid)`).run();
+  }
+  const hasVerified = cols.some(c => c.name === 'is_verified');
+  if (!hasVerified) {
+    db.prepare(`ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0`).run();
   }
 } catch (_) {}
 

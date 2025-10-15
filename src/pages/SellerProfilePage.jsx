@@ -45,7 +45,11 @@ export default function SellerProfilePage() {
         body: JSON.stringify(body)
       })
       const d = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(d.error || 'Failed to rate')
+      if (!r.ok) {
+        // Show specific message if already reviewed
+        const msg = d.error || (r.status === 409 ? 'You have already rated this seller.' : 'Failed to rate')
+        throw new Error(msg)
+      }
       setStatus('Thank you for your rating.')
       // refresh ratings
       const rr = await fetch(`/api/users/profile?username=${encodeURIComponent(username)}&email=${encodeURIComponent(username)}`)
@@ -85,9 +89,14 @@ export default function SellerProfilePage() {
         <div className="profile-row" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           {u.photo_url && <img src={u.photo_url} alt="Seller" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover' }} />}
           <div>
-            <div><strong>{u.username || u.email}</strong></div>
-            <div className="text-muted" style={{ marginTop: 4 }}>{u.email}</div>
-            <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div><strong>{u.username || (u.id != null ? `User #${u.id}` : 'User')}</strong></div>
+            <div className="text-muted" style={{ marginTop: 4 }}>ID: {u.id != null ? u.id : '—'}</div>
+            <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className="pill" title="Average rating" style={{ borderColor: 'transparent', background: 'rgba(255,255,255,0.08)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <span>{Number(p.rating_avg || 0).toFixed(2)}</span>
+                <span aria-hidden="true">★</span>
+                <span>({p.rating_count || 0})</span>
+              </span>
               {p.verified_email ? <span className="pill">Verified Email</span> : null}
               {p.verified_phone ? <span className="pill">Verified Phone</span> : null}
             </div>
@@ -110,7 +119,7 @@ export default function SellerProfilePage() {
                 <div key={r.id} className="card" style={{ marginBottom: 8 }}>
                   <div><strong>{r.stars} ⭐</strong></div>
                   {r.comment && <div className="text-muted" style={{ whiteSpace: 'pre-wrap' }}>{r.comment}</div>}
-                  <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>{new Date(r.created_at).toLocaleString()} • by {r.rater_email}</div>
+                  <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>{new Date(r.created_at).toLocaleString()} • by {r.rater_id != null ? `User #${r.rater_id}` : 'User'}</div>
                 </div>
               ))}
               {(data.ratings || []).length === 0 && <p className="text-muted">No ratings yet.</p>}

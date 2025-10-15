@@ -520,16 +520,18 @@ export default function AdminPage() {
     if (!Array.isArray(data) || data.length === 0) return <p className="text-muted">No data</p>
     const max = Math.max(1, ...data.map(d => d.count || 0))
     return (
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
-        {data.map((d, idx) => {
-          const h = Math.round(((d.count || 0) / max) * 120)
-          return (
-            <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: '100%', background: color, height: h, borderRadius: 8, opacity: 0.9 }} title={`${d.date || d.label}: ${d.count || 0}`} />
-              <small className="text-muted">{(d.date || '').slice(5)}</small>
-            </div>
-          )
-        })}
+      <div style={{ overflowX: 'auto', paddingBottom: 6 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140, minWidth: Math.max(360, data.length * 22) }}>
+          {data.map((d, idx) => {
+            const h = Math.round(((d.count || 0) / max) * 120)
+            return (
+              <div key={idx} style={{ width: 18, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: '100%', background: color, height: h, borderRadius: 8, opacity: 0.9 }} title={`${d.date || d.label}: ${d.count || 0}`} />
+                <small className="text-muted" style={{ whiteSpace: 'nowrap' }}>{(d.date || '').slice(5)}</small>
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }
@@ -538,11 +540,13 @@ export default function AdminPage() {
     if (!Array.isArray(data) || data.length === 0) return null
     const max = Math.max(1, ...data.map(d => d.count || 0))
     return (
-      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 40 }}>
-        {data.map((d, idx) => {
-          const h = Math.round(((d.count || 0) / max) * 36)
-          return <div key={idx} style={{ flex: 1, height: h, background: color, borderRadius: 4, opacity: 0.9 }} />
-        })}
+      <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 40, minWidth: Math.max(280, data.length * 14) }}>
+          {data.map((d, idx) => {
+            const h = Math.round(((d.count || 0) / max) * 36)
+            return <div key={idx} style={{ width: 10, height: h, background: color, borderRadius: 4, opacity: 0.9 }} />
+          })}
+        </div>
       </div>
     )
   }
@@ -562,28 +566,30 @@ export default function AdminPage() {
     return (
       <div>
         <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
-          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(52,211,153,0.15)', color: '#a7f3d0' }}>
+          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(52,211,153,0.15)', color: '#a7f3d0', whiteSpace: 'nowrap' }}>
             <span style={{ width: 10, height: 10, background: aColor, borderRadius: 2 }} /> {aLabel}
           </span>
-          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(239,68,68,0.15)', color: '#fecaca' }}>
+          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(239,68,68,0.15)', color: '#fecaca', whiteSpace: 'nowrap' }}>
             <span style={{ width: 10, height: 10, background: bColor, borderRadius: 2 }} /> {bLabel}
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
-          {merged.map((d, idx) => {
-            const totalH = Math.round(((d.a + d.b) / max) * 120)
-            const aH = totalH > 0 ? Math.round((d.a / (d.a + d.b)) * totalH) : 0
-            const bH = totalH - aH
-            return (
-              <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: '100%', height: totalH, borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} title={`${d.date}: ${d.a} / ${d.b}`}>
-                  <div style={{ background: aColor, height: aH }} />
-                  <div style={{ background: bColor, height: bH }} />
+        <div style={{ overflowX: 'auto', paddingBottom: 6 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140, minWidth: Math.max(360, merged.length * 22) }}>
+            {merged.map((d, idx) => {
+              const totalH = Math.round(((d.a + d.b) / max) * 120)
+              const aH = totalH > 0 ? Math.round((d.a / (d.a + d.b)) * totalH) : 0
+              const bH = totalH - aH
+              return (
+                <div key={idx} style={{ width: 18, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: '100%', height: totalH, borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} title={`${d.date}: ${d.a} / ${d.b}`}>
+                    <div style={{ background: aColor, height: aH }} />
+                    <div style={{ background: bColor, height: bH }} />
+                  </div>
+                  <small className="text-muted" style={{ whiteSpace: 'nowrap' }}>{(d.date || '').slice(5)}</small>
                 </div>
-                <small className="text-muted">{(d.date || '').slice(5)}</small>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </div>
     )
@@ -598,9 +604,9 @@ export default function AdminPage() {
           const w = Math.round(((i.value || 0) / max) * 100)
           return (
             <div key={idx}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div className="text-muted">{i.label}</div>
-                <div className="text-muted">{i.value}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <div className="text-muted" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{i.label}</div>
+                <div className="text-muted" style={{ whiteSpace: 'nowrap' }}>{i.value}</div>
               </div>
               <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden', height: 10 }}>
                 <div style={{ width: `${w}%`, height: '100%', background: 'linear-gradient(90deg,#6c7ff7,#00d1ff)' }} />
@@ -671,7 +677,7 @@ export default function AdminPage() {
             {rules.map((r, idx) => (
               <div key={r.category} className="card" style={{ marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                  <strong>{r.category}</strong>
+                  <strong style={{ whiteSpace: 'nowrap' }}>{r.category}</strong>
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <input
                       type="checkbox"
@@ -730,13 +736,14 @@ export default function AdminPage() {
               style={{
                 borderColor: 'var(--border)',
                 background: activeTab === t.key ? 'linear-gradient(90deg, var(--primary), #5569e2)' : 'rgba(22,28,38,0.7)',
-                color: activeTab === t.key ? '#fff' : 'var(--text)'
+                color: activeTab === t.key ? '#fff' : 'var(--text)',
+                whiteSpace: 'nowrap'
               }}
             >
               {t.key === 'notifications' ? (
                 <>
                   <span>Notifications</span>
-                  {unreadCount > 0 && <span className="pill" style={{ marginLeft: 6 }}>{unreadCount}</span>}
+                  {unreadCount > 0 && <span className="pill" style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>{unreadCount}</span>}
                 </>
               ) : t.label}
             </button>
@@ -747,7 +754,7 @@ export default function AdminPage() {
         {activeTab === 'dashboard' && (
           <>
             <div className="h2" style={{ marginTop: 8 }}>Dashboard</div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
               <span className="text-muted">Range:</span>
               <select className="select" style={{ maxWidth: 180 }} value={String(rangeDays)} onChange={e => { const v = Number(e.target.value); setRangeDays(v); loadMetrics(v); }}>
                 <option value="7">Last 7 days</option>
@@ -782,37 +789,37 @@ export default function AdminPage() {
                 </div>
 
                 <div className="grid three" style={{ marginTop: 12 }}>
-                  <div className="card">
+                  <div className="card" style={{ overflowX: 'auto' }}>
                     <div className="h2">New Users (last {metrics.params?.days}d): {metrics.rangeTotals.usersNewInRange}</div>
                     <SparklineBars data={metrics.series.signups} color="#6c7ff7" />
                   </div>
-                  <div className="card">
+                  <div className="card" style={{ overflowX: 'auto' }}>
                     <div className="h2">New Ads (last {metrics.params?.days}d): {metrics.rangeTotals.listingsNewInRange}</div>
                     <SparklineBars data={metrics.series.listingsCreated} color="#00d1ff" />
                   </div>
-                  <div className="card">
+                  <div className="card" style={{ overflowX: 'auto' }}>
                     <div className="h2">Reports (last {metrics.params?.days}d): {metrics.rangeTotals.reportsInRange}</div>
                     <SparklineBars data={metrics.series.reports} color="#e58e26" />
                   </div>
                 </div>
 
                 <div className="grid three" style={{ marginTop: 12 }}>
-                  <div className="card">
+                  <div className="card" style={{ overflowX: 'auto' }}>
                     <div className="h2">Signups (last {metrics.params?.days} days)</div>
                     <BarChart data={metrics.series.signups} color="#6c7ff7" />
                   </div>
-                  <div className="card">
+                  <div className="card" style={{ overflowX: 'auto' }}>
                     <div className="h2">Listings Created (last {metrics.params?.days} days)</div>
                     <BarChart data={metrics.series.listingsCreated} color="#00d1ff" />
                   </div>
-                  <div className="card">
+                  <div className="card" style={{ overflowX: 'auto' }}>
                     <div className="h2">Reports (last {metrics.params?.days} days)</div>
                     <BarChart data={metrics.series.reports} color="#e58e26" />
                   </div>
                 </div>
 
                 <div className="grid two" style={{ marginTop: 12 }}>
-                  <div className="card">
+                  <div className="card" style={{ overflowX: 'auto' }}>
                     <div className="h2">Approvals vs Rejections (last {metrics.params?.days} days)</div>
                     <StackedBars a={metrics.series.approvals} b={metrics.series.rejections} aLabel="Approve" bLabel="Reject" aColor="#34d399" bColor="#ef4444" />
                     <div className="text-muted" style={{ marginTop: 8 }}>
@@ -864,12 +871,15 @@ export default function AdminPage() {
                 {users.length === 0 && <p className="text-muted">No users.</p>}
                 {users.map(u => (
                   <div key={u.id} className="card" style={{ marginBottom: 8 }}>
-                    <div><strong>{u.email}</strong> {u.username ? <span className="text-muted">• @{u.username}</span> : null}</div>
+                    <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <strong>{u.email}</strong> {u.username ? <span className="text-muted">• @{u.username}</span> : null}
+                    </div>
                     <div className="text-muted">ID: {u.id} • Admin: {u.is_admin ? 'Yes' : 'No'} • Created: {new Date(u.created_at).toLocaleString()}</div>
+                    <div className="text-muted">UID: {u.user_uid || '—'} • Verified: {u.is_verified ? 'Yes' : 'No'}</div>
                     <div className="text-muted">
                       Status: {u.is_banned ? 'Banned' : (u.suspended_until && u.suspended_until > new Date().toISOString() ? `Suspended until ${new Date(u.suspended_until).toLocaleString()}` : 'Active')}
                     </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                       {!u.is_banned && <button className="btn" onClick={() => banUser(u.id)}>Ban</button>}
                       {u.is_banned && <button className="btn" onClick={() => unbanUser(u.id)}>Unban</button>}
                       {/* Show Unsuspend if currently suspended */}
@@ -878,6 +888,9 @@ export default function AdminPage() {
                       ) : (
                         <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend 7 days</button>
                       )}
+                      {/* Verify controls */}
+                      {!u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/verify`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } }); const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Verify</button>}
+                      {u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/unverify`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } }); const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Unverify</button>}
                     </div>
                   </div>
                 ))}
@@ -1005,7 +1018,7 @@ export default function AdminPage() {
             {notificationsAdmin.map(n => (
               <div key={n.id} className="card" style={{ marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                  <strong>{n.title}</strong>
+                  <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title}</strong>
                   <small className="text-muted">{new Date(n.created_at).toLocaleString()}</small>
                 </div>
                 <div className="text-muted" style={{ marginTop: 6 }}>To: {n.target_email ? n.target_email : 'All users'}</div>
@@ -1031,7 +1044,7 @@ export default function AdminPage() {
                 {conversations.map(c => (
                   <div key={c.user_email} className="card" style={{ marginTop: 8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                      <strong>{c.user_email}</strong>
+                      <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.user_email}</strong>
                       <small className="text-muted">{new Date(c.last_ts).toLocaleString()}</small>
                     </div>
                     <div className="text-muted" style={{ marginTop: 6 }}>{c.last_sender === 'admin' ? 'Admin: ' : 'User: '}{c.last_message}</div>

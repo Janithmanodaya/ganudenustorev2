@@ -19,6 +19,7 @@ const MyAdsPage = React.lazy(() => import('./pages/MyAdsPage.jsx'))
 const AccountPage = React.lazy(() => import('./pages/AccountPage.jsx'))
 const JobSearchResultsPage = React.lazy(() => import('./pages/JobSearchResultsPage.jsx'))
 const PolicyPage = React.lazy(() => import('./pages/PolicyPage.jsx'))
+const TermsPage = React.lazy(() => import('./pages/TermsPage.jsx'))
 const PaymentPendingPage = React.lazy(() => import('./pages/PaymentPendingPage.jsx'))
 const SellerProfilePage = React.lazy(() => import('./pages/SellerProfilePage.jsx'))
 
@@ -26,6 +27,47 @@ export default function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const isHome = location.pathname === '/'
+
+  // Track last distinct paths to provide a reliable "Back" fallback
+  const pathHistoryRef = useRef([])
+  useEffect(() => {
+    const p = location.pathname + location.search
+    const hist = pathHistoryRef.current
+    if (hist.length === 0 || hist[hist.length - 1] !== p) {
+      hist.push(p)
+      // cap history size to avoid unbounded growth
+      if (hist.length > 50) hist.shift()
+      try { sessionStorage.setItem('lastGoodPath', p) } catch (_) {}
+    }
+  }, [location])
+
+  function safeBack() {
+    // If native history has entries, try normal back first
+    const hasNativeHistory = typeof window !== 'undefined' && window.history && window.history.length > 1
+    if (hasNativeHistory) {
+      navigate(-1)
+      return
+    }
+    // Otherwise, find the last distinct path in our ref that isn't current
+    const hist = pathHistoryRef.current
+    const current = location.pathname + location.search
+    for (let i = hist.length - 2; i >= 0; i--) {
+      if (hist[i] && hist[i] !== current) {
+        navigate(hist[i], { replace: true })
+        return
+      }
+    }
+    // Fallback to lastGoodPath from sessionStorage
+    try {
+      const last = sessionStorage.getItem('lastGoodPath') || '/'
+      if (last && last !== current) {
+        navigate(last, { replace: true })
+        return
+      }
+    } catch (_) {}
+    // Final fallback
+    navigate('/', { replace: true })
+  }
 
   // Language switcher (basic infrastructure)
   const [lang, setLang] = useState(() => {
@@ -259,7 +301,7 @@ export default function App() {
               className="back-btn"
               type="button"
               aria-label="Back"
-              onClick={() => navigate(-1)}
+              onClick={safeBack}
               title="Back"
             >
               ‹
@@ -446,6 +488,7 @@ export default function App() {
             <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
             <Route path="/search" element={<SearchResultsPage />} />
             <Route path="/policy" element={<PolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
             <Route path="/payment/:id" element={<PaymentPendingPage />} />
             <Route path="/seller/:username" element={<SellerProfilePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -455,7 +498,10 @@ export default function App() {
       <footer className="footer">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, width: '100%' }}>
           <small><LangText path="footer.copyright" params={new Date().getFullYear()} /></small>
-          <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}><LangText path="footer.policy" /></Link>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}><LangText path="footer.policy" /></Link>
+            <Link to="/terms" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Terms &amp; Conditions</Link>
+          </div>
         </div>
       </footer>
 

@@ -142,10 +142,28 @@ export default function JobPortalPage() {
     runPortalSearch()
   }
 
+  function resetJobFilters() {
+    try {
+      setQ('');
+      setSalaryMin('');
+      setSalaryMax('');
+      setFilters({});
+      setPage(1);
+      runPortalSearch({}, '');
+      // Scroll back to top of results
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
+    } catch (_) {}
+  }
+
   const white = { color: '#fff' }
   const pageWindow = [page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1)
 
+  const hasActiveJobFilters = React.useMemo(() => {
+    return !!(q || salaryMin || salaryMax || Object.keys(filters || {}).length)
+  }, [q, salaryMin, salaryMax, filters])
+
   return (
+    <>
     <div className="center">
       {loading && <LoadingOverlay message="Loading jobs..." />}
       <div className="card" style={{ padding: 0, overflow: 'hidden', ...white }}>
@@ -279,8 +297,9 @@ export default function JobPortalPage() {
                   </div>
                 ))}
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" type="button" onClick={() => setFilters({})}>Clear</button>
-                <button className="btn primary" type="button" onClick={applyJobFilters}>Apply</button>
+                <button className="btn compact" type="button" onClick={() => setFilters({})} style={{ flex: '0 0 auto' }}>Clear</button>
+                <button className="btn compact" type="button" onClick={resetJobFilters} title="Reset all job filters" style={{ flex: '0 0 auto' }}>Reset</button>
+                <button className="btn primary compact" type="button" onClick={applyJobFilters} style={{ flex: '0 0 auto' }}>Apply</button>
               </div>
             </div>
           </div>
@@ -380,5 +399,21 @@ export default function JobPortalPage() {
         </div>
       </div>
     </div>
-  )
+
+    {/* Mobile sticky reset action bar for Job Portal */}
+    {hasActiveJobFilters && (
+      <div className="mobile-actionbar" aria-label="Job filter actions">
+        <button className="btn" type="button" onClick={resetJobFilters} title="Reset all job filters">Reset filters</button>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => { try { const el = filtersCardRef.current; if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (_) {} }}
+          title="Show filters"
+        >
+          Filters
+        </button>
+      </div>
+    )}
+  </>
+)
 }
