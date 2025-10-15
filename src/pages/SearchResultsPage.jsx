@@ -9,6 +9,7 @@ export default function SearchResultsPage() {
   const q = sp.get('q') || ''
   const category = sp.get('category') || ''
   const navigate = useNavigate()
+  const [advCategory, setAdvCategory] = useState(category)
 
   // SEO for search page via helper
   const qp = new URLSearchParams()
@@ -60,9 +61,9 @@ export default function SearchResultsPage() {
 
   useEffect(() => {
     async function loadFilters() {
-      if (!category) return
+      if (!advCategory) { setFiltersDef({ keys: [], valuesByKey: {} }); return }
       try {
-        const r = await fetch(`/api/listings/filters?category=${encodeURIComponent(category)}`)
+        const r = await fetch(`/api/listings/filters?category=${encodeURIComponent(advCategory)}`)
         const data = await r.json()
         if (!r.ok) throw new Error(data.error || 'Failed to load filters')
         setFiltersDef({ keys: data.keys || [], valuesByKey: data.valuesByKey || {} })
@@ -71,7 +72,7 @@ export default function SearchResultsPage() {
       }
     }
     loadFilters()
-  }, [category])
+  }, [advCategory])
 
   useEffect(() => {
     async function runSearch() {
@@ -135,7 +136,7 @@ export default function SearchResultsPage() {
     // Apply current selections by updating URL params (handled by runSearch above)
     const next = new URLSearchParams()
     if (q) next.set('q', q)
-    if (category) next.set('category', category)
+    if (advCategory) next.set('category', advCategory)
     if (location) next.set('location', location)
     if (pricingType) next.set('pricing_type', pricingType)
     if (priceMin) next.set('price_min', priceMin)
@@ -158,9 +159,9 @@ export default function SearchResultsPage() {
     setSort('latest');
     setKeywordMode('or');
     setPage(1);
+    setAdvCategory('');
     const next = new URLSearchParams()
     if (q) next.set('q', q)
-    if (category) next.set('category', category)
     next.set('page', '1')
     next.set('sort', 'latest')
     next.set('limit', String(limit))
@@ -241,6 +242,24 @@ export default function SearchResultsPage() {
               <div className="h2" style={{ marginTop: 8 }}>Advanced</div>
               <form onSubmit={onApplyAdvanced} className="grid two">
                 <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Category</div>
+                  <CustomSelect
+                    value={advCategory}
+                    onChange={v => setAdvCategory(v)}
+                    ariaLabel="Category"
+                    placeholder="Category"
+                    options={[
+                      { value: '', label: 'Any' },
+                      { value: 'Vehicle', label: 'Vehicle' },
+                      { value: 'Property', label: 'Property' },
+                      { value: 'Electronic', label: 'Electronic' },
+                      { value: 'Mobile', label: 'Mobile' },
+                      { value: 'Home Garden', label: 'Home Garden' },
+                      { value: 'Job', label: 'Job' },
+                    ]}
+                  />
+                </div>
+                <div>
                   <input
                     className="input"
                     list="location-suggest"
@@ -293,7 +312,7 @@ export default function SearchResultsPage() {
                 </div>
 
                 {/* Dynamic filters from structured_json */}
-                {category && filtersDef.keys.length > 0 && (() => {
+                {advCategory && filtersDef.keys.length > 0 && (() => {
                   const pretty = (k) => {
                     if (!k) return '';
                     const map = {
