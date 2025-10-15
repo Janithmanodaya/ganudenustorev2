@@ -143,13 +143,14 @@ export default function HomePage() {
   // Pressing "Apply" will show the default latest 10 listings.
 
   // Fetch global search suggestions (titles, locations, sub_category, model)
+  // Home page must NOT show job suggestions; exclude Job via backend param.
   useEffect(() => {
     const term = (q || '').trim()
     if (!term) { setSearchSuggestions([]); return }
     const ctrl = new AbortController()
     const t = setTimeout(async () => {
       try {
-        const r = await fetch(`/api/listings/suggestions?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
+        const r = await fetch(`/api/listings/suggestions?q=${encodeURIComponent(term)}&exclude_category=Job`, { signal: ctrl.signal })
         const data = await r.json()
         if (r.ok && Array.isArray(data.results)) setSearchSuggestions(data.results)
       } catch (_) {}

@@ -25,6 +25,7 @@ export default function JobPortalPage() {
   const [page, setPage] = useState(1)
   const limit = 10
   const [cardSlideIndex, setCardSlideIndex] = useState({})
+  const [searchSuggestions, setSearchSuggestions] = useState([])
 
   function onSearch(e) {
     e.preventDefault()
@@ -130,6 +131,21 @@ export default function JobPortalPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Suggestions for job-only search terms (titles, locations, sub_category limited to Job)
+  useEffect(() => {
+    const term = (q || '').trim()
+    if (!term) { setSearchSuggestions([]); return }
+    const ctrl = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/listings/suggestions?q=${encodeURIComponent(term)}&category=Job`, { signal: ctrl.signal })
+        const data = await r.json()
+        if (r.ok && Array.isArray(data.results)) setSearchSuggestions(data.results)
+      } catch (_) {}
+    }, 250)
+    return () => { clearTimeout(t); ctrl.abort() }
+  }, [q])
+
   // Re-run when page changes
   useEffect(() => {
     runPortalSearch()
@@ -180,10 +196,14 @@ export default function JobPortalPage() {
           <form onSubmit={onSearch} className="searchbar" style={{ margin: '16px auto 0', maxWidth: 720 }}>
             <input
               className="input"
+              list="job-suggest"
               placeholder="Search jobs (e.g., React developer, accountant, remote)..."
               value={q}
               onChange={e => setQ(e.target.value)}
             />
+            <datalist id="job-suggest">
+              {Array.isArray(searchSuggestions) ? searchSuggestions.map(s => <option key={s} value={s} />) : null}
+            </datalist>
             <button className="btn primary" type="submit" style={white}>Search</button>
           </form>
 

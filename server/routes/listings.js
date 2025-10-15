@@ -1464,6 +1464,12 @@ router.get('/filters', (req, res) => {
 });
 
 // Suggestions for global search (titles, locations, sub_category, model)
+// Supports optional filtering via query params:
+// - category: only include rows matching this main_category
+// - exclude_category: exclude rows matching this main_category (e.g., exclude_category=Job)
+// Example:
+//   /api/listings/suggestions?q=toyota&category=Vehicle
+//   /api/listings/suggestions?q=house&exclude_category=Job
 router.get('/suggestions', (req, res) => {
   try {
     const cacheKey = 'suggestions:' + (req.originalUrl || JSON.stringify(req.query));
@@ -1476,13 +1482,28 @@ router.get('/suggestions', (req, res) => {
     const q = String(req.query.q || '').trim().toLowerCase();
     if (!q) return res.json({ results: [] });
 
-    const rows = db.prepare(`
+    const category = String(req.query.category || '').trim();
+    const exclude = String(req.query.exclude_category || '').trim();
+
+    let sql = `
       SELECT title, location, structured_json
       FROM listings
       WHERE status = 'Approved'
+    `;
+    const params = [];
+    if (category) {
+      sql += ' AND main_category = ?';
+      params.push(category);
+    } else if (exclude) {
+      sql += ' AND main_category != ?';
+      params.push(exclude);
+    }
+    sql += `
       ORDER BY created_at DESC
       LIMIT 300
-    `).all();
+    `;
+
+    const rows = db.prepare(sql).all(params);
 
     const suggestions = new Set();
     for (const r of rows) {
