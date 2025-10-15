@@ -64,11 +64,22 @@ router.get('/profile', (req, res) => {
       user_email: user.email, bio: '', verified_email: 0, verified_phone: 0, rating_avg: 0, rating_count: 0, updated_at: null
     };
 
+    const nowIso = new Date().toISOString();
     const stats = db.prepare(`
       SELECT
-        (SELECT COUNT(*) FROM listings WHERE owner_email = ? AND status IN ('Approved','Active')) AS active_listings,
-        (SELECT COUNT(*) FROM seller_ratings WHERE seller_email = ?) AS ratings_count
-    `).get(user.email, user.email);
+        (
+          SELECT COUNT(*)
+          FROM listings
+          WHERE LOWER(owner_email) = LOWER(?)
+            AND status = 'Approved'
+            AND (valid_until IS NULL OR valid_until > ?)
+        ) AS active_listings,
+        (
+          SELECT COUNT(*)
+          FROM seller_ratings
+          WHERE LOWER(seller_email) = LOWER(?)
+        ) AS ratings_count
+    `).get(user.email, nowIso, user.email);
 
     const ratings = db.prepare(`
       SELECT id, rater_email, listing_id, stars, comment, created_at
