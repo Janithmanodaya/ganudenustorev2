@@ -6,7 +6,7 @@ import CustomSelect from '../components/CustomSelect.jsx'
 async function readJsonSafe(r) {
   const ct = String(r.headers.get('content-type') || '').toLowerCase()
   if (!ct.includes('application/json')) {
-    const txt = await r.text().catch(() => '')
+    const _ = await r.text().catch(() => '')
     throw new Error('Server returned non-JSON. Backend may be down.')
   }
   return r.json()
@@ -116,7 +116,7 @@ export default function AdminPage() {
     try {
       const r = await fetch('/api/admin/pending', { headers: { 'X-Admin-Email': adminEmail } })
       const data = await readJsonSafe(r)
-f (!r.ok) throw new Error(data.error || 'Failed to load pending')
+      if (!r.ok) throw new Error(data.error || 'Failed to load pending')
       setPending(data.items || [])
     } catch (e) {
       setStatus(`Error: ${e.message}`)
@@ -126,7 +126,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
   async function loadDetail(id) {
     try {
       const r = await fetch(`/api/admin/pending/${encodeURIComponent(id)}`, { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load item')
       setDetail(data)
       setEditStructured(data.listing.structured_json || '')
@@ -193,13 +193,13 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
       await loadPending()
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }_code
- new </}
+    }
+  }
 
   async function loadBanners() {
     try {
       const r = await fetch('/api/admin/banners', { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load banners')
       setBanners(data.results || [])
     } catch (e) {
@@ -221,7 +221,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
   async function loadUsers(q = '') {
     try {
       const r = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}`, { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load users')
       setUsers(data.results || [])
     } catch (e) {
@@ -232,7 +232,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
   async function banUser(id) {
     try {
       const r = await fetch(`/api/admin/users/${id}/ban`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to ban user')
       loadUsers(userQuery)
     } catch (e) {
@@ -248,8 +248,8 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
       loadUsers(userQuery)
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }_code
- new </}
+    }
+  }
 
   async function suspend7Days(id) {
     try {
@@ -258,7 +258,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
         headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
         body: JSON.stringify({ days: Number(suspendDays) || 7 })
       })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to suspend user')
       loadUsers(userQuery)
     } catch (e) {
@@ -269,7 +269,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
   async function unsuspendUser(id) {
     try {
       const r = await fetch(`/api/admin/users/${id}/unsuspend`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to unsuspend user')
       loadUsers(userQuery)
     } catch (e) {
@@ -291,7 +291,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
   async function resolveReport(id) {
     try {
       const r = await fetch(`/api/admin/reports/${id}/resolve`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to resolve report')
       loadReports(reportFilter)
     } catch (e) {
@@ -304,7 +304,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
     if (!yes) return
     try {
       const r = await fetch(`/api/admin/reports/${id}`, { method: 'DELETE', headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to delete report')
       loadReports(reportFilter)
     } catch (e) {
@@ -340,7 +340,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
         headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
         body: JSON.stringify({ active: !active })
       })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to update banner')
       loadBanners()
     } catch (e) {
@@ -356,7 +356,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
         method: 'DELETE',
         headers: { 'X-Admin-Email': adminEmail }
       })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to delete banner')
       loadBanners()
     } catch (e) {
@@ -373,7 +373,9 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
       setNotificationsAdmin(data.results || [])
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-   
+    }
+  }
+
   async function sendNotification() {
     if (!notifyTitle.trim() || !notifyMessage.trim()) {
       setStatus('Title and message are required.')
@@ -390,7 +392,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
         headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
         body: JSON.stringify(payload)
       })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to send notification')
       setStatus('Notification sent.')
       setNotifyTitle('')
@@ -403,24 +405,11 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
     }
   }
 
-  async function deleteNotification(id) {
-    const yes = window.confirm('Delete this notification?')
-    if (!yes) return
-    try {
-      const r = await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
-      if (!r.ok) throw new Error(data.error || 'Failed to delete notification')
-      loadAdminNotifications()
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
-  }
-
   // Chat management (admin)
   async function loadConversations() {
     try {
       const r = await fetch('/api/chats/admin/conversations', { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load conversations')
       setConversations(Array.isArray(data.results) ? data.results : [])
     } catch (e) {
@@ -431,7 +420,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
   async function loadChatMessages(email) {
     try {
       const r = await fetch(`/api/chats/admin/${encodeURIComponent(email)}`, { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load messages')
       setSelectedChatEmail(email)
       setChatMessages(Array.isArray(data.results) ? data.results : [])
@@ -636,7 +625,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
       setLoading(true)
       try {
         const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail } })
-        const data = await r.json()
+        const data = await readJsonSafe(r)
         if (!r.ok) throw new Error(data.error || 'Failed to load rules')
         setRules(Array.isArray(data.payment_rules) ? data.payment_rules : [])
       } catch (e) {
@@ -669,7 +658,7 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
           headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
           body: JSON.stringify(payload)
         })
-        const data = await r.json()
+        const data = await readJsonSafe(r)
         if (!r.ok) throw new Error(data.error || 'Failed to save rules')
         onStatus && onStatus('Payment rules updated.')
         loadRules()
@@ -1093,12 +1082,16 @@ f (!r.ok) throw new Error(data.error || 'Failed to load pending')
           </>
         )}
 
-        {/* AI Config */}
-        {activeTab === 'ai' && (
-          <>
-            <div className="h2" style={{ marginTop: 8 }}>AI & Payments Configuration</div>
-            <div className="grid two">
-              <input className="input" placeholder="Gemini API Key" value={geminiApiKey} onChange={e => setGeminiApiKey(e.target.value)} />
+        {status && (
+          <div className="card" style={{ marginTop: 12 }}>
+            <div className="h2">Status</div>
+            <p>{status}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+} onChange={e => setGeminiApiKey(e.target.value)} />
               <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
             </div>
             <div style={{ marginTop: 8 }}>
