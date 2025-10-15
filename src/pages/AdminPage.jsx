@@ -520,16 +520,18 @@ export default function AdminPage() {
     if (!Array.isArray(data) || data.length === 0) return <p className="text-muted">No data</p>
     const max = Math.max(1, ...data.map(d => d.count || 0))
     return (
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
-        {data.map((d, idx) => {
-          const h = Math.round(((d.count || 0) / max) * 120)
-          return (
-            <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: '100%', background: color, height: h, borderRadius: 8, opacity: 0.9 }} title={`${d.date || d.label}: ${d.count || 0}`} />
-              <small className="text-muted">{(d.date || '').slice(5)}</small>
-            </div>
-          )
-        })}
+      <div style={{ overflowX: 'auto', paddingBottom: 6 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140, minWidth: Math.max(360, data.length * 22) }}>
+          {data.map((d, idx) => {
+            const h = Math.round(((d.count || 0) / max) * 120)
+            return (
+              <div key={idx} style={{ width: 18, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: '100%', background: color, height: h, borderRadius: 8, opacity: 0.9 }} title={`${d.date || d.label}: ${d.count || 0}`} />
+                <small className="text-muted" style={{ whiteSpace: 'nowrap' }}>{(d.date || '').slice(5)}</small>
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }
@@ -538,11 +540,13 @@ export default function AdminPage() {
     if (!Array.isArray(data) || data.length === 0) return null
     const max = Math.max(1, ...data.map(d => d.count || 0))
     return (
-      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 40 }}>
-        {data.map((d, idx) => {
-          const h = Math.round(((d.count || 0) / max) * 36)
-          return <div key={idx} style={{ flex: 1, height: h, background: color, borderRadius: 4, opacity: 0.9 }} />
-        })}
+      <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 40, minWidth: Math.max(280, data.length * 14) }}>
+          {data.map((d, idx) => {
+            const h = Math.round(((d.count || 0) / max) * 36)
+            return <div key={idx} style={{ width: 10, height: h, background: color, borderRadius: 4, opacity: 0.9 }} />
+          })}
+        </div>
       </div>
     )
   }
@@ -562,28 +566,30 @@ export default function AdminPage() {
     return (
       <div>
         <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
-          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(52,211,153,0.15)', color: '#a7f3d0' }}>
+          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(52,211,153,0.15)', color: '#a7f3d0', whiteSpace: 'nowrap' }}>
             <span style={{ width: 10, height: 10, background: aColor, borderRadius: 2 }} /> {aLabel}
           </span>
-          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(239,68,68,0.15)', color: '#fecaca' }}>
+          <span className="pill" style={{ borderColor: 'transparent', background: 'rgba(239,68,68,0.15)', color: '#fecaca', whiteSpace: 'nowrap' }}>
             <span style={{ width: 10, height: 10, background: bColor, borderRadius: 2 }} /> {bLabel}
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140 }}>
-          {merged.map((d, idx) => {
-            const totalH = Math.round(((d.a + d.b) / max) * 120)
-            const aH = totalH > 0 ? Math.round((d.a / (d.a + d.b)) * totalH) : 0
-            const bH = totalH - aH
-            return (
-              <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: '100%', height: totalH, borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} title={`${d.date}: ${d.a} / ${d.b}`}>
-                  <div style={{ background: aColor, height: aH }} />
-                  <div style={{ background: bColor, height: bH }} />
+        <div style={{ overflowX: 'auto', paddingBottom: 6 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 140, minWidth: Math.max(360, merged.length * 22) }}>
+            {merged.map((d, idx) => {
+              const totalH = Math.round(((d.a + d.b) / max) * 120)
+              const aH = totalH > 0 ? Math.round((d.a / (d.a + d.b)) * totalH) : 0
+              const bH = totalH - aH
+              return (
+                <div key={idx} style={{ width: 18, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: '100%', height: totalH, borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} title={`${d.date}: ${d.a} / ${d.b}`}>
+                    <div style={{ background: aColor, height: aH }} />
+                    <div style={{ background: bColor, height: bH }} />
+                  </div>
+                  <small className="text-muted" style={{ whiteSpace: 'nowrap' }}>{(d.date || '').slice(5)}</small>
                 </div>
-                <small className="text-muted">{(d.date || '').slice(5)}</small>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </div>
     )
@@ -598,9 +604,9 @@ export default function AdminPage() {
           const w = Math.round(((i.value || 0) / max) * 100)
           return (
             <div key={idx}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div className="text-muted">{i.label}</div>
-                <div className="text-muted">{i.value}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <div className="text-muted" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{i.label}</div>
+                <div className="text-muted" style={{ whiteSpace: 'nowrap' }}>{i.value}</div>
               </div>
               <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, overflow: 'hidden', height: 10 }}>
                 <div style={{ width: `${w}%`, height: '100%', background: 'linear-gradient(90deg,#6c7ff7,#00d1ff)' }} />
@@ -671,7 +677,7 @@ export default function AdminPage() {
             {rules.map((r, idx) => (
               <div key={r.category} className="card" style={{ marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                  <strong>{r.category}</strong>
+                  <strong style={{ whiteSpace: 'nowrap' }}>{r.category}</strong>
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <input
                       type="checkbox"
@@ -707,472 +713,470 @@ export default function AdminPage() {
 
   return (
     <div className="center">
-      {/* Page header */}
-      <div className="card" style={{ marginBottom: 12 }}>
+      <div className="card">
         <div className="h1">Admin Dashboard</div>
-        <p className="text-muted">Manage approvals, users, reports, content, notifications and system settings.</p>
-      </div>
+        <p className="text-muted">Configure, monitor, and manage users, listings, and reports.</p>
 
-      {/* Layout: sidebar navigation + content */}
-      <div className="grid two">
-        {/* Sidebar */}
-        <aside className="card" style={{ padding: 12 }}>
-          <div className="h2" style={{ marginTop: 0 }}>Sections</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {[
-              { key: 'dashboard', label: 'Overview' },
-              { key: 'approvals', label: 'Approvals' },
-              { key: 'users', label: 'Users' },
-              { key: 'reports', label: 'Reports' },
-              { key: 'banners', label: 'Banners' },
-              { key: 'notifications', label: unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications' },
-              { key: 'chat', label: 'Chat' },
-              { key: 'ai', label: 'Settings' }
-            ].map(t => (
-              <button
-                key={t.key}
-                className="btn"
-                onClick={() => setActiveTab(t.key)}
-                style={{
-                  textAlign: 'left',
-                  background: activeTab === t.key ? 'linear-gradient(180deg, var(--primary), #5569e2)' : 'rgba(22,28,38,0.7)',
-                  color: activeTab === t.key ? '#fff' : 'var(--text)',
-                  borderColor: activeTab === t.key ? '#4656cc' : 'var(--border)'
-                }}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Quick actions */}
-          <div className="h2">Quick Actions</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button className="btn" onClick={() => loadMetrics(rangeDays)}>Refresh Analytics</button>
-            <button className="btn" onClick={() => { loadPending(); setActiveTab('approvals'); }}>Review Pending</button>
-            <button className="btn" onClick={() => { loadUsers(''); setActiveTab('users'); }}>Find Users</button>
-          </div>
-
-          {/* System status */}
-          <div className="h2">System</div>
-          <div className="pill" title="Unread notifications for this admin">
-            Unread: {unreadCount}
-          </div>
-          {maskedKey && (
-            <div className="pill" style={{ marginTop: 6 }} title="AI Key present">
-              Gemini Key: {maskedKey}
-            </div>
-          )}
-        </aside>
-
-        {/* Content */}
-        <main className="card">
-          {/* Dashboard */}
-          {activeTab === 'dashboard' && (
-            <>
-              <div className="h2" style={{ marginTop: 0 }}>Overview</div>
-              <p className="text-muted">High-level metrics and trends. Use the range selector to change the time window.</p>
-
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                <span className="text-muted">Range:</span>
-                <select className="select" style={{ maxWidth: 180 }} value={String(rangeDays)} onChange={e => { const v = Number(e.target.value); setRangeDays(v); loadMetrics(v); }}>
-                  <option value="7">Last 7 days</option>
-                  <option value="14">Last 14 days</option>
-                  <option value="30">Last 30 days</option>
-                </select>
-                <button className="btn" onClick={() => loadMetrics(rangeDays)}>Refresh</button>
-              </div>
-
-              {!metrics && (
-                <div className="skeleton-card">
-                  <div className="skeleton skeleton-line" style={{ width: '60%' }} />
-                  <div className="skeleton skeleton-line" style={{ width: '80%', marginTop: 10 }} />
-                  <div className="skeleton skeleton-line" style={{ width: '40%', marginTop: 10 }} />
-                </div>
-              )}
-              {metrics && (
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8, marginBottom: 8 }}>
+          {[
+            { key: 'dashboard', label: 'Dashboard' },
+            { key: 'users', label: 'Users' },
+            { key: 'reports', label: 'Reports' },
+            { key: 'banners', label: 'Banners' },
+            { key: 'notifications', label: (unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications') },
+            { key: 'chat', label: 'Chat' },
+            { key: 'ai', label: 'AI Config' },
+            { key: 'approvals', label: 'Approvals' }
+          ].map(t => (
+            <button
+              key={t.key}
+              className="btn"
+              onClick={() => setActiveTab(t.key)}
+              style={{
+                borderColor: 'var(--border)',
+                background: activeTab === t.key ? 'linear-gradient(90deg, var(--primary), #5569e2)' : 'rgba(22,28,38,0.7)',
+                color: activeTab === t.key ? '#fff' : 'var(--text)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {t.key === 'notifications' ? (
                 <>
-                  {/* KPI summary */}
-                  <div className="grid three">
-                    <div className="card">
-                      <div className="h2">Users</div>
-                      <div className="text-muted">Total: {metrics.totals.totalUsers}</div>
-                      <div className="text-muted">Banned: {metrics.totals.bannedUsers}</div>
-                      <div className="text-muted">Suspended: {metrics.totals.suspendedUsers}</div>
-                    </div>
-                    <div className="card">
-                      <div className="h2">Listings</div>
-                      <div className="text-muted">Total: {metrics.totals.totalListings}</div>
-                      <div className="text-muted">Active: {metrics.totals.activeListings}</div>
-                      <div className="text-muted">Pending: {metrics.totals.pendingListings}</div>
-                      <div className="text-muted">Rejected: {metrics.totals.rejectedListings}</div>
-                    </div>
-                    <div className="card">
-                      <div className="h2">Reports</div>
-                      <div className="text-muted">Pending: {metrics.totals.reportPending}</div>
-                      <div className="text-muted">Resolved: {metrics.totals.reportResolved}</div>
-                    </div>
-                  </div>
-
-                  {/* Sparklines */}
-                  <div className="grid three" style={{ marginTop: 12 }}>
-                    <div className="card">
-                      <div className="h2">New Users (last {metrics.params?.days}d): {metrics.rangeTotals.usersNewInRange}</div>
-                      <SparklineBars data={metrics.series.signups} color="#6c7ff7" />
-                    </div>
-                    <div className="card">
-                      <div className="h2">New Ads (last {metrics.params?.days}d): {metrics.rangeTotals.listingsNewInRange}</div>
-                      <SparklineBars data={metrics.series.listingsCreated} color="#00d1ff" />
-                    </div>
-                    <div className="card">
-                      <div className="h2">Reports (last {metrics.params?.days}d): {metrics.rangeTotals.reportsInRange}</div>
-                      <SparklineBars data={metrics.series.reports} color="#e58e26" />
-                    </div>
-                  </div>
-
-                  {/* Daily bars */}
-                  <div className="grid three" style={{ marginTop: 12 }}>
-                    <div className="card">
-                      <div className="h2">Signups</div>
-                      <BarChart data={metrics.series.signups} color="#6c7ff7" />
-                    </div>
-                    <div className="card">
-                      <div className="h2">Listings Created</div>
-                      <BarChart data={metrics.series.listingsCreated} color="#00d1ff" />
-                    </div>
-                    <div className="card">
-                      <div className="h2">Reports</div>
-                      <BarChart data={metrics.series.reports} color="#e58e26" />
-                    </div>
-                  </div>
-
-                  {/* Breakdown */}
-                  <div className="grid two" style={{ marginTop: 12 }}>
-                    <div className="card">
-                      <div className="h2">Approvals vs Rejections</div>
-                      <StackedBars a={metrics.series.approvals} b={metrics.series.rejections} aLabel="Approve" bLabel="Reject" aColor="#34d399" bColor="#ef4444" />
-                      <div className="text-muted" style={{ marginTop: 8 }}>
-                        Approvals: {metrics.rangeTotals.approvalsInRange} • Rejections: {metrics.rangeTotals.rejectionsInRange}
-                      </div>
-                    </div>
-                    <div className="card">
-                      <div className="h2">Top Categories</div>
-                      <HorizontalBars items={metrics.topCategories.map(c => ({ label: c.category, value: c.cnt }))} />
-                      <div className="h2" style={{ marginTop: 16 }}>Status Breakdown</div>
-                      <HorizontalBars items={metrics.statusBreakdown.map(s => ({ label: s.status, value: s.count }))} />
-                    </div>
-                  </div>
+                  <span>Notifications</span>
+                  {unreadCount > 0 && <span className="pill" style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>{unreadCount}</span>}
                 </>
-              )}
-            </>
-          )}
+              ) : t.label}
+            </button>
+          ))}
+        </div>
 
-          {/* Users */}
-          {activeTab === 'users' && (
-            <>
-              <div className="h2" style={{ marginTop: 0 }}>User Management</div>
-              <p className="text-muted">Search, ban, suspend, or unban users.</p>
-              <div className="grid two">
-                <input className="input" placeholder="Search by email or username..." value={userQuery} onChange={e => setUserQuery(e.target.value)} />
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn" onClick={() => loadUsers(userQuery)}>Search</button>
-                  <button className="btn" onClick={() => { setUserQuery(''); loadUsers(''); }}>Reset</button>
-                </div>
-              </div>
-              <div className="grid two" style={{ marginTop: 8 }}>
-                <div>
-                  <label className="text-muted">Suspend days</label>
-                  <input
-                    className="input"
-                    type="number"
-                    min="1"
-                    max="365"
-                    value={suspendDays}
-                    onChange={e => setSuspendDays(Math.max(1, Math.min(365, Number(e.target.value || 1))))}
-                  />
-                </div>
-                <div className="text-muted" style={{ display: 'flex', alignItems: 'center' }}>
-                  This value is used when clicking “Suspend” on a user.
-                </div>
-              </div>
-              <div className="grid two" style={{ marginTop: 8 }}>
-                <div className="card">
-                  <div className="h2">Results</div>
-                  {users.length === 0 && <p className="text-muted">No users.</p>}
-                  {users.map(u => (
-                    <div key={u.id} className="card" style={{ marginBottom: 8 }}>
-                      <div><strong>{u.email}</strong> {u.username ? <span className="text-muted">• @{u.username}</span> : null}</div>
-                      <div className="text-muted">ID: {u.id} • Admin: {u.is_admin ? 'Yes' : 'No'} • Created: {new Date(u.created_at).toLocaleString()}</div>
-                      <div className="text-muted">
-                        Status: {u.is_banned ? 'Banned' : (u.suspended_until && u.suspended_until > new Date().toISOString() ? `Suspended until ${new Date(u.suspended_until).toLocaleString()}` : 'Active')}
-                      </div>
-                      <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                        {!u.is_banned && <button className="btn" onClick={() => banUser(u.id)}>Ban</button>}
-                        {u.is_banned && <button className="btn" onClick={() => unbanUser(u.id)}>Unban</button>}
-                        {/* Show Unsuspend if currently suspended */}
-                        {u.suspended_until && (new Date(u.suspended_until) > new Date()) ? (
-                          <button className="btn" onClick={() => unsuspendUser(u.id)}>Unsuspend</button>
-                        ) : (
-                          <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend 7 days</button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="card">
-                  <div className="h2">Reports</div>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                    <select className="select" value={reportFilter} onChange={e => { setReportFilter(e.target.value); loadReports(e.target.value); }}>
-                      <option value="pending">Pending</option>
-                      <option value="resolved">Resolved</option>
-                      <option value="">All</option>
-                    </select>
-                    <button className="btn" onClick={() => loadReports(reportFilter)}>Refresh</button>
+        {/* Dashboard */}
+        {activeTab === 'dashboard' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Dashboard</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+              <span className="text-muted">Range:</span>
+              <select className="select" style={{ maxWidth: 180 }} value={String(rangeDays)} onChange={e => { const v = Number(e.target.value); setRangeDays(v); loadMetrics(v); }}>
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+              </select>
+              <button className="btn" onClick={() => loadMetrics(rangeDays)}>Refresh</button>
+            </div>
+
+            {!metrics && <p className="text-muted">Loading analytics...</p>}
+            {metrics && (
+              <>
+                <div className="grid three">
+                  <div className="card">
+                    <div className="h2">Users</div>
+                    <div className="text-muted">Total: {metrics.totals.totalUsers}</div>
+                    <div className="text-muted">Banned: {metrics.totals.bannedUsers}</div>
+                    <div className="text-muted">Suspended: {metrics.totals.suspendedUsers}</div>
                   </div>
-                  {reports.length === 0 && <p className="text-muted">No reports.</p>}
-                  {reports.map(r => (
-                    <div key={r.id} className="card" style={{ marginBottom: 8 }}>
-                      <div><strong>Listing #{r.listing_id}</strong> • <span className="text-muted">{new Date(r.ts).toLocaleString()}</span></div>
-                      <div className="text-muted">Reporter: {r.reporter_email || 'anonymous'}</div>
-                      <div style={{ marginTop: 6 }}>{r.reason}</div>
-                      <div className="text-muted" style={{ marginTop: 6 }}>Status: {r.status || 'pending'}</div>
-                      <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                        {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Mark Resolved</button>}
-                        <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Reports */}
-          {activeTab === 'reports' && (
-            <>
-              <div className="h2" style={{ marginTop: 0 }}>Reports</div>
-              <p className="text-muted">Moderate community reports on listings.</p>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <select className="select" value={reportFilter} onChange={e => { setReportFilter(e.target.value); loadReports(e.target.value); }}>
-                  <option value="pending">Pending</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="">All</option>
-                </select>
-                <button className="btn" onClick={() => loadReports(reportFilter)}>Refresh</button>
-              </div>
-              {reports.length === 0 && <p className="text-muted">No reports.</p>}
-              {reports.map(r => (
-                <div key={r.id} className="card" style={{ marginBottom: 8 }}>
-                  <div><strong>Listing #{r.listing_id}</strong> • <span className="text-muted">{new Date(r.ts).toLocaleString()}</span></div>
-                  <div className="text-muted">Reporter: {r.reporter_email || 'anonymous'}</div>
-                  <div style={{ marginTop: 6 }}>{r.reason}</div>
-                  <div className="text-muted" style={{ marginTop: 6 }}>Status: {r.status || 'pending'}</div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Mark Resolved</button>}
-                    <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
+                  <div className="card">
+                    <div className="h2">Listings</div>
+                    <div className="text-muted">Total: {metrics.totals.totalListings}</div>
+                    <div className="text-muted">Active: {metrics.totals.activeListings}</div>
+                    <div className="text-muted">Pending: {metrics.totals.pendingListings}</div>
+                    <div className="text-muted">Rejected: {metrics.totals.rejectedListings}</div>
+                  </div>
+                  <div className="card">
+                    <div className="h2">Reports</div>
+                    <div className="text-muted">Pending: {metrics.totals.reportPending}</div>
+                    <div className="text-muted">Resolved: {metrics.totals.reportResolved}</div>
                   </div>
                 </div>
-              ))}
-            </>
-          )}
 
-          {/* Banners */}
-          {activeTab === 'banners' && (
-            <>
-              <div className="h2" style={{ marginTop: 0 }}>Homepage Banners</div>
-              <p className="text-muted">Upload and manage promotional banners shown on the homepage.</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                <button className="btn" onClick={() => fileRef.current?.click()}>Upload Banner</button>
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onUploadBanner((e.target.files && e.target.files[0]) || null)} />
-                <small className="text-muted">Recommended wide ratio (e.g., 3:1). JPG or PNG, up to 5MB.</small>
+                <div className="grid three" style={{ marginTop: 12 }}>
+                  <div className="card" style={{ overflowX: 'auto' }}>
+                    <div className="h2">New Users (last {metrics.params?.days}d): {metrics.rangeTotals.usersNewInRange}</div>
+                    <SparklineBars data={metrics.series.signups} color="#6c7ff7" />
+                  </div>
+                  <div className="card" style={{ overflowX: 'auto' }}>
+                    <div className="h2">New Ads (last {metrics.params?.days}d): {metrics.rangeTotals.listingsNewInRange}</div>
+                    <SparklineBars data={metrics.series.listingsCreated} color="#00d1ff" />
+                  </div>
+                  <div className="card" style={{ overflowX: 'auto' }}>
+                    <div className="h2">Reports (last {metrics.params?.days}d): {metrics.rangeTotals.reportsInRange}</div>
+                    <SparklineBars data={metrics.series.reports} color="#e58e26" />
+                  </div>
+                </div>
+
+                <div className="grid three" style={{ marginTop: 12 }}>
+                  <div className="card" style={{ overflowX: 'auto' }}>
+                    <div className="h2">Signups (last {metrics.params?.days} days)</div>
+                    <BarChart data={metrics.series.signups} color="#6c7ff7" />
+                  </div>
+                  <div className="card" style={{ overflowX: 'auto' }}>
+                    <div className="h2">Listings Created (last {metrics.params?.days} days)</div>
+                    <BarChart data={metrics.series.listingsCreated} color="#00d1ff" />
+                  </div>
+                  <div className="card" style={{ overflowX: 'auto' }}>
+                    <div className="h2">Reports (last {metrics.params?.days} days)</div>
+                    <BarChart data={metrics.series.reports} color="#e58e26" />
+                  </div>
+                </div>
+
+                <div className="grid two" style={{ marginTop: 12 }}>
+                  <div className="card" style={{ overflowX: 'auto' }}>
+                    <div className="h2">Approvals vs Rejections (last {metrics.params?.days} days)</div>
+                    <StackedBars a={metrics.series.approvals} b={metrics.series.rejections} aLabel="Approve" bLabel="Reject" aColor="#34d399" bColor="#ef4444" />
+                    <div className="text-muted" style={{ marginTop: 8 }}>
+                      Total approvals: {metrics.rangeTotals.approvalsInRange} • Total rejections: {metrics.rangeTotals.rejectionsInRange}
+                    </div>
+                  </div>
+                  <div className="card">
+                    <div className="h2">Top Categories</div>
+                    <HorizontalBars items={metrics.topCategories.map(c => ({ label: c.category, value: c.cnt }))} />
+                    <div className="h2" style={{ marginTop: 16 }}>Status Breakdown</div>
+                    <HorizontalBars items={metrics.statusBreakdown.map(s => ({ label: s.status, value: s.count }))} />
+                  </div>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* Users */}
+        {activeTab === 'users' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>User Management</div>
+            <div className="grid two">
+              <input className="input" placeholder="Search by email or username..." value={userQuery} onChange={e => setUserQuery(e.target.value)} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={() => loadUsers(userQuery)}>Search</button>
+                <button className="btn" onClick={() => { setUserQuery(''); loadUsers(''); }}>Reset</button>
               </div>
-              <div className="grid three">
-                {banners.map(b => (
-                  <div key={b.id} className="card">
-                    {b.url && <img src={b.url} alt={`Banner ${b.id}`} style={{ width: '100%', borderRadius: 8, objectFit: 'cover' }} />}
-                    <div className="text-muted" style={{ marginTop: 6 }}>Active: {b.active ? 'Yes' : 'No'}</div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                      <button className="btn" onClick={() => toggleBanner(b.id, b.active)}>{b.active ? 'Deactivate' : 'Activate'}</button>
-                      <button className="btn" onClick={() => deleteBanner(b.id)}>Delete</button>
+            </div>
+            <div className="grid two" style={{ marginTop: 8 }}>
+              <div>
+                <label className="text-muted">Suspend days</label>
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={suspendDays}
+                  onChange={e => setSuspendDays(Math.max(1, Math.min(365, Number(e.target.value || 1))))}
+                />
+              </div>
+              <div className="text-muted" style={{ display: 'flex', alignItems: 'center' }}>
+                This value is used when clicking “Suspend” on a user.
+              </div>
+            </div>
+            <div className="grid two" style={{ marginTop: 8 }}>
+              <div className="card">
+                <div className="h2">Results</div>
+                {users.length === 0 && <p className="text-muted">No users.</p>}
+                {users.map(u => (
+                  <div key={u.id} className="card" style={{ marginBottom: 8 }}>
+                    <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <strong>{u.email}</strong> {u.username ? <span className="text-muted">• @{u.username}</span> : null}
+                    </div>
+                    <div className="text-muted">ID: {u.id} • Admin: {u.is_admin ? 'Yes' : 'No'} • Created: {new Date(u.created_at).toLocaleString()}</div>
+                    <div className="text-muted">
+                      Status: {u.is_banned ? 'Banned' : (u.suspended_until && u.suspended_until > new Date().toISOString() ? `Suspended until ${new Date(u.suspended_until).toLocaleString()}` : 'Active')}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                      {!u.is_banned && <button className="btn" onClick={() => banUser(u.id)}>Ban</button>}
+                      {u.is_banned && <button className="btn" onClick={() => unbanUser(u.id)}>Unban</button>}
+                      {/* Show Unsuspend if currently suspended */}
+                      {u.suspended_until && (new Date(u.suspended_until) > new Date()) ? (
+                        <button className="btn" onClick={() => unsuspendUser(u.id)}>Unsuspend</button>
+                      ) : (
+                        <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend 7 days</button>
+                      )}
                     </div>
                   </div>
                 ))}
-                {banners.length === 0 && <p className="text-muted">No banners yet.</p>}
               </div>
-            </>
-          )}
-
-          {/* Notifications */}
-          {activeTab === 'notifications' && (
-            <>
-              <div className="h2" style={{ marginTop: 0 }}>Notifications</div>
-              <p className="text-muted">Send broadcast messages or target a specific user by email.</p>
-              <div className="grid two">
-                <input className="input" placeholder="Title" value={notifyTitle} onChange={e => setNotifyTitle(e.target.value)} />
-                <select className="select" value={notifyTargetType} onChange={e => setNotifyTargetType(e.target.value)}>
-                  <option value="all">Send to all users</option>
-                  <option value="email">Send to specific email</option>
-                </select>
-              </div>
-              {notifyTargetType === 'email' && (
-                <div style={{ marginTop: 8 }}>
-                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Select user email</div>
-                  <CustomSelect
-                    value={notifyEmail}
-                    onChange={v => setNotifyEmail(String(v))}
-                    ariaLabel="Target email"
-                    placeholder={users.length ? 'Pick an email...' : 'No users loaded'}
-                    options={(() => {
-                      const emails = Array.from(new Set((users || []).map(u => String(u.email || '').trim()).filter(Boolean)))
-                      return emails.map(e => ({ value: e, label: e }))
-                    })()}
-                    searchable={true}
-                    allowCustom={true}
-                  />
-                  <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
-                    Tip: start typing to filter. You can also enter a custom email not in the list.
-                  </small>
+              <div className="card">
+                <div className="h2">Reports</div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <select className="select" value={reportFilter} onChange={e => { setReportFilter(e.target.value); loadReports(e.target.value); }}>
+                    <option value="pending">Pending</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="">All</option>
+                  </select>
+                  <button className="btn" onClick={() => loadReports(reportFilter)}>Refresh</button>
                 </div>
-              )}
-              <textarea className="textarea" placeholder="Message" value={notifyMessage} onChange={e => setNotifyMessage(e.target.value)} style={{ marginTop: 8 }} />
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button className="btn primary" onClick={sendNotification}>Send</button>
-                <button className="btn" onClick={loadAdminNotifications}>Refresh</button>
-              </div>
-
-              <div className="h2" style={{ marginTop: 16 }}>Recent Notifications</div>
-              {notificationsAdmin.length === 0 && <p className="text-muted">No notifications yet.</p>}
-              {notificationsAdmin.map(n => (
-                <div key={n.id} className="card" style={{ marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <strong>{n.title}</strong>
-                    <small className="text-muted">{new Date(n.created_at).toLocaleString()}</small>
+                {reports.length === 0 && <p className="text-muted">No reports.</p>}
+                {reports.map(r => (
+                  <div key={r.id} className="card" style={{ marginBottom: 8 }}>
+                    <div><strong>Listing #{r.listing_id}</strong> • <span className="text-muted">{new Date(r.ts).toLocaleString()}</span></div>
+                    <div className="text-muted">Reporter: {r.reporter_email || 'anonymous'}</div>
+                    <div style={{ marginTop: 6 }}>{r.reason}</div>
+                    <div className="text-muted" style={{ marginTop: 6 }}>Status: {r.status || 'pending'}</div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                      {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Mark Resolved</button>}
+                      <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
+                    </div>
                   </div>
-                  <div className="text-muted" style={{ marginTop: 6 }}>To: {n.target_email ? n.target_email : 'All users'}</div>
-                  <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.message}</div>
-                  <div style={{ marginTop: 8 }}>
-                    <button className="btn" onClick={() => deleteNotification(n.id)}>Delete</button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Reports */}
+        {activeTab === 'reports' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Reports</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <select className="select" value={reportFilter} onChange={e => { setReportFilter(e.target.value); loadReports(e.target.value); }}>
+                <option value="pending">Pending</option>
+                <option value="resolved">Resolved</option>
+                <option value="">All</option>
+              </select>
+              <button className="btn" onClick={() => loadReports(reportFilter)}>Refresh</button>
+            </div>
+            {reports.length === 0 && <p className="text-muted">No reports.</p>}
+            {reports.map(r => (
+              <div key={r.id} className="card" style={{ marginBottom: 8 }}>
+                <div><strong>Listing #{r.listing_id}</strong> • <span className="text-muted">{new Date(r.ts).toLocaleString()}</span></div>
+                <div className="text-muted">Reporter: {r.reporter_email || 'anonymous'}</div>
+                <div style={{ marginTop: 6 }}>{r.reason}</div>
+                <div className="text-muted" style={{ marginTop: 6 }}>Status: {r.status || 'pending'}</div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Mark Resolved</button>}
+                  <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Banners */}
+        {activeTab === 'banners' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Homepage Banners</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <button className="btn" onClick={() => fileRef.current?.click()}>Upload Banner</button>
+              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onUploadBanner((e.target.files && e.target.files[0]) || null)} />
+              <small className="text-muted">Recommended wide ratio (e.g., 3:1). JPG or PNG, up to 5MB.</small>
+            </div>
+            <div className="grid three">
+              {banners.map(b => (
+                <div key={b.id} className="card">
+                  {b.url && <img src={b.url} alt={`Banner ${b.id}`} style={{ width: '100%', borderRadius: 8, objectFit: 'cover' }} />}
+                  <div className="text-muted" style={{ marginTop: 6 }}>Active: {b.active ? 'Yes' : 'No'}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button className="btn" onClick={() => toggleBanner(b.id, b.active)}>{b.active ? 'Deactivate' : 'Activate'}</button>
+                    <button className="btn" onClick={() => deleteBanner(b.id)}>Delete</button>
                   </div>
                 </div>
               ))}
-            </>
-          )}
+              {banners.length === 0 && <p className="text-muted">No banners yet.</p>}
+            </div>
+          </>
+        )}
 
-          {/* Chat Management */}
-          {activeTab === 'chat' && (
-            <>
-              <div className="h2" style={{ marginTop: 0 }}>User Chat (last 7 days)</div>
-              <p className="text-muted">Review and reply to user conversations.</p>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button className="btn" onClick={loadConversations}>Refresh</button>
+        {/* Notifications */}
+        {activeTab === 'notifications' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Send Notification</div>
+            <div className="grid two">
+              <input className="input" placeholder="Title" value={notifyTitle} onChange={e => setNotifyTitle(e.target.value)} />
+              <select className="select" value={notifyTargetType} onChange={e => setNotifyTargetType(e.target.value)}>
+                <option value="all">Send to all users</option>
+                <option value="email">Send to specific email</option>
+              </select>
+            </div>
+            {notifyTargetType === 'email' && (
+              <div style={{ marginTop: 8 }}>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Select user email</div>
+                <CustomSelect
+                  value={notifyEmail}
+                  onChange={v => setNotifyEmail(String(v))}
+                  ariaLabel="Target email"
+                  placeholder={users.length ? 'Pick an email...' : 'No users loaded'}
+                  options={(() => {
+                    const emails = Array.from(new Set((users || []).map(u => String(u.email || '').trim()).filter(Boolean)))
+                    return emails.map(e => ({ value: e, label: e }))
+                  })()}
+                  searchable={true}
+                  allowCustom={true}
+                />
+                <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                  Tip: start typing to filter. You can also enter a custom email not in the list.
+                </small>
+              </div>
+            )}
+            <textarea className="textarea" placeholder="Message" value={notifyMessage} onChange={e => setNotifyMessage(e.target.value)} style={{ marginTop: 8 }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button className="btn primary" onClick={sendNotification}>Send</button>
+              <button className="btn" onClick={loadAdminNotifications}>Refresh</button>
+            </div>
+
+            <div className="h2" style={{ marginTop: 16 }}>Recent Notifications</div>
+            {notificationsAdmin.length === 0 && <p className="text-muted">No notifications yet.</p>}
+            {notificationsAdmin.map(n => (
+              <div key={n.id} className="card" style={{ marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                  <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title}</strong>
+                  <small className="text-muted">{new Date(n.created_at).toLocaleString()}</small>
+                </div>
+                <div className="text-muted" style={{ marginTop: 6 }}>To: {n.target_email ? n.target_email : 'All users'}</div>
+                <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.message}</div>
+                <div style={{ marginTop: 8 }}>
+                  <button className="btn" onClick={() => deleteNotification(n.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Chat Management */}
+        {activeTab === 'chat' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>User Chat (last 7 days)</div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button className="btn" onClick={loadConversations}>Refresh</button>
+                </div>
+                {conversations.length === 0 && <p className="text-muted" style={{ marginTop: 8 }}>No conversations.</p>}
+                {conversations.map(c => (
+                  <div key={c.user_email} className="card" style={{ marginTop: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.user_email}</strong>
+                      <small className="text-muted">{new Date(c.last_ts).toLocaleString()}</small>
+                    </div>
+                    <div className="text-muted" style={{ marginTop: 6 }}>{c.last_sender === 'admin' ? 'Admin: ' : 'User: '}{c.last_message}</div>
+                    <div style={{ marginTop: 8 }}>
+                      <button className="btn" onClick={() => loadChatMessages(c.user_email)}>Open</button>
+                    </div>
                   </div>
-                  {conversations.length === 0 && <p className="text-muted" style={{ marginTop: 8 }}>No conversations.</p>}
-                  {conversations.map(c => (
-                    <div key={c.user_email} className="card" style={{ marginTop: 8 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                        <strong>{c.user_email}</strong>
-                        <small className="text-muted">{new Date(c.last_ts).toLocaleString()}</small>
-                      </div>
-                      <div className="text-muted" style={{ marginTop: 6 }}>{c.last_sender === 'admin' ? 'Admin: ' : 'User: '}{c.last_message}</div>
-                      <div style={{ marginTop: 8 }}>
-                        <button className="btn" onClick={() => loadChatMessages(c.user_email)}>Open</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div className="h2">Conversation</div>
-                  {!selectedChatEmail && <p className="text-muted">Select a conversation.</p>}
-                  {selectedChatEmail && (
-                    <>
-                      <div className="pill">With: {selectedChatEmail}</div>
-                      <div style={{ maxHeight: 360, overflowY: 'auto', marginTop: 8 }}>
-                        {chatMessages.map(m => (
-                          <div key={m.id} className="card" style={{ marginBottom: 6, background: m.sender === 'admin' ? 'rgba(108,127,247,0.12)' : 'rgba(0,209,255,0.10)', borderColor: 'transparent' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-                              <strong>{m.sender === 'admin' ? 'Admin' : selectedChatEmail}</strong>
-                              <small className="text-muted">{new Date(m.created_at).toLocaleString()}</small>
-                            </div>
-                            <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{m.message}</div>
+                ))}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="h2">Conversation</div>
+                {!selectedChatEmail && <p className="text-muted">Select a conversation.</p>}
+                {selectedChatEmail && (
+                  <>
+                    <div className="pill">With: {selectedChatEmail}</div>
+                    <div style={{ maxHeight: 360, overflowY: 'auto', marginTop: 8 }}>
+                      {chatMessages.map(m => (
+                        <div key={m.id} className="card" style={{ marginBottom: 6, background: m.sender === 'admin' ? 'rgba(108,127,247,0.12)' : 'rgba(0,209,255,0.10)', borderColor: 'transparent' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                            <strong>{m.sender === 'admin' ? 'Admin' : selectedChatEmail}</strong>
+                            <small className="text-muted">{new Date(m.created_at).toLocaleString()}</small>
                           </div>
-                        ))}
-                        {chatMessages.length === 0 && <p className="text-muted">No messages yet.</p>}
-                      </div>
-                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                        <input className="input" placeholder="Type a reply..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendAdminReply(); } }} />
-                        <button className="btn primary" onClick={sendAdminReply}>Send</button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* AI Config / Settings */}
-          {activeTab === 'ai' && (
-            <>
-              <div className="h2" style={{ marginTop: 0 }}>Settings</div>
-              <p className="text-muted">Configure AI and payment details used across the site.</p>
-              <div className="grid two">
-                <input className="input" placeholder="Gemini API Key" value={geminiApiKey} onChange={e => setGeminiApiKey(e.target.value)} />
-                <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <button className="btn" onClick={testGemini}>Test API Key</button>
-                <div className="text-muted" style={{ marginTop: 8 }}>
-                  Current key: {maskedKey || 'none'}
-                </div>
-              </div>
-              <div className="h2" style={{ marginTop: 12 }}>Bank Details (shown to user for payment)</div>
-              <textarea className="textarea" placeholder="Bank details (Account Name, Number, Bank/Branch)" value={bankDetails} onChange={e => setBankDetails(e.target.value)} />
-              <div className="h2" style={{ marginTop: 12 }}>WhatsApp Number (for receipts)</div>
-              <input className="input" placeholder="+94XXXXXXXXX" value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)} />
-
-              <div className="h2" style={{ marginTop: 16 }}>Category Payment Rules</div>
-              <AdminPaymentRules adminEmail={adminEmail} onStatus={setStatus} />
-
-              <div style={{ marginTop: 8 }}>
-                <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
-              </div>
-            </>
-          )}
-
-          {/* Approvals */}
-          {activeTab === 'approvals' && (
-            <>
-              <div className="h2" style={{ marginTop: 0 }}>Approvals</div>
-              <p className="text-muted">Review pending listings, edit structured data and approve or reject.</p>
-              <div className="grid two">
-                <div>
-                  <div className="h2">Queue</div>
-                  {pending.length === 0 && <p className="text-muted">No pending items.</p>}
-                  {pending.map(item => (
-                    <div key={item.id} className="card" style={{ marginBottom: 8 }}>
-                      <div><strong>{item.title}</strong></div>
-                      <div className="text-muted">Category: {item.main_category}</div>
-                      <div className="text-muted">Price: {item.price != null ? item.price : 'N/A'}</div>
-                      <div className="text-muted">Owner: {item.owner_email || 'unknown'}</div>
-                      <div className="pill" style={{ marginTop: 6 }}>Bank Remark: {item.remark_number || '—'}</div>
-                      <div className="text-muted">{item.seo_description || item.description?.slice(0,160)}</div>
-                      <button className="btn" style={{ marginTop: 8 }} onClick={() => loadDetail(item.id)}>Review</button>
+                          <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{m.message}</div>
+                        </div>
+                      ))}
+                      {chatMessages.length === 0 && <p className="text-muted">No messages yet.</p>}
                     </div>
-                  ))}
-                </div>
-                <div>
-                  <div className="h2">Review & Edit</div>
-                  {!detail && <p className="text-muted">Select an item to review.</p>}
-                  {detail && (
-                    <>
-                      <p className="text-muted">Title: {detail.listing.title} • Category: {detail.listing.main_category}</p>
-                      <div className="pill">Bank Remark: {detail.listing.remark_number || '—'}</div>
-                      <div className="grid two">
-                        <div>
-                          <div className="h2">Original User Input</div>
-                          <div className="card">
-                            <div><strong>Title</strong>: {detail.listing.title}</div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <input className="input" placeholder="Type a reply..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendAdminReply(); } }} />
+                      <button className="btn primary" onClick={sendAdminReply}>Send</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* AI Config */}
+        {activeTab === 'ai' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>AI & Payments Configuration</div>
+            <div className="grid two">
+              <input className="input" placeholder="Gemini API Key" value={geminiApiKey} onChange={e => setGeminiApiKey(e.target.value)} />
+              <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <button className="btn" onClick={testGemini}>Test API Key</button>
+              <div className="text-muted" style={{ marginTop: 8 }}>
+                Current key: {maskedKey || 'none'}
+              </div>
+            </div>
+            <div className="h2" style={{ marginTop: 12 }}>Bank Details (shown to user for payment)</div>
+            <textarea className="textarea" placeholder="Bank details (Account Name, Number, Bank/Branch)" value={bankDetails} onChange={e => setBankDetails(e.target.value)} />
+            <div className="h2" style={{ marginTop: 12 }}>WhatsApp Number (for receipts)</div>
+            <input className="input" placeholder="+94XXXXXXXXX" value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)} />
+
+            <div className="h2" style={{ marginTop: 16 }}>Category Payment Rules</div>
+            <AdminPaymentRules adminEmail={adminEmail} onStatus={setStatus} />
+
+            <div style={{ marginTop: 8 }}>
+              <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
+            </div>
+          </>
+        )}
+
+        {/* Approvals */}
+        {activeTab === 'approvals' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Pending Approval Queue</div>
+            <div className="grid two">
+              <div>
+                <div className="h2">Items</div>
+                {pending.length === 0 && <p className="text-muted">No pending items.</p>}
+                {pending.map(item => (
+                  <div key={item.id} className="card" style={{ marginBottom: 8 }}>
+                    <div><strong>{item.title}</strong></div>
+                    <div className="text-muted">Category: {item.main_category}</div>
+                    <div className="text-muted">Price: {item.price != null ? item.price : 'N/A'}</div>
+                    <div className="text-muted">Owner: {item.owner_email || 'unknown'}</div>
+                    <div className="pill" style={{ marginTop: 6 }}>Bank Remark: {item.remark_number || '—'}</div>
+                    <div className="text-muted">{item.seo_description || item.description?.slice(0,160)}</div>
+                    <button className="btn" style={{ marginTop: 8 }} onClick={() => loadDetail(item.id)}>Review</button>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div className="h2">Review & Edit</div>
+                {!detail && <p className="text-muted">Select an item to review.</p>}
+                {detail && (
+                  <>
+                    <p className="text-muted">Title: {detail.listing.title} • Category: {detail.listing.main_category}</p>
+                    <div className="pill">Bank Remark: {detail.listing.remark_number || '—'}</div>
+                    <div className="grid two">
+                      <div>
+                        <div className="h2">Original User Input</div>
+                        <div className="card">
+                          <div><strong>Title</strong>: {detail.listing.title}</div>
+                          <div><strong>Description</strong>:</div>
+                          <p>{detail.listing.description}</p>
+                          {detail.listing.resume_file_url && (
+                            <div className="text-muted">Resume File: {detail.listing.resume_file_url}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="h2">Structured JSON</div>
+                        <textarea className="textarea" value={editStructured} onChange={e => setEditStructured(e.target.value)} />
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 8 }}>
+                      <button className="btn" onClick={saveEdits}>Save Edits</button>
+                      <button className="btn primary" onClick={approve} style={{ marginLeft: 8 }}>Approve</button>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <input className="input" placeholder="Reject reason (required)" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
+                      <button className="btn" onClick={reject} style={{ marginTop: 6 }}>Reject</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {status && (
+          <div className="card" style={{ marginTop: 12 }}>
+            <div className="h2">Status</div>
+            <p>{status}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}</div>
                             <div><strong>Description</strong>:</div>
                             <p>{detail.listing.description}</p>
                             {detail.listing.resume_file_url && (
