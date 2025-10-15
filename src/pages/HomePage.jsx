@@ -362,16 +362,9 @@ export default function HomePage() {
               placeholder="Search anything (e.g., Toyota, House in Kandy)..."
               value={q}
               onChange={e => setQ(e.target.value)}
-              onFocus={() => {
-                // Ensure the search box is fully visible above the mobile keyboard
-                try {
-                  const el = document.activeElement
-                  const rect = el ? el.getBoundingClientRect() : null
-                  const top = rect ? (rect.top + window.scrollY - 100) : 0
-                  window.scrollTo({ top, behavior: 'smooth' })
-                } catch (_) {
-                  try { e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (_) {}
-                }
+              onFocus={(e) => {
+                // Ensure the search box is visible above the mobile keyboard
+                try { e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (_) {}
               }}
             />
             {/* Dynamic typed suggestions dropdown (titles, locations, sub_category, model) */}
