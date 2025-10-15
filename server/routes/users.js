@@ -87,7 +87,6 @@ router.get('/profile', (req, res) => {
       LEFT JOIN users u ON LOWER(u.email) = LOWER(sr.rater_email)
       WHERE LOWER(sr.seller_email) = LOWER(?)
       ORDER BY sr.id DESC
-      LIMIT 3
     `).all(user.email);
 
     return res.json({
