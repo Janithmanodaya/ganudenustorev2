@@ -297,8 +297,10 @@ export default function ViewListingPage() {
   // Load listing
   useEffect(() => {
     async function load() {
-      if (!listingId) { setStatus('       setLoading(true)
-        const r = await fetch(`/api/listings/${encodeURIComponent(id)}`)
+      if (!listingId) { setStatus('Error: Invalid ID'); return }
+      try {
+        setLoading(true)
+        const r = await fetch(`/api/listings/${encodeURIComponent(String(listingId))}`)
         const data = await r.json()
         if (!r.ok) throw new Error(data.error || 'Failed to load listing')
         setListing(data)
@@ -335,7 +337,7 @@ export default function ViewListingPage() {
       }
     }
     load()
-  }, [id])
+  }, [listingId])
 
   // Load favorite status from local storage (client-only favorite)
   useEffect(() => {
@@ -346,7 +348,7 @@ export default function ViewListingPage() {
       const arr = JSON.parse(localStorage.getItem(key) || '[]')
       setFavorited(arr.includes(Number(listingId)))
     } catch (_) {}
-  }, [listing_codeIdnew]</)
+  }, [listingId])
 
 
   // Dynamic SEO based on listing fields + OpenGraph/Twitter + canonical + JSON-LD
@@ -583,7 +585,7 @@ export default function ViewListingPage() {
       const r = await fetch('/api/listings/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listing_id: Number(id), reason: reason.trim(), reporter_email: user.email })
+        body: JSON.stringify({ listing_id: Number(listingId), reason: reason.trim(), reporter_email: user.email })
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Failed to report listing')
