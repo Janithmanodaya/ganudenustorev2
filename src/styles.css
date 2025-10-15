@@ -52,11 +52,7 @@ body {
   flex-direction: column;
 }
 
-  .account-page .actions .btn {
-    width: 100%;
-  }
-}
-.topbar {
+  .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
