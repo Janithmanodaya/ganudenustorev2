@@ -2,7 +2,7 @@ import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { Routes, Route, Link, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import Modal from './components/Modal.jsx'
 import LoadingOverlay from './components/LoadingOverlay.jsx'
-import { I18nProvider, useI18n } from './components/i18n.js'
+import { I18nProvider, useI18n } from './components/i18n.jsx'
 
 // Code-splitting: lazy-load route components
 const HomePage = React.lazy(() => import('./pages/HomePage.jsx'))
