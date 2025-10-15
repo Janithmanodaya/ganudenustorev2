@@ -29,6 +29,9 @@ export default function SearchResultsPage() {
   const [priceMin, setPriceMin] = useState(sp.get('price_min') || '')
   const [priceMax, setPriceMax] = useState(sp.get('price_max') || '')
 
+  // Keyword mode: AND/OR
+  const [keywordMode, setKeywordMode] = useState(sp.get('keyword_mode') || 'or')
+
   // Pagination/sort
   const [page, setPage] = useState(Number(sp.get('page') || 1))
   const [sort, setSort] = useState(sp.get('sort') || 'latest')
@@ -45,6 +48,15 @@ export default function SearchResultsPage() {
   const [locSuggestions, setLocSuggestions] = useState([])
 
   const [showAdvanced, setShowAdvanced] = useState(false)
+
+  // Derived dynamic bounds for price slider from current results
+  const priceBounds = useMemo(() => {
+    const nums = (results || [])
+      .map(r => (r.price != null ? Number(r.price) : null))
+      .filter(n => Number.isFinite(n));
+    if (!nums.length) return { min: 0, max: 1000000 };
+    return { min: Math.min(...nums), max: Math.max(...nums) };
+  }, [results]);
 
   useEffect(() => {
     async function loadFilters() {
@@ -72,6 +84,7 @@ export default function SearchResultsPage() {
         if (pricingType) query.set('pricing_type', pricingType)
         if (priceMin) query.set('price_min', priceMin)
         if (priceMax) query.set('price_max', priceMax)
+        if (keywordMode) query.set('keyword_mode', keywordMode)
         if (page) query.set('page', String(page))
         if (sort) query.set('sort', String(sort))
         query.set('limit', String(limit))
@@ -91,7 +104,7 @@ export default function SearchResultsPage() {
       }
     }
     runSearch()
-  }, [q, category, filters, location, pricingType, priceMin, priceMax, page, sort])
+  }, [q, category, filters, location, pricingType, priceMin, priceMax, keywordMode, page, sort])
 
   // Location suggestions fetching (debounced)
   useEffect(() => {
@@ -112,17 +125,39 @@ export default function SearchResultsPage() {
     setFilters(prev => ({ ...prev, [key]: value }))
   }
 
+  // Helper to update multi-select values stored as array
+  function updateFilterArray(key, arr) {
+    setFilters(prev => ({ ...prev, [key]: arr }))
+  }
+
   function onApplyAdvanced(e) {
     e.preventDefault()
-    // Do NOT apply any selected advanced filters. Reset to default latest results.
-    setLocation('')
-    setPricingType('')
-    setPriceMin('')
-    setPriceMax('')
-    setFilters({})
-    setSort('latest')
+    // Apply current selections by updating URL params (handled by runSearch above)
+    const next = new URLSearchParams()
+    if (q) next.set('q', q)
+    if (category) next.set('category', category)
+    if (location) next.set('location', location)
+    if (pricingType) next.set('pricing_type', pricingType)
+    if (priceMin) next.set('price_min', priceMin)
+    if (priceMax) next.set('price_max', priceMax)
+    if (keywordMode) next.set('keyword_mode', keywordMode)
+    if (sort) next.set('sort', sort)
+    next.set('page', '1')
+    next.set('limit', String(limit))
+    if (Object.keys(filters).length) next.set('filters', JSON.stringify(filters))
+    setSp(next, { replace: true })
     setPage(1)
+  }
 
+  function resetAdvancedFilters() {
+    setLocation('');
+    setPricingType('');
+    setPriceMin('');
+    setPriceMax('');
+    setFilters({});
+    setSort('latest');
+    setKeywordMode('or');
+    setPage(1);
     const next = new URLSearchParams()
     if (q) next.set('q', q)
     if (category) next.set('category', category)
@@ -130,19 +165,6 @@ export default function SearchResultsPage() {
     next.set('sort', 'latest')
     next.set('limit', String(limit))
     setSp(next, { replace: true })
-  }
-
-  function resetAdvancedFilters() {
-    // Reset state first
-    setLocation('');
-    setPricingType('');
-    setPriceMin('');
-    setPriceMax('');
-    setFilters({});
-    setSort('latest');
-    setPage(1);
-    // Then force a full page refresh to ensure a pristine state
-    window.location.reload();
   }
 
   const heading = useMemo(() => {
@@ -153,6 +175,48 @@ export default function SearchResultsPage() {
 
   // Build pagination window (around 5 pages centered on current)
   const pageWindow = [page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1)
+
+  // Utility: render a tag input for multi-select (comma-separated tokens)
+  function TagInput({ label, values, suggestions, onChange }) {
+    const [text, setText] = useState('')
+    function addToken(token) {
+      const v = String(token || '').trim()
+      if (!v) return
+      const next = Array.from(new Set([...(values || []), v]))
+      onChange(next)
+      setText('')
+    }
+    function removeToken(v) {
+      const next = (values || []).filter(x => String(x).toLowerCase() !== String(v).toLowerCase())
+      onChange(next)
+    }
+    return (
+      <div>
+        <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{label}</div>
+        <div className="card" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          {(values || []).map(v => (
+            <span key={v} className="pill">
+              {v}
+              <button type="button" className="btn" onClick={() => removeToken(v)} title="Remove" aria-label="Remove" style={{ marginLeft: 6, padding: '2px 6px' }}>✕</button>
+            </span>
+          ))}
+          <input
+            className="input"
+            list="tag-suggest"
+            placeholder="Type and press Enter..."
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToken(text) } }}
+            style={{ minWidth: 200, flex: '1 1 200px' }}
+          />
+          <datalist id="tag-suggest">
+            {(suggestions || []).map(s => <option key={s} value={s} />)}
+          </datalist>
+          <button className="btn" type="button" onClick={() => addToken(text)}>Add</button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="center">
@@ -202,8 +266,47 @@ export default function SearchResultsPage() {
                     ]}
                   />
                 </div>
-                <input className="input" type="number" placeholder="Min price" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
-                <input className="input" type="number" placeholder="Max price" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
+
+                {/* Price slider (dynamic bounds) */}
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Min price</div>
+                  <input
+                    type="range"
+                    min={priceBounds.min}
+                    max={priceBounds.max || (Number(priceMin) || 1000000)}
+                    value={Number(priceMin || priceBounds.min)}
+                    onChange={e => setPriceMin(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                  <input className="input" type="number" placeholder="Min price" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
+                </div>
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Max price</div>
+                  <input
+                    type="range"
+                    min={priceBounds.min}
+                    max={priceBounds.max || (Number(priceMax) || 1000000)}
+                    value={Number(priceMax || priceBounds.max)}
+                    onChange={e => setPriceMax(e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                  <input className="input" type="number" placeholder="Max price" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
+                </div>
+
+                {/* Keyword mode toggle */}
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Keyword logic</div>
+                  <CustomSelect
+                    value={keywordMode}
+                    onChange={v => setKeywordMode(v)}
+                    ariaLabel="Keyword mode"
+                    placeholder="Keyword mode"
+                    options={[
+                      { value: 'or', label: 'OR (any word)' },
+                      { value: 'and', label: 'AND (all words)' },
+                    ]}
+                  />
+                </div>
 
                 {/* Dynamic filters from structured_json */}
                 {category && filtersDef.keys.length > 0 && (() => {
@@ -219,12 +322,24 @@ export default function SearchResultsPage() {
                     if (map[k]) return map[k];
                     return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
                   };
-                  const asInputKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
+                  const tokenKeys = new Set(['sub_category']); // multi-select via tags
+                  const inputKeys = new Set(['manufacture_year', 'model', 'model_name']);
                   return filtersDef.keys
                     .filter(k => !['location','pricing_type','price'].includes(k))
                     .map(key => {
                       const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
-                      if (asInputKeys.has(key)) {
+                      if (tokenKeys.has(key)) {
+                        return (
+                          <TagInput
+                            key={key}
+                            label={pretty(key)}
+                            values={Array.isArray(filters[key]) ? filters[key] : []}
+                            suggestions={values}
+                            onChange={(arr) => updateFilterArray(key, arr)}
+                          />
+                        )
+                      }
+                      if (inputKeys.has(key)) {
                         const listId = `adv-filter-${key}-list`;
                         return (
                           <div key={key}>

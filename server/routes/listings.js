@@ -1206,7 +1206,7 @@ router.get('/search', (req, res) => {
       return res.json(cached);
     }
 
-    const { q = '', category = '', location = '', price_min = '', price_max = '', filters = '', sort = 'latest', page = '1', limit = '12' } = req.query;
+    const { q = '', keyword_mode = 'or', category = '', location = '', price_min = '', price_max = '', filters = '', sort = 'latest', page = '1', limit = '12' } = req.query;
 
     const lim = Math.max(1, Math.min(100, parseInt(limit, 10) || 12));
     const pg = Math.max(1, parseInt(page, 10) || 1);
@@ -1223,13 +1223,25 @@ router.get('/search', (req, res) => {
     if (location) { query += ' AND LOWER(location) LIKE ?'; params.push('%' + String(location).toLowerCase() + '%'); }
     if (price_min) { query += ' AND price IS NOT NULL AND price >= ?'; params.push(Number(price_min)); }
     if (price_max) { query += ' AND price IS NOT NULL AND price <= ?'; params.push(Number(price_max)); }
+
     if (q) {
-      const term = '%' + String(q).toLowerCase() + '%';
-      query += ' AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(location) LIKE ?)';
-      params.push(term, term, term);
+      const mode = String(keyword_mode || 'or').toLowerCase() === 'and' ? 'and' : 'or';
+      const terms = String(q).toLowerCase().split(/\s+/).filter(Boolean);
+      if (mode === 'and' && terms.length > 1) {
+        // AND across terms; each term can match title OR description OR location
+        for (const t of terms) {
+          const termLike = '%' + t + '%';
+          query += ' AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(location) LIKE ?)';
+          params.push(termLike, termLike, termLike);
+        }
+      } else {
+        const term = '%' + String(q).toLowerCase() + '%';
+        query += ' AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(location) LIKE ?)';
+        params.push(term, term, term);
+      }
     }
 
-    // Structured filters: exact match on keys inside structured_json
+    // Structured filters: support single values and multi-select arrays; exact match except partial for model/sub_category
     let filtersObj = {};
     try { filtersObj = filters ? JSON.parse(String(filters)) : {}; } catch (_) { filtersObj = {}; }
     if (filtersObj && Object.keys(filtersObj).length) {
@@ -1248,7 +1260,7 @@ router.get('/search', (req, res) => {
 
     const rows = db.prepare(query).all(params);
 
-    // Post-filter using structured_json, with special handling for sub_category in Vehicle
+    // Post-filter using structured_json, with special handling for sub_category in Vehicle and array values
     function normalizeVehicleSubCategory(input) {
       let subCat = String(input || '').trim();
       if (!subCat) return '';
@@ -1274,9 +1286,9 @@ router.get('/search', (req, res) => {
         try {
           const sj = JSON.parse(r.structured_json || '{}');
           for (const [k, v] of Object.entries(filtersObj)) {
-            if (!v) continue;
+            if (v == null || v === '' || (Array.isArray(v) && v.length === 0)) continue;
             const key = k === 'model' ? 'model_name' : k;
-            const want = String(v).toLowerCase();
+
             if (key === 'sub_category' && String(category) === 'Vehicle') {
               // Compute effective sub-category from structured_json or infer from text
               const fromStruct = normalizeVehicleSubCategory(sj.sub_category || sj.subcategory || sj.vehicle_type || sj.type || '');
@@ -1285,9 +1297,31 @@ router.get('/search', (req, res) => {
                 const text = [r.title || '', r.description || '', String(sj.model_name || ''), String(sj.model || '')].join(' ');
                 eff = inferVehicleSubCategoryFromText(text);
               }
-              if (String(eff).toLowerCase() !== want) return false;
+              if (Array.isArray(v)) {
+                const wants = v.map(x => String(x).toLowerCase());
+                if (!wants.some(w => String(eff).toLowerCase() === w)) return false;
+              } else {
+                const want = String(v).toLowerCase();
+                if (String(eff).toLowerCase() !== want) return false;
+              }
             } else {
-              if (String(sj[key] || '').toLowerCase() !== want) return false;
+              const got = String(sj[key] || '').toLowerCase();
+              if (Array.isArray(v)) {
+                const wants = v.map(x => String(x).toLowerCase());
+                // Partial match for model_name and sub_category; exact match for others
+                if (key === 'model_name' || key === 'sub_category') {
+                  if (!wants.some(w => got.includes(w))) return false;
+                } else {
+                  if (!wants.some(w => got === w)) return false;
+                }
+              } else {
+                const want = String(v).toLowerCase();
+                if (key === 'model_name' || key === 'sub_category') {
+                  if (!got.includes(want)) return false;
+                } else {
+                  if (got !== want) return false;
+                }
+              }
             }
           }
           return true;

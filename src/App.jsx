@@ -1,26 +1,38 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { Routes, Route, Link, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import HomePage from './pages/HomePage.jsx'
-import ViewListingPage from './pages/ViewListingPage.jsx'
-import NewListingPage from './pages/NewListingPage.jsx'
-import VerifyListingPage from './pages/VerifyListingPage.jsx'
-import AdminPage from './pages/AdminPage.jsx'
-import AuthPage from './pages/AuthPage.jsx'
-import JobPortalPage from './pages/JobPortalPage.jsx'
-import PostEmployeeAdPage from './pages/PostEmployeeAdPage.jsx'
-import SearchResultsPage from './pages/SearchResultsPage.jsx'
-import VerifyEmployeePage from './pages/VerifyEmployeePage.jsx'
-import MyAdsPage from './pages/MyAdsPage.jsx'
-import AccountPage from './pages/AccountPage.jsx'
-import JobSearchResultsPage from './pages/JobSearchResultsPage.jsx'
-import PolicyPage from './pages/PolicyPage.jsx'
-import PaymentPendingPage from './pages/PaymentPendingPage.jsx'
 import Modal from './components/Modal.jsx'
+import LoadingOverlay from './components/LoadingOverlay.jsx'
+
+// Code-splitting: lazy-load route components
+const HomePage = React.lazy(() => import('./pages/HomePage.jsx'))
+const ViewListingPage = React.lazy(() => import('./pages/ViewListingPage.jsx'))
+const NewListingPage = React.lazy(() => import('./pages/NewListingPage.jsx'))
+const VerifyListingPage = React.lazy(() => import('./pages/VerifyListingPage.jsx'))
+const AdminPage = React.lazy(() => import('./pages/AdminPage.jsx'))
+const AuthPage = React.lazy(() => import('./pages/AuthPage.jsx'))
+const JobPortalPage = React.lazy(() => import('./pages/JobPortalPage.jsx'))
+const PostEmployeeAdPage = React.lazy(() => import('./pages/PostEmployeeAdPage.jsx'))
+const SearchResultsPage = React.lazy(() => import('./pages/SearchResultsPage.jsx'))
+const VerifyEmployeePage = React.lazy(() => import('./pages/VerifyEmployeePage.jsx'))
+const MyAdsPage = React.lazy(() => import('./pages/MyAdsPage.jsx'))
+const AccountPage = React.lazy(() => import('./pages/AccountPage.jsx'))
+const JobSearchResultsPage = React.lazy(() => import('./pages/JobSearchResultsPage.jsx'))
+const PolicyPage = React.lazy(() => import('./pages/PolicyPage.jsx'))
+const PaymentPendingPage = React.lazy(() => import('./pages/PaymentPendingPage.jsx'))
 
 export default function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const isHome = location.pathname === '/'
+
+  // Language switcher (basic infrastructure)
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem('lang') || 'en' } catch (_) { return 'en' }
+  })
+  function setLanguage(next) {
+    try { localStorage.setItem('lang', next) } catch (_) {}
+    setLang(next)
+  }
 
   // Notifications state (top-right bell)
   const [userEmail, setUserEmail] = useState('')
@@ -258,6 +270,12 @@ export default function App() {
 
         {/* Navigation */}
         <nav className="nav" style={{ alignItems: 'center', gap: 10, flex: 1 }}>
+          {/* Language switcher (top-right) */}
+          <div className="nav-desktop" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="pill" title="Language" style={{ cursor: 'default' }}>Lang: {lang.toUpperCase()}</div>
+            <CustomLangSelector lang={lang} onChange={setLanguage} />
+          </div>
+
           {/* Desktop navigation aligned to right */}
           <div className="nav-desktop" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
             <Link to="/">Home</Link>
@@ -303,9 +321,12 @@ export default function App() {
             ) : null}
           </div>
 
-          {/* Mobile navigation: notifications, then account, then menu (swap notif and profile) */}
+          {/* Mobile navigation: notifications, then account, then menu */}
           <div className="nav-mobile" style={{ position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-            {/* Notifications icon (moved to first) */}
+            {/* Language pill (mobile) */}
+            <div className="pill" title="Language">Lang: {lang.toUpperCase()}</div>
+
+            {/* Notifications icon */}
             {userEmail ? (
               <div style={{ position: 'relative' }}>
                 <button
@@ -343,10 +364,10 @@ export default function App() {
               </div>
             ) : null}
 
-            {/* Account icon (moved to middle) */}
+            {/* Account icon */}
             <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
 
-            {/* Menu dropdown toggle (remains last / far right) */}
+            {/* Menu dropdown toggle */}
             <div style={{ position: 'relative' }}>
               <button
                 ref={mobileMenuBtnRef}
@@ -407,26 +428,28 @@ export default function App() {
         )}
       </header>
       <main className="content">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          {/* Permalink with SEO-friendly slug support (place slug route first to avoid matching plain :id) */}
-          <Route path="/listing/:id-:slug" element={<ViewListingPage />} />
-          <Route path="/listing/:id" element={<ViewListingPage />} />
-          <Route path="/new" element={<NewListingPage />} />
-          <Route path="/verify" element={<VerifyListingPage />} />
-          <Route path="/verify-employee" element={<VerifyEmployeePage />} />
-          <Route path="/janithmanodya" element={<AdminPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/account" element={<AccountPage />} />
-          <Route path="/my-ads" element={<MyAdsPage />} />
-          <Route path="/jobs" element={<JobPortalPage />} />
-          <Route path="/jobs/search" element={<JobSearchResultsPage />} />
-          <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
-          <Route path="/search" element={<SearchResultsPage />} />
-          <Route path="/policy" element={<PolicyPage />} />
-          <Route path="/payment/:id" element={<PaymentPendingPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<LoadingOverlay message="Loading..." />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            {/* Permalink with SEO-friendly slug support (place slug route first to avoid matching plain :id) */}
+            <Route path="/listing/:id-:slug" element={<ViewListingPage />} />
+            <Route path="/listing/:id" element={<ViewListingPage />} />
+            <Route path="/new" element={<NewListingPage />} />
+            <Route path="/verify" element={<VerifyListingPage />} />
+            <Route path="/verify-employee" element={<VerifyEmployeePage />} />
+            <Route path="/janithmanodya" element={<AdminPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/account" element={<AccountPage />} />
+            <Route path="/my-ads" element={<MyAdsPage />} />
+            <Route path="/jobs" element={<JobPortalPage />} />
+            <Route path="/jobs/search" element={<JobSearchResultsPage />} />
+            <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
+            <Route path="/search" element={<SearchResultsPage />} />
+            <Route path="/policy" element={<PolicyPage />} />
+            <Route path="/payment/:id" element={<PaymentPendingPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </main>
       <footer className="footer">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, width: '100%' }}>
@@ -491,6 +514,24 @@ export default function App() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function CustomLangSelector({ lang, onChange }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <select
+        className="select"
+        aria-label="Language"
+        value={lang}
+        onChange={e => onChange(e.target.value)}
+        style={{ minWidth: 120 }}
+      >
+        <option value="en">English</option>
+        <option value="si">සිංහල</option>
+        <option value="ta">தமிழ்</option>
+      </select>
     </div>
   )
 }
