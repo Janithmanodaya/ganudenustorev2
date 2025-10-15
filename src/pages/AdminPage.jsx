@@ -9,6 +9,7 @@ export default function AdminPage() {
   const [geminiApiKey, setGeminiApiKey] = useState('')
   const [bankDetails, setBankDetails] = useState('')
   const [whatsappNumber, setWhatsappNumber] = useState('')
+  const [emailOnApprove, setEmailOnApprove] = useState(false)
   const [status, setStatus] = useState(null)
   const [allowed, setAllowed] = useState(false)
 
@@ -61,6 +62,7 @@ export default function AdminPage() {
       setMaskedKey(data.gemini_api_key_masked)
       setBankDetails(data.bank_details || '')
       setWhatsappNumber(data.whatsapp_number || '')
+      setEmailOnApprove(!!data.email_on_approve)
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
@@ -74,7 +76,7 @@ export default function AdminPage() {
           'Content-Type': 'application/json',
           'X-Admin-Email': adminEmail
         },
-        body: JSON.stringify({ geminiApiKey, bankDetails, whatsappNumber })
+        body: JSON.stringify({ geminiApiKey, bankDetails, whatsappNumber, emailOnApprove })
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Failed to save config')
@@ -1101,6 +1103,16 @@ export default function AdminPage() {
             <textarea className="textarea" placeholder="Bank details (Account Name, Number, Bank/Branch)" value={bankDetails} onChange={e => setBankDetails(e.target.value)} />
             <div className="h2" style={{ marginTop: 12 }}>WhatsApp Number (for receipts)</div>
             <input className="input" placeholder="+94XXXXXXXXX" value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)} />
+            <div style={{ marginTop: 8 }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={!!emailOnApprove}
+                  onChange={e => setEmailOnApprove(!!e.target.checked)}
+                />
+                <span className="text-muted">Email on approve (when Facebook share succeeds)</span>
+              </label>
+            </div>
 
             <div className="h2" style={{ marginTop: 16 }}>Category Payment Rules</div>
             <AdminPaymentRules adminEmail={adminEmail} onStatus={setStatus} />

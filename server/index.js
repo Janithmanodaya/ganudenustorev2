@@ -150,6 +150,8 @@ try {
   if (!hasBank) db.prepare(`ALTER TABLE admin_config ADD COLUMN bank_details TEXT`).run();
   const hasWhats = cols.some(c => c.name === 'whatsapp_number');
   if (!hasWhats) db.prepare(`ALTER TABLE admin_config ADD COLUMN whatsapp_number TEXT`).run();
+  const hasEmailApprove = cols.some(c => c.name === 'email_on_approve');
+  if (!hasEmailApprove) db.prepare(`ALTER TABLE admin_config ADD COLUMN email_on_approve INTEGER NOT NULL DEFAULT 0`).run();
 } catch (_) {}
 
 // Payment rules per category (amount in LKR and enabled flag)
