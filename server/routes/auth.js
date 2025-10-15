@@ -272,8 +272,18 @@ router.post('/verify-admin-login-otp', async (req, res) => {
   try { db.prepare('DELETE FROM otps WHERE id = ?').run(otpRecord.id); } catch (_) {}
 
   const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
-  return res.json({ ok: true, user: { id: user.id, user_uid: user.user_uid, email: user.email, username: user.username, is_admin: !!user.is_admin, is_verified: !!user.is_verified, photo_url }_code }new)</;
-;
+  return res.json({
+    ok: true,
+    user: {
+      id: user.id,
+      user_uid: user.user_uid,
+      email: user.email,
+      username: user.username,
+      is_admin: !!user.is_admin,
+      is_verified: !!user.is_verified,
+      photo_url
+    }
+  });
 });
 
 // Forgot Password
