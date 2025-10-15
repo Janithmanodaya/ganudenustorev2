@@ -4,6 +4,7 @@ import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import ChatWidget from '../components/ChatWidget.jsx'
 
 import CustomSelect from '../components/CustomSelect.jsx'
+import useSEO from '../components/useSEO.js'
 
 export default function HomePage() {
   const [q, setQ] = useState('')
@@ -26,33 +27,12 @@ export default function HomePage() {
   const [locationOptionsCache, setLocationOptionsCache] = useState([])
   const [sort, setSort] = useState('latest')
 
-  // Site-wide SEO for homepage
-  useEffect(() => {
-    try {
-      const title = 'Ganudenu Marketplace — Buy • Sell • Hire in Sri Lanka'
-      const desc = 'Discover great deals on vehicles, property, jobs, electronics, mobiles, and home & garden. Post your ad in minutes.'
-      document.title = title
-      const setMeta = (name, content) => {
-        let tag = document.querySelector(`meta[name="${name}"]`)
-        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('name', name); document.head.appendChild(tag) }
-        tag.setAttribute('content', content)
-      }
-      const setProp = (property, content) => {
-        let tag = document.querySelector(`meta[property="${property}"]`)
-        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('property', property); document.head.appendChild(tag) }
-        tag.setAttribute('content', content)
-      }
-      let link = document.querySelector('link[rel="canonical"]')
-      if (!link) { link = document.createElement('link'); link.setAttribute('rel', 'canonical'); document.head.appendChild(link) }
-      link.setAttribute('href', 'https://ganudenu.store/')
-      setMeta('description', desc)
-      setProp('og:title', title)
-      setProp('og:description', desc)
-      setProp('og:url', 'https://ganudenu.store/')
-      setMeta('twitter:title', title)
-      setMeta('twitter:description', desc)
-    } catch (_) {}
-  }, [])
+  // Site-wide SEO for homepage (via helper)
+  useSEO({
+    title: 'Ganudenu Marketplace — Buy • Sell • Hire in Sri Lanka',
+    description: 'Discover great deals on vehicles, property, jobs, electronics, mobiles, and home & garden. Post your ad in minutes.',
+    canonical: 'https://ganudenu.store/'
+  })
 
   // Global search suggestions
   const [searchSuggestions, setSearchSuggestions] = useState([])

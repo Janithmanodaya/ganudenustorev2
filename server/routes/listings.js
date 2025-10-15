@@ -170,6 +170,7 @@ ensureColumn('listings', 'model_name', 'TEXT');
 ensureColumn('listings', 'manufacture_year', 'INTEGER');
 ensureColumn('listings', 'remark_number', 'TEXT');
 ensureColumn('listings', 'views', 'INTEGER DEFAULT 0');
+ensureColumn('listings', 'og_image_path', 'TEXT');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
 
 try {
@@ -872,13 +873,39 @@ router.post('/submit', async (req, res) => {
         
         thumbPath = path.join(outDir, `${baseName}-thumb.webp`);
         mediumPath = path.join(outDir, `${baseName}-medium.webp`);
+        const ogPath = path.join(outDir, `${baseName}-og.webp`);
 
+        // Thumbnail and medium
         await sharp(firstImgPath).resize(120, 90).toFile(thumbPath);
         await sharp(firstImgPath).resize(640, 480).toFile(mediumPath);
+
+        // OG image 1200x630 with subtle overlay
+        const bg = await sharp(firstImgPath).resize(1200, 630).blur(2).toBuffer();
+        const svgOverlay = `
+          <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="1200" height="630" fill="rgba(0,0,0,0.35)"/>
+            <text x="50" y="360" font-family="Arial, Helvetica, sans-serif" font-size="56" fill="#ffffff" font-weight="700">
+              ${String(draft.title || '').slice(0, 42).replace(/&/g,'&amp;')}
+            </text>
+            <text x="50" y="420" font-family="Arial, Helvetica, sans-serif" font-size="28" fill="#e5e7eb" font-weight="500">
+              ${draft.main_category}${typeof finalStruct.price === 'number' ? ' • LKR ' + Number(finalStruct.price).toLocaleString('en-US') : ''}
+            </text>
+            <text x="50" y="480" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#cbd5e1">
+              ${String(finalStruct.location || '').slice(0, 48).replace(/&/g,'&amp;')}
+            </text>
+          </svg>`;
+        await sharp(bg)
+          .composite([{ input: Buffer.from(svgOverlay), top: 0, left: 0 }])
+          .webp({ quality: 90 })
+          .toFile(ogPath);
+
+        // Save OG path into DB later
+        var ogImagePathCreated = ogPath;
       } catch (e) {
-        console.error('[sharp] Failed to create thumbnails:', e.message);
-        thumbPath = null;
-        mediumPath = null;
+        console.error('[sharp] Failed to create thumbnails/OG:', e.message);
+        thumbPath = thumbPath || null;
+        mediumPath = mediumPath || null;
+        var ogImagePathCreated = null;
       }
     }
 
@@ -897,11 +924,11 @@ router.post('/submit', async (req, res) => {
 
     const result = db.prepare(
       'INSERT INTO listings (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, ' +
-      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, valid_until, status, created_at, model_name, manufacture_year, remark_number) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, og_image_path, valid_until, status, created_at, model_name, manufacture_year, remark_number) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       draft.main_category, draft.title, userDescription, JSON.stringify(finalStruct), draft.seo_title, draft.seo_description, draft.seo_keywords,
-      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, validUntil, 'Pending Approval', ts, model_name, manufacture_year, remark
+      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, ogImagePathCreated, validUntil, 'Pending Approval', ts, model_name, manufacture_year, remark
     );
     const listingId = result.lastInsertRowid;
 
@@ -1129,7 +1156,8 @@ router.get('/', (req, res) => {
       }
       const imgs = listImagesStmt.all(r.id);
       const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.path)).filter(Boolean) : [];
-      return { ...r, thumbnail_url, small_images };
+      const og_image_url = filePathToUrl(r.og_image_path);
+      return { ...r, thumbnail_url, small_images, og_image_url };
     });
     const payload = { results };
     cacheSet(cacheKey, payload, 15000);
@@ -1445,11 +1473,12 @@ router.get('/:id', (req, res) => {
       url: filePathToUrl(img.path)
     }));
 
-    // Also expose public URLs for thumbnail/medium if present
+    // Also expose public URLs for thumbnail/medium/og if present
     const thumbnail_url = filePathToUrl(listing.thumbnail_path);
     const medium_url = filePathToUrl(listing.medium_path);
+    const og_image_url = filePathToUrl(listing.og_image_path);
     
-    res.json({ ...listing, thumbnail_url, medium_url, images });
+    res.json({ ...listing, thumbnail_url, medium_url, og_image_url, images });
   } catch (e) {
     console.error('[listings] /:id error:', e.message);
     res.status(500).json({ error: 'Failed to fetch listing' });

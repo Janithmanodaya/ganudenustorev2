@@ -408,12 +408,18 @@ export default function ViewListingPage() {
     setProperty('og:description', desc)
     setProperty('og:url', url)
     setProperty('og:type', 'website')
-    setMeta('twitter:card', 'summary')
+    // Prefer generated OG image; fallback to medium/thumbnail
+    const ogImg = listing.og_image_url || listing.medium_url || listing.thumbnail_url || (images[0]?.url || '')
+    if (ogImg) {
+      setProperty('og:image', ogImg)
+      setMeta('twitter:image', ogImg)
+    }
+    setMeta('twitter:card', 'summary_large_image')
     setMeta('twitter:title', title)
     setMeta('twitter:description', desc)
     setCanonical(url)
 
-    // JSON-LD (Product/Offer style)
+    // JSON-LD by category (Vehicle, Property, Job) else Product/Offer
     try {
       const scriptId = 'jsonld-listing'
       let script = document.getElementById(scriptId)
@@ -424,21 +430,73 @@ export default function ViewListingPage() {
         document.head.appendChild(script)
       }
       const price = typeof listing.price === 'number' ? listing.price : undefined
-      const jsonld = {
-        "@context": "https://schema.org",
-        "@type": "Product",
-        name: title,
-        description: desc,
-        offers: price != null ? {
-          "@type": "Offer",
-          price: String(price),
-          priceCurrency: "LKR",
-          availability: "https://schema.org/InStock"
-        } : undefined
+      const mainCat = String(listing.main_category || '')
+      let jsonld = null
+
+      if (mainCat === 'Job') {
+        jsonld = {
+          "@context": "https://schema.org",
+          "@type": "JobPosting",
+          title,
+          description: desc,
+          datePosted: listing.created_at || new Date().toISOString(),
+          employmentType: (structured && structured.employment_type) || undefined,
+          jobLocation: listing.location ? { "@type": "Place", name: listing.location } : undefined,
+          hiringOrganization: sellerUsername ? { "@type": "Organization", name: sellerUsername } : undefined,
+          baseSalary: price != null ? {
+            "@type": "MonetaryAmount",
+            currency: "LKR",
+            value: { "@type": "QuantitativeValue", value: String(price) }
+          } : undefined
+        }
+      } else if (mainCat === 'Property') {
+        jsonld = {
+          "@context": "https://schema.org",
+          "@type": "RealEstateListing",
+          name: title,
+          description: desc,
+          address: (structured && structured.address) ? { "@type": "PostalAddress", streetAddress: structured.address } : undefined,
+          offers: price != null ? {
+            "@type": "Offer",
+            price: String(price),
+            priceCurrency: "LKR",
+            availability: "https://schema.org/InStock"
+          } : undefined
+        }
+      } else if (mainCat === 'Vehicle') {
+        const brand = (structured && structured.manufacturer) || undefined
+        jsonld = {
+          "@context": "https://schema.org",
+          "@type": "Vehicle",
+          name: title,
+          model: (structured && structured.model_name) || undefined,
+          brand: brand ? { "@type": "Brand", name: brand } : undefined,
+          productionDate: (structured && structured.manufacture_year) ? String(structured.manufacture_year) : undefined,
+          description: desc,
+          offers: price != null ? {
+            "@type": "Offer",
+            price: String(price),
+            priceCurrency: "LKR",
+            availability: "https://schema.org/InStock"
+          } : undefined
+        }
+      } else {
+        jsonld = {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: title,
+          description: desc,
+          offers: price != null ? {
+            "@type": "Offer",
+            price: String(price),
+            priceCurrency: "LKR",
+            availability: "https://schema.org/InStock"
+          } : undefined
+        }
       }
       script.text = JSON.stringify(jsonld)
     } catch (_) {}
-  }, [listing])
+  }, [listing, images])
 
   const isPropertyCat = String(listing?.main_category || '') === 'Property'
   const propAddress = String((structured && structured.address) || '')

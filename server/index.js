@@ -314,18 +314,29 @@ app.get('/api/health', (req, res) => {
 
 // Robots.txt
 app.get('/robots.txt', (req, res) => {
+  const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
   res.type('text/plain').send(`User-agent: *
-Allow: /`);
+Allow: /
+Sitemap: ${domain}/sitemap.xml`);
 });
 
-// Sitemap.xml (Active listings only)
+// Sitemap.xml (Approved listings + core pages, with lastmod)
 app.get('/sitemap.xml', (req, res) => {
   const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
-  const rows = db.prepare(`SELECT id FROM listings WHERE status = 'Active' ORDER BY id DESC LIMIT 1000`).all();
-  const urls = rows.map(r => `${domain}/listing/${r.id}`);
+  const rows = db.prepare(`SELECT id, created_at FROM listings WHERE status = 'Approved' ORDER BY id DESC LIMIT 2000`).all();
+  const core = [
+    { loc: `${domain}/`, lastmod: new Date().toISOString() },
+    { loc: `${domain}/jobs`, lastmod: new Date().toISOString() },
+    { loc: `${domain}/search`, lastmod: new Date().toISOString() },
+    { loc: `${domain}/policy`, lastmod: new Date().toISOString() }
+  ];
+  const urls = [
+    ...core,
+    ...rows.map(r => ({ loc: `${domain}/listing/${r.id}`, lastmod: r.created_at || new Date().toISOString() }))
+  ];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map(u => `<url><loc>${u}</loc></url>`).join('\n')}
+${urls.map(u => `<url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod></url>`).join('\n')}
 </urlset>`;
   res.type('application/xml').send(xml);
 });
