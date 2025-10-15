@@ -183,6 +183,7 @@ ensureColumn('listings', 'manufacture_year', 'INTEGER');
 ensureColumn('listings', 'remark_number', 'TEXT');
 ensureColumn('listings', 'views', 'INTEGER DEFAULT 0');
 ensureColumn('listings', 'og_image_path', 'TEXT');
+ensureColumn('listings', 'facebook_post_url', 'TEXT');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
 ensureColumn('listing_images', 'medium_path', 'TEXT');
 
@@ -1146,7 +1147,7 @@ router.get('/', (req, res) => {
     }
 
     const { category, sortBy, order = 'DESC', status } = req.query;
-    let query = "SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, og_image_path FROM listings WHERE status != 'Archived'";
+    let query = "SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, og_image_path, facebook_post_url FROM listings WHERE status != 'Archived'";
     const params = [];
 
     if (status) {

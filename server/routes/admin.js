@@ -73,7 +73,7 @@ const upload = multer({
 
 // Get current Gemini API key (masked)
 router.get('/config', requireAdmin, (req, res) => {
-  const row = db.prepare('SELECT gemini_api_key, bank_details, whatsapp_number FROM admin_config WHERE id = 1').get();
+  const row = db.prepare('SELECT gemini_api_key, bank_details, whatsapp_number, email_on_approve FROM admin_config WHERE id = 1').get();
   const key = row?.gemini_api_key || null;
   // Load payment rules
   let rules = [];
@@ -86,13 +86,14 @@ router.get('/config', requireAdmin, (req, res) => {
     gemini_api_key_masked: key ? `${key.slice(0, 4)}...${key.slice(-4)}` : null,
     bank_details: row?.bank_details || '',
     whatsapp_number: row?.whatsapp_number || '',
+    email_on_approve: !!(row && row.email_on_approve),
     payment_rules: rules
   });
 });
 
 // Save Gemini API key
 router.post('/config', requireAdmin, (req, res) => {
-  const { geminiApiKey, bankDetails, whatsappNumber, paymentRules } = req.body || {};
+  const { geminiApiKey, bankDetails, whatsappNumber, emailOnApprove, paymentRules } = req.body || {};
   if (geminiApiKey && typeof geminiApiKey !== 'string') {
     return res.status(400).json({ error: 'geminiApiKey must be string.' });
   }
@@ -104,8 +105,13 @@ router.post('/config', requireAdmin, (req, res) => {
   }
   const row = db.prepare('SELECT id FROM admin_config WHERE id = 1').get();
   if (!row) db.prepare('INSERT INTO admin_config (id) VALUES (1)').run();
-  db.prepare('UPDATE admin_config SET gemini_api_key = COALESCE(?, gemini_api_key), bank_details = COALESCE(?, bank_details), whatsapp_number = COALESCE(?, whatsapp_number) WHERE id = 1')
-    .run(geminiApiKey ? geminiApiKey.trim() : null, bankDetails ? bankDetails.trim() : null, whatsappNumber ? whatsappNumber.trim() : null);
+  db.prepare('UPDATE admin_config SET gemini_api_key = COALESCE(?, gemini_api_key), bank_details = COALESCE(?, bank_details), whatsapp_number = COALESCE(?, whatsapp_number), email_on_approve = COALESCE(?, email_on_approve) WHERE id = 1')
+    .run(
+      geminiApiKey ? geminiApiKey.trim() : null,
+      bankDetails ? bankDetails.trim() : null,
+      whatsappNumber ? whatsappNumber.trim() : null,
+      (emailOnApprove == null ? null : (emailOnApprove ? 1 : 0))
+    );
 
   // Update payment rules if provided
   if (Array.isArray(paymentRules)) {
@@ -232,11 +238,11 @@ router.post('/pending/:id/update', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/pending/:id/approve', requireAdmin, (req, res) => {
+router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
 
   // Load listing to get owner and title
-  const listing = db.prepare(`SELECT id, title, owner_email, main_category, location, price, structured_json FROM listings WHERE id = ?`).get(id);
+  const listing = db.prepare(`SELECT id, title, owner_email, main_category, location, price, structured_json, phone FROM listings WHERE id = ?`).get(id);
 
   // Set status to 'Approved' to match public listing queries
   db.prepare(`UPDATE listings SET status = 'Approved', reject_reason = NULL WHERE id = ?`).run(id);
@@ -261,6 +267,59 @@ router.post('/pending/:id/approve', requireAdmin, (req, res) => {
       );
     }
   } catch (_) {}
+
+  // --- External Facebook post service integration (best-effort; non-blocking) ---
+  let fbPostUrl = null;
+  try {
+    const serviceUrl = process.env.FB_SERVICE_URL || process.env.FACEBOOK_POST_SERVICE_URL || '';
+    const apiKey = process.env.FB_SERVICE_API_KEY || process.env.FACEBOOK_POST_SERVICE_API_KEY || '';
+    if (serviceUrl && apiKey && listing) {
+      const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+      function filePathToUrlAbs(p) {
+        if (!p) return null;
+        const filename = String(p).split(/[\\/]/).pop();
+        return filename ? domain + '/uploads/' + filename : null;
+      }
+      const imgs = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 3').all(id);
+      const image_urls = imgs.map(it => filePathToUrlAbs(it.medium_path || it.path)).filter(Boolean);
+
+      const user = listing?.owner_email ? db.prepare('SELECT username FROM users WHERE LOWER(email) = LOWER(?)').get(String(listing.owner_email).toLowerCase().trim()) : null;
+      const seller_name = (user?.username && String(user.username).trim()) ? String(user.username).trim() : String(listing?.owner_email || '').split('@')[0];
+
+      let details = {};
+      try { details = listing?.structured_json ? JSON.parse(listing.structured_json) : {}; } catch (_) { details = {}; }
+
+      const payload = {
+        listing_id: listing.id,
+        title: listing.title,
+        seller_name,
+        category: listing.main_category,
+        location: listing.location || '',
+        price: listing.price != null ? Number(listing.price) : null,
+        phone: listing?.phone || '',
+        images: image_urls,
+        details,
+        source_listing_url: domain + '/listing/' + listing.id
+      };
+
+      const r = await fetch(String(serviceUrl).replace(/\/$/, '') + '/api/facebook/post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Api-Key': apiKey },
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data?.post_url) {
+        fbPostUrl = String(data.post_url);
+        try {
+          db.prepare('UPDATE listings SET facebook_post_url = ? WHERE id = ?').run(fbPostUrl, id);
+        } catch (_) {}
+      } else {
+        console.warn('[fb] service failed', r.status, data?.error || data);
+      }
+    }
+  } catch (e) {
+    console.warn('[fb] error:', e && e.message ? e.message : e);
+  }
 
   // Notify users with saved searches that match this listing
   try {
@@ -328,10 +387,47 @@ router.post('/pending/:id/approve', requireAdmin, (req, res) => {
       }
     }
     if (notified) {
-      console.log(`[notify] Saved-search alerts created for ${notified} users for listing #${id}`);
+      console.log(\`[notify] Saved-search alerts created for \${notified} users for listing #\${id}\`);
     }
   } catch (e) {
     console.warn('[notify] Saved-search notification error:', e && e.message ? e.message : e);
+  }
+
+  // If we have a Facebook post URL, notify the listing owner and optionally email them
+  try {
+    if (fbPostUrl && listing?.owner_email) {
+      const target = String(listing.owner_email).toLowerCase().trim();
+      db.prepare(`
+        INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+        VALUES (?, ?, ?, ?, 'facebook_post', ?, ?)
+      `).run(
+        'Your ad was shared on Facebook',
+        \`Your ad "\${listing.title}" has been shared on our Facebook page. View it here: \${fbPostUrl}\`,
+        target,
+        new Date().toISOString(),
+        listing.id,
+        JSON.stringify({ facebook_post_url: fbPostUrl })
+      );
+
+      const cfg = db.prepare('SELECT email_on_approve FROM admin_config WHERE id = 1').get();
+      const emailOnApprove = !!(cfg && cfg.email_on_approve);
+      if (emailOnApprove) {
+        const html = \`
+          <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+            <h2 style="margin:0 0 10px 0;">Your ad was shared on Facebook</h2>
+            <p style="margin:0 0 8px 0;">We have shared your approved ad "<strong>\${listing.title}</strong>" on our Facebook page.</p>
+            <p style="margin:0 0 12px 0;"><a href="\${fbPostUrl}" style="color:#0b5fff;text-decoration:none;">View Facebook post</a></p>
+            <p style="color:#666;font-size:12px;margin:0;">Listing ID: \${listing.id}</p>
+          </div>
+        \`;
+        const sent = await sendEmail(target, 'Your ad was shared on Facebook', html);
+        if (!sent?.ok) {
+          console.warn('[email] approve email failed:', sent?.error || sent);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[notify] Facebook post notification/email error:', e && e.message ? e.message : e);
   }
 
   res.json({ ok: true });
