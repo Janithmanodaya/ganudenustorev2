@@ -71,6 +71,14 @@ export default function HomePage() {
     return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25)
   }, [filtersDef, modelQuery])
 
+  // Mobile detection for UX tweaks (keyboard-safe dropdown)
+  const [isMobile, setIsMobile] = useState(() => {
+    try { return window.matchMedia && window.matchMedia('(max-width: 780px)').matches } catch (_) { return false }
+  })
+  useEffect(() => {
+    function onResize() {
+      try { setIsMobile(window.matchMedia &&])
+
   function onSearch(e) {
     e.preventDefault()
     const query = q.trim()
@@ -354,7 +362,17 @@ export default function HomePage() {
               placeholder="Search anything (e.g., Toyota, House in Kandy)..."
               value={q}
               onChange={e => setQ(e.target.value)}
-              onFocus={() => { /* show dropdown when focused and has suggestions */ }}
+              onFocus={() => {
+                // Ensure the search box is fully visible above the mobile keyboard
+                try {
+                  const el = document.activeElement
+                  const rect = el ? el.getBoundingClientRect() : null
+                  const top = rect ? (rect.top + window.scrollY - 100) : 0
+                  window.scrollTo({ top, behavior: 'smooth' })
+                } catch (_) {
+                  try { e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (_) {}
+                }
+              }}
             />
             {/* Dynamic typed suggestions dropdown (titles, locations, sub_category, model) */}
             {q.trim() && Array.isArray(searchSuggestions) && searchSuggestions.length > 0 && (
@@ -368,12 +386,12 @@ export default function HomePage() {
                   top: '100%',
                   marginTop: 6,
                   zIndex: 60,
-                  maxHeight: 300,
+                  maxHeight: isMobile ? 180 : 300, // keep short on mobile to avoid keyboard overlap
                   overflowY: 'auto',
                   padding: 6
                 }}
               >
-                {searchSuggestions.slice(0, 12).map((sug, idx) => {
+                {(isMobile ? searchSuggestions.slice(0, 6) : searchSuggestions.slice(0, 12)).map((sug, idx) => {
                   const isObj = typeof sug === 'object' && sug !== null
                   const label = isObj ? String(sug.value) : String(sug)
                   const type = isObj ? String(sug.type || '') : ''
@@ -385,10 +403,16 @@ export default function HomePage() {
                       key={`${label}-${idx}`}
                       role="option"
                       className="custom-select-option"
+                      onMouseDown={(e) => {
+                        // Prevent input blur before click handler runs
+                        e.preventDefault()
+                      }}
                       onClick={() => {
                         const v = String(label || '').trim()
                         if (!v) return
                         setQ(v)
+                        // Scroll a bit to keep the search bar visible while navigating
+                        try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
                         navigate(`/search?q=${encodeURIComponent(v)}`)
                       }}
                       style={{
