@@ -51,7 +51,7 @@ body {
   display: flex;
   flex-direction: column;
 }
-...
+
   .account-page .actions .btn {
     width: 100%;
   }
