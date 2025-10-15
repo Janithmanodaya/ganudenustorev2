@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 export default function AccountPage() {
   const navigate = useNavigate()
@@ -13,6 +13,10 @@ export default function AccountPage() {
   const [favorites, setFavorites] = useState([])
   const [favListings, setFavListings] = useState([])
   const [favStatus, setFavStatus] = useState(null)
+
+  // Seller profile editing
+  const [profile, setProfile] = useState({ bio: '', verified_email: false, verified_phone: false })
+  const [profileStatus, setProfileStatus] = useState(null)
 
   useEffect(() => {
     try {
@@ -28,10 +32,29 @@ export default function AccountPage() {
       const key = `favorites_${u.email}`
       const arr = JSON.parse(localStorage.getItem(key) || '[]')
       setFavorites(Array.isArray(arr) ? arr : [])
+
+      // Load seller profile
+      loadSellerProfile(u)
     } catch (_) {
       navigate('/auth', { replace: true })
     }
   }, [navigate])
+
+  async function loadSellerProfile(u) {
+    try {
+      setProfileStatus(null)
+      const r = await fetch(`/api/users/profile?email=${encodeURIComponent(u.email)}`)
+      const data = await r.json()
+      if (r.ok) {
+        const p = data?.profile || {}
+        setProfile({
+          bio: p.bio || '',
+          verified_email: !!p.verified_email,
+          verified_phone: !!p.verified_phone
+        })
+      }
+    } catch (_) {}
+  }
 
   // Load listings for favorites
   useEffect(() => {
@@ -167,6 +190,28 @@ export default function AccountPage() {
     navigate('/', { replace: true })
   }
 
+  async function saveProfile(e) {
+    e.preventDefault()
+    if (!user) return
+    try {
+      setProfileStatus(null)
+      const r = await fetch('/api/users/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-Email': user.email },
+        body: JSON.stringify({
+          bio: profile.bio || '',
+          verified_email: !!profile.verified_email,
+          verified_phone: !!profile.verified_phone
+        })
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data?.error || 'Failed to save profile')
+      setProfileStatus('Profile updated.')
+    } catch (e) {
+      setProfileStatus(`Error: ${e.message}`)
+    }
+  }
+
   if (!user) return null
 
   const defaultAvatarUrl = 'https://cdn-icons-png.flaticon.com/512/149/149071.png' // common profile icon
@@ -243,6 +288,45 @@ export default function AccountPage() {
                 <button className="btn" type="button" onClick={logout}>Logout</button>
               </div>
             </form>
+
+            {/* Seller profile editing */}
+            <div className="card" style={{ marginTop: 12 }}>
+              <div className="h2" style={{ marginTop: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Seller Profile</span>
+                <Link to={`/seller/${encodeURIComponent(user.username || user.email)}`} className="btn" title="View public profile">View Public Profile</Link>
+              </div>
+              <form onSubmit={saveProfile} className="grid two">
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Bio</div>
+                  <textarea
+                    className="textarea"
+                    placeholder="Tell buyers about yourself, what you sell, and your experience."
+                    value={profile.bio}
+                    onChange={e => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                  />
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!profile.verified_email}
+                    onChange={e => setProfile(prev => ({ ...prev, verified_email: e.target.checked }))}
+                  />
+                  Verified Email
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!profile.verified_phone}
+                    onChange={e => setProfile(prev => ({ ...prev, verified_phone: e.target.checked }))}
+                  />
+                  Verified Phone
+                </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn primary" type="submit">Save Profile</button>
+                </div>
+              </form>
+              {profileStatus && <small className="text-muted">{profileStatus}</small>}
+            </div>
           </div>
 
           <div className="card">
