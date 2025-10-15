@@ -19,6 +19,7 @@ const MyAdsPage = React.lazy(() => import('./pages/MyAdsPage.jsx'))
 const AccountPage = React.lazy(() => import('./pages/AccountPage.jsx'))
 const JobSearchResultsPage = React.lazy(() => import('./pages/JobSearchResultsPage.jsx'))
 const PolicyPage = React.lazy(() => import('./pages/PolicyPage.jsx'))
+const TermsPage = React.lazy(() => import('./pages/TermsPage.jsx'))
 const PaymentPendingPage = React.lazy(() => import('./pages/PaymentPendingPage.jsx'))
 const SellerProfilePage = React.lazy(() => import('./pages/SellerProfilePage.jsx'))
 
@@ -487,6 +488,7 @@ export default function App() {
             <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
             <Route path="/search" element={<SearchResultsPage />} />
             <Route path="/policy" element={<PolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
             <Route path="/payment/:id" element={<PaymentPendingPage />} />
             <Route path="/seller/:username" element={<SellerProfilePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -496,7 +498,10 @@ export default function App() {
       <footer className="footer">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, width: '100%' }}>
           <small><LangText path="footer.copyright" params={new Date().getFullYear()} /></small>
-          <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}><LangText path="footer.policy" /></Link>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}><LangText path="footer.policy" /></Link>
+            <Link to="/terms" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Terms &amp; Conditions</Link>
+          </div>
         </div>
       </footer>
 
