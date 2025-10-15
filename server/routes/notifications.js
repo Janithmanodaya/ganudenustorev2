@@ -55,6 +55,10 @@ try {
     if (!hasMeta) {
       db.prepare(`ALTER TABLE notifications ADD COLUMN meta_json TEXT`).run();
     }
+    const hasEmailed = cols.some(c => c.name === 'emailed_at');
+    if (!hasEmailed) {
+      db.prepare(`ALTER TABLE notifications ADD COLUMN emailed_at TEXT`).run();
+    }
   } catch (_) {}
 
   // Indexes
@@ -62,6 +66,7 @@ try {
   db.prepare(`CREATE INDEX IF NOT EXISTS idx_notifications_target ON notifications(target_email)`).run();
   db.prepare(`CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type)`).run();
   db.prepare(`CREATE INDEX IF NOT EXISTS idx_notifications_listing ON notifications(listing_id)`).run();
+  db.prepare(`CREATE INDEX IF NOT EXISTS idx_notifications_emailed ON notifications(emailed_at)`).run();
   db.prepare(`CREATE INDEX IF NOT EXISTS idx_notif_reads_user ON notification_reads(user_email)`).run();
   db.prepare(`CREATE INDEX IF NOT EXISTS idx_notif_reads_notif ON notification_reads(notification_id)`).run();
 
@@ -96,7 +101,7 @@ router.get('/', requireUser, (req, res) => {
   const unreadCutoffIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const rows = db.prepare(`
-    SELECT n.id, n.title, n.message, n.target_email, n.created_at, n.type, n.listing_id, n.meta_json,
+    SELECT n.id, n.title, n.message, n.target_email, n.created_at, n.type, n.listing_id, n.meta_json, n.emailed_at,
       CASE WHEN r.id IS NULL THEN 0 ELSE 1 END AS is_read,
       r.read_at as read_at
     FROM notifications n
@@ -228,12 +233,22 @@ function listingMatchesSearch(listing, search) {
       for (const [k, v] of Object.entries(filters)) {
         if (!v) continue;
         const key = k === 'model' ? 'model_name' : k;
-        const want = String(v).toLowerCase();
         const got = String(sj[key] || '').toLowerCase();
-        if (key === 'model_name' || key === 'sub_category') {
-          if (!got.includes(want)) { filtersOk = false; break; }
+
+        if (Array.isArray(v)) {
+          const wants = v.map(x => String(x).toLowerCase()).filter(Boolean);
+          if (key === 'model_name' || key === 'sub_category') {
+            if (!wants.some(w => got.includes(w))) { filtersOk = false; break; }
+          } else {
+            if (!wants.some(w => got === w)) { filtersOk = false; break; }
+          }
         } else {
-          if (got !== want) { filtersOk = false; break; }
+          const want = String(v).toLowerCase();
+          if (key === 'model_name' || key === 'sub_category') {
+            if (!got.includes(want)) { filtersOk = false; break; }
+          } else {
+            if (got !== want) { filtersOk = false; break; }
+          }
         }
       }
     }

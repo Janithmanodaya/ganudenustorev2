@@ -19,6 +19,7 @@ const AccountPage = React.lazy(() => import('./pages/AccountPage.jsx'))
 const JobSearchResultsPage = React.lazy(() => import('./pages/JobSearchResultsPage.jsx'))
 const PolicyPage = React.lazy(() => import('./pages/PolicyPage.jsx'))
 const PaymentPendingPage = React.lazy(() => import('./pages/PaymentPendingPage.jsx'))
+const SellerProfilePage = React.lazy(() => import('./pages/SellerProfilePage.jsx'))
 
 export default function App() {
   const navigate = useNavigate()
@@ -445,9 +446,9 @@ export default function App() {
             <Route path="/jobs/search" element={<JobSearchResultsPage />} />
             <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
             <Route path="/search" element={<SearchResultsPage />} />
-            <Route path="/policy" element={<PolicyPage />} />
-            <Route path="/payment/:id" element={<PaymentPendingPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/policy" elemen={<<PolicyPage />} />
+           <<Route path="/payment/:id" elemen={<<PaymentPendingPage />} />
+           <<Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </main>

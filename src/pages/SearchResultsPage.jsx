@@ -322,8 +322,8 @@ export default function SearchResultsPage() {
                     if (map[k]) return map[k];
                     return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
                   };
-                  const tokenKeys = new Set(['sub_category']); // multi-select via tags
-                  const inputKeys = new Set(['manufacture_year', 'model', 'model_name']);
+                  const tokenKeys = new Set(['sub_category', 'model', 'model_name']); // multi-select via tags
+                  const inputKeys = new Set(['manufacture_year']);
                   return filtersDef.keys
                     .filter(k => !['location','pricing_type','price'].includes(k))
                     .map(key => {

@@ -23,6 +23,8 @@ import listingsRouter from './routes/listings.js';
 import jobsRouter from './routes/jobs.js';
 import notificationsRouter from './routes/notifications.js';
 import chatsRouter from './routes/chats.js';
+import usersRouter from './routes/users.js';
+import { sendEmail } from './lib/utils.js';
 
 let helmet = null;
 try {
@@ -281,6 +283,15 @@ const notificationsLimiter = rateLimit({
 });
 app.use('/api/notifications', notificationsLimiter, notificationsRouter);
 
+// Users (profiles/ratings)
+const usersLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/users', usersLimiter, usersRouter);
+
 // Chats endpoints (separate limiter)
 const chatsLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -407,6 +418,66 @@ purgeExpiredListings();
 purgeOldChats();
 setInterval(purgeExpiredListings, 60 * 60 * 1000);
 setInterval(purgeOldChats, 60 * 60 * 1000);
+
+// Email digests for saved-search notifications (runs every 15 minutes)
+async function sendSavedSearchEmailDigests() {
+  try {
+    const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // Collect unsent saved_search notifications
+    const rows = db.prepare(`
+      SELECT id, title, message, target_email, created_at, listing_id
+      FROM notifications
+      WHERE type = 'saved_search'
+        AND (emailed_at IS NULL OR emailed_at = '')
+        AND created_at >= ?
+        AND target_email IS NOT NULL
+      ORDER BY target_email ASC, id ASC
+      LIMIT 500
+    `).all(sinceIso);
+
+    if (!rows.length) return;
+
+    // Group by target_email
+    const groups = {};
+    for (const r of rows) {
+      const k = String(r.target_email).toLowerCase().trim();
+      if (!groups[k]) groups[k] = [];
+      groups[k].push(r);
+    }
+
+    for (const [email, items] of Object.entries(groups)) {
+      const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+      const html = `
+        <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color: #111;">
+          <h2 style="margin-bottom: 8px;">New listings matching your search</h2>
+          <p style="margin-top: 0; color: #444;">Here are recent matches:</p>
+          <ul>
+            ${items.map(it => {
+              const url = `${domain}/listing/${it.listing_id || ''}`;
+              return `<li><a href="${url}" style="color:#0b5fff;text-decoration:none;">${it.message}</a> <span style="color:#666;font-size:12px;">(${new Date(it.created_at).toLocaleString()})</span></li>`;
+            }).join('')}
+          </ul>
+          <p style="color:#666;font-size:12px;">You can manage saved searches from your Account page.</p>
+        </div>
+      `;
+      const res = await sendEmail(email, 'New listings that match your saved search', html);
+      if (res?.ok) {
+        const now = new Date().toISOString();
+        const ids = items.map(i => i.id);
+        const stmt = db.prepare(`UPDATE notifications SET emailed_at = ? WHERE id = ?`);
+        for (const id of ids) {
+          try { stmt.run(now, id); } catch (_) {}
+        }
+      } else {
+        console.warn('[email:digest] Failed to send to', email, res?.error || res);
+      }
+    }
+  } catch (e) {
+    console.warn('[email:digest] Error:', e && e.message ? e.message : e);
+  }
+}
+sendSavedSearchEmailDigests();
+setInterval(sendSavedSearchEmailDigests, 15 * 60 * 1000);
 
 app.listen(PORT, () => {
   console.log(`Ganudenu backend running at http://localhost:${PORT}`);

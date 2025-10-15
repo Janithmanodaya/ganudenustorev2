@@ -716,7 +716,9 @@ export default function ViewListingPage() {
                   {listing.main_category && <span className="pill">{listing.main_category}</span>}
                   {listing.status && <span className="pill">{listing.status}</span>}
                   {listing.location && <span className="pill">{listing.location}</span>}
-                  {sellerUsername && <span className="pill">Seller: {sellerUsername}</span>}
+                  {sellerUsername && (
+                    <a className="pill" href={`/seller/${encodeURIComponent(sellerUsername)}`} title="View seller profile">Seller: {sellerUsername}</a>
+                  )}
                   {Number.isFinite(Number(listing?.views)) && <span className="pill">👁️ {Number(listing.views).toLocaleString('en-US')}</span>}
                   {listing.pricing_type && <span className="pill">{String(listing?.main_category || '') === 'Job' ? 'Salary Type' : 'Price Type'}: {listing.pricing_type}</span>}
                 </div>
