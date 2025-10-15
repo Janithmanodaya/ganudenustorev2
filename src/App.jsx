@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { Routes, Route, Link, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import Modal from './components/Modal.jsx'
 import LoadingOverlay from './components/LoadingOverlay.jsx'
+import { I18nProvider, useI18n } from './components/i18n.js'
 
 // Code-splitting: lazy-load route components
 const HomePage = React.lazy(() => import('./pages/HomePage.jsx'))
@@ -249,6 +250,7 @@ export default function App() {
   }
 
   return (
+    <I18nProvider lang={lang}>
     <div className="app light">
       <header className="topbar" style={{ position: 'sticky' }}>
         <div className="topbar-left">
@@ -265,7 +267,7 @@ export default function App() {
           )}
           <div className="brand">
             <Link to="/">Ganudenu</Link>
-            <span className="domain">Marketplace</span>
+            <span className="domain"><LangText path="brand.marketplace" /></span>
           </div>
         </div>
 
@@ -279,11 +281,11 @@ export default function App() {
 
           {/* Desktop navigation aligned to right */}
           <div className="nav-desktop" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Link to="/">Home</Link>
-            <Link to="/new">Sell</Link>
-            <Link to="/jobs">Jobs</Link>
-            <Link to="/my-ads">My Ads</Link>
-            <Link to="/account">Account</Link>
+            <Link to="/"><LangText path="nav.home" /></Link>
+            <Link to="/new"><LangText path="nav.sell" /></Link>
+            <Link to="/jobs"><LangText path="nav.jobs" /></Link>
+            <Link to="/my-ads"><LangText path="nav.myAds" /></Link>
+            <Link to="/account"><LangText path="nav.account" /></Link>
             {userEmail ? (
               <div style={{ position: 'relative' }}>
                 <button
@@ -386,10 +388,10 @@ export default function App() {
                   className="card dropdown-panel"
                   style={{ width: 200, padding: 8, right: 0, left: 'auto' }}
                 >
-                  <Link to="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
-                  <Link to="/new" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
-                  <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}>Jobs</Link>
-                  <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}>My Ads</Link>
+                  <Link to="/" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.home" /></Link>
+                  <Link to="/new" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.sell" /></Link>
+                  <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.jobs" /></Link>
+                  <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.myAds" /></Link>
                 </div>
               )}
             </div>
@@ -400,7 +402,7 @@ export default function App() {
         {notifOpen && (
           <div ref={notifPanelRef} style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
             <div className="card" style={{ width: 340, maxHeight: 420, overflow: 'auto' }}>
-              <div className="h2" style={{ marginTop: 0 }}>Notifications</div>
+              <div className="h2" style={{ marginTop: 0 }}><LangText path="notifications.title" /></div>
               {notifications.length === 0 && <p className="text-muted">No notifications.</p>}
               {notifications.map(n => (
                 <div
@@ -411,7 +413,7 @@ export default function App() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                     <strong>{n.title}</strong>
-                    {!n.is_read && <span className="pill" style={{ background: 'rgba(108,127,247,0.15)', borderColor: 'transparent', color: '#c9d1ff' }}>New</span>}
+                    {!n.is_read && <span className="pill" style={{ background: 'rgba(108,127,247,0.15)', borderColor: 'transparent', color: '#c9d1ff' }}><LangText path="notifications.new" /></span>}
                   </div>
                   <div className="text-muted" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.message}</div>
                   <div className="text-muted" style={{ marginTop: 6, fontSize: 12 }}>
@@ -421,8 +423,8 @@ export default function App() {
                 </div>
               ))}
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8 }}>
-                <button className="btn" onClick={() => setNotifOpen(false)}>Close</button>
-                <button className="btn" onClick={markAllRead} disabled={unreadCount === 0}>Mark all read</button>
+                <button className="btn" onClick={() => setNotifOpen(false)}><LangText path="notifications.close" /></button>
+                <button className="btn" onClick={markAllRead} disabled={unreadCount === 0}><LangText path="notifications.markAllRead" /></button>
               </div>
             </div>
           </div>
@@ -455,8 +457,8 @@ export default function App() {
       </main>
       <footer className="footer">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, width: '100%' }}>
-          <small>© {new Date().getFullYear()} Ganudenu Marketplace</small>
-          <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Service Policy</Link>
+          <small><LangText path="footer.copyright" params={new Date().getFullYear()} /></small>
+          <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}><LangText path="footer.policy" /></Link>
         </div>
       </footer>
 
@@ -517,7 +519,13 @@ export default function App() {
         </div>
       )}
     </div>
+    </I18nProvider>
   )
+}
+
+function LangText({ path, params }) {
+  const { t } = useI18n()
+  return <>{t(path, params)}</>
 }
 
 function CustomLangSelector({ lang, onChange }) {
