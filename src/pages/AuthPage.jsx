@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import useSEO from '../components/useSEO.js'
 
 export default function AuthPage() {
   const navigate = useNavigate()
@@ -24,6 +25,13 @@ export default function AuthPage() {
       if (u) navigate('/account', { replace: true })
     } catch (_) {}
   }, [navigate])
+
+  // SEO for auth page via helper
+  useSEO({
+    title: 'Login / Register — Ganudenu Marketplace',
+    description: 'Secure login and registration. Create your account to buy, sell, and hire on Ganudenu.',
+    canonical: 'https://ganudenu.store/auth'
+  })
 
   async function submit(e) {
     e.preventDefault()

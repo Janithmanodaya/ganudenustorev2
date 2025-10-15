@@ -30,6 +30,12 @@ try {
 } catch (_) {
   helmet = null;
 }
+let compression = null;
+try {
+  compression = (await import('compression')).default;
+} catch (_) {
+  compression = null;
+}
 
 dotenv.config();
 
@@ -41,6 +47,10 @@ if (helmet) {
   app.use(helmet({
     contentSecurityPolicy: false
   }));
+}
+// Gzip/deflate compression if available
+if (compression) {
+  app.use(compression());
 }
 
 // CORS
@@ -68,7 +78,13 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Serve uploaded images
-app.use('/uploads', express.static(path.resolve(process.cwd(), 'data', 'uploads')));
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'data', 'uploads'), {
+  maxAge: '365d',
+  immutable: true,
+  setHeaders: (res, filePath) => {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+}));
 
 // Global basic rate limit (can be tuned)
 const globalLimiter = rateLimit({
@@ -298,18 +314,47 @@ app.get('/api/health', (req, res) => {
 
 // Robots.txt
 app.get('/robots.txt', (req, res) => {
+  const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
   res.type('text/plain').send(`User-agent: *
-Allow: /`);
+Allow: /
+Sitemap: ${domain}/sitemap.xml`);
 });
 
-// Sitemap.xml (Active listings only)
+// Sitemap.xml (Approved listings + core pages, with lastmod, SEO-friendly permalinks)
 app.get('/sitemap.xml', (req, res) => {
   const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
-  const rows = db.prepare(`SELECT id FROM listings WHERE status = 'Active' ORDER BY id DESC LIMIT 1000`).all();
-  const urls = rows.map(r => `${domain}/listing/${r.id}`);
+  const rows = db.prepare(`SELECT id, title, structured_json, created_at FROM listings WHERE status = 'Approved' ORDER BY id DESC LIMIT 3000`).all();
+  const core = [
+    { loc: `${domain}/`, lastmod: new Date().toISOString() },
+    { loc: `${domain}/jobs`, lastmod: new Date().toISOString() },
+    { loc: `${domain}/search`, lastmod: new Date().toISOString() },
+    { loc: `${domain}/policy`, lastmod: new Date().toISOString() }
+  ];
+
+  function makeSlug(s) {
+    const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return base || 'listing';
+  }
+
+  const urls = [
+    ...core,
+    ...rows.map(r => {
+      let year = '';
+      try {
+        const sj = JSON.parse(r.structured_json || '{}');
+        const y = sj.manufacture_year || sj.year || sj.model_year || null;
+        if (y) year = String(y);
+      } catch (_) {}
+      const idCode = Number(r.id).toString(36).toUpperCase();
+      const parts = [makeSlug(r.title || ''), year, idCode].filter(Boolean);
+      const loc = `${domain}/listing/${r.id}-${parts.join('-')}`;
+      return { loc, lastmod: r.created_at || new Date().toISOString() };
+    })
+  ];
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map(u => `<url><loc>${u}</loc></url>`).join('\n')}
+${urls.map(u => `<url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod></url>`).join('\n')}
 </urlset>`;
   res.type('application/xml').send(xml);
 });

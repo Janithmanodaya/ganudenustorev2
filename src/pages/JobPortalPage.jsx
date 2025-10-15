@@ -2,11 +2,19 @@ import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import CustomSelect from '../components/CustomSelect.jsx'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
+import useSEO from '../components/useSEO.js'
 
 export default function JobPortalPage() {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   // Dynamic job filters
+
+  // SEO for job portal via helper
+  useSEO({
+    title: 'Jobs — Ganudenu Marketplace',
+    description: 'Find jobs or list vacancies in Sri Lanka. Search roles across IT, Marketing, Sales, Accounting, and more.',
+    canonical: 'https://ganudenu.store/jobs'
+  })
   const [filtersDef, setFiltersDef] = useState({ keys: [], valuesByKey: {} })
   const [filters, setFilters] = useState({})
   const [results, setResults] = useState([])
@@ -284,11 +292,27 @@ export default function JobPortalPage() {
               const idx = cardSlideIndex[item.id] || 0
               const hero = imgs.length ? imgs[idx % imgs.length] : (item.thumbnail_url || null)
 
+              function makeSlug(s) {
+                const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                return base || 'listing';
+              }
+              function permalinkForItem(it) {
+                const titleSlug = makeSlug(it.title || '');
+                let year = '';
+                try {
+                  const sj = JSON.parse(it.structured_json || '{}');
+                  const y = sj.manufacture_year || sj.year || sj.model_year || null;
+                  if (y) year = String(y);
+                } catch (_) {}
+                const idCode = Number(it.id).toString(36).toUpperCase();
+                const parts = [titleSlug, year, idCode].filter(Boolean);
+                return `/listing/${it.id}-${parts.join('-')}`;
+              }
               return (
                 <div
                   key={item.id}
                   className="card"
-                  onClick={() => navigate(`/listing/${item.id}`)}
+                  onClick={() => navigate(permalinkForItem(item))}
                   style={{ cursor: 'pointer' }}
                 >
                   {hero && (
@@ -296,6 +320,8 @@ export default function JobPortalPage() {
                       <img
                         src={hero}
                         alt={item.title}
+                        loading="lazy"
+                        sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         style={{ width: '100%', borderRadius: 8, objectFit: 'cover', height: 180 }}
                       />
                       {imgs.length > 1 && (

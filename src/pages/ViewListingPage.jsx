@@ -4,6 +4,13 @@ import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
 export default function ViewListingPage() {
   const { id } = useParams()
+  // Support both legacy "/listing/:id" and SEO-friendly "/listing/:id-:slug"
+  const listingId = (() => {
+    const raw = String(id || '')
+    const first = raw.split('-')[0]
+    const num = Number(first)
+    return Number.isFinite(num) ? num : null
+  })()
   const [listing, setListing] = useState(null)
   const [images, setImages] = useState([])
   const [structured, setStructured] = useState({})
@@ -290,10 +297,13 @@ export default function ViewListingPage() {
   // Load listing
   useEffect(() => {
     async function load() {
-      if (!id) return
+      if (!listingId) { setStatus('Error: Invalid ID'); return }
       try {
         setLoading(true)
-        const r = await fetch(`/api/listings/${encodeURIComponent(id)}`)
+        const user = getUser()
+        const headers = {}
+        if (user?.email) headers['X-User-Email'] = user.email
+        const r = await fetch(`/api/listings/${encodeURIComponent(String(listingId))}`, { headers })
         const data = await r.json()
         if (!r.ok) throw new Error(data.error || 'Failed to load listing')
         setListing(data)
@@ -330,18 +340,19 @@ export default function ViewListingPage() {
       }
     }
     load()
-  }, [id])
+  }, [listingId])
 
   // Load favorite status from local storage (client-only favorite)
   useEffect(() => {
     const user = getUser()
-    if (!user?.email || !id) return
+    if (!user?.email || !listingId) return
     try {
       const key = `favorites_${user.email}`
       const arr = JSON.parse(localStorage.getItem(key) || '[]')
-      setFavorited(arr.includes(Number(id)))
+      setFavorited(arr.includes(Number(listingId)))
     } catch (_) {}
-  }, [id])
+  }, [listingId])
+
 
   // Dynamic SEO based on listing fields + OpenGraph/Twitter + canonical + JSON-LD
   useEffect(() => {
@@ -349,8 +360,30 @@ export default function ViewListingPage() {
     const rawTitle = listing.seo_title || listing.title || 'Listing'
     const title = formatTitleCase(rawTitle)
     const desc = listing.seo_description || listing.enhanced_description || listing.description || ''
-    const url = `https://ganudenu.store/listing/${listing.id}`
+
+    // Build SEO-friendly permalink: title + optional year + short alphanumeric id
+    function makeSlug(s) {
+      const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+      return base || 'listing'
+    }
+    const year = (() => {
+      const sj = (() => { try { return JSON.parse(listing.structured_json || '{}') } catch (_) { return {} } })()
+      const y = sj.manufacture_year || sj.year || sj.model_year || null
+      return y ? String(y) : ''
+    })()
+    const idCode = Number(listing.id).toString(36).toUpperCase()
+    const parts = [makeSlug(rawTitle), year, idCode].filter(Boolean)
+    const permalinkPath = `/listing/${listing.id}-${parts.join('-')}`
+    const url = `https://ganudenu.store${permalinkPath}`
     document.title = title
+
+    // If current path is missing slug, replace it for better SEO without breaking navigation
+    try {
+      const cur = window.location.pathname
+      if (cur === `/listing/${listing.id}`) {
+        window.history.replaceState({}, title, permalinkPath)
+      }
+    } catch (_) {}
 
     function setMeta(name, content) {
       let tag = document.querySelector(`meta[name="${name}"]`)
@@ -386,12 +419,18 @@ export default function ViewListingPage() {
     setProperty('og:description', desc)
     setProperty('og:url', url)
     setProperty('og:type', 'website')
-    setMeta('twitter:card', 'summary')
+    // Prefer generated OG image; fallback to medium/thumbnail
+    const ogImg = listing.og_image_url || listing.medium_url || listing.thumbnail_url || (images[0]?.url || '')
+    if (ogImg) {
+      setProperty('og:image', ogImg)
+      setMeta('twitter:image', ogImg)
+    }
+    setMeta('twitter:card', 'summary_large_image')
     setMeta('twitter:title', title)
     setMeta('twitter:description', desc)
     setCanonical(url)
 
-    // JSON-LD (Product/Offer style)
+    // JSON-LD by category (Vehicle, Property, Job) else Product/Offer
     try {
       const scriptId = 'jsonld-listing'
       let script = document.getElementById(scriptId)
@@ -402,21 +441,73 @@ export default function ViewListingPage() {
         document.head.appendChild(script)
       }
       const price = typeof listing.price === 'number' ? listing.price : undefined
-      const jsonld = {
-        "@context": "https://schema.org",
-        "@type": "Product",
-        name: title,
-        description: desc,
-        offers: price != null ? {
-          "@type": "Offer",
-          price: String(price),
-          priceCurrency: "LKR",
-          availability: "https://schema.org/InStock"
-        } : undefined
+      const mainCat = String(listing.main_category || '')
+      let jsonld = null
+
+      if (mainCat === 'Job') {
+        jsonld = {
+          "@context": "https://schema.org",
+          "@type": "JobPosting",
+          title,
+          description: desc,
+          datePosted: listing.created_at || new Date().toISOString(),
+          employmentType: (structured && structured.employment_type) || undefined,
+          jobLocation: listing.location ? { "@type": "Place", name: listing.location } : undefined,
+          hiringOrganization: sellerUsername ? { "@type": "Organization", name: sellerUsername } : undefined,
+          baseSalary: price != null ? {
+            "@type": "MonetaryAmount",
+            currency: "LKR",
+            value: { "@type": "QuantitativeValue", value: String(price) }
+          } : undefined
+        }
+      } else if (mainCat === 'Property') {
+        jsonld = {
+          "@context": "https://schema.org",
+          "@type": "RealEstateListing",
+          name: title,
+          description: desc,
+          address: (structured && structured.address) ? { "@type": "PostalAddress", streetAddress: structured.address } : undefined,
+          offers: price != null ? {
+            "@type": "Offer",
+            price: String(price),
+            priceCurrency: "LKR",
+            availability: "https://schema.org/InStock"
+          } : undefined
+        }
+      } else if (mainCat === 'Vehicle') {
+        const brand = (structured && structured.manufacturer) || undefined
+        jsonld = {
+          "@context": "https://schema.org",
+          "@type": "Vehicle",
+          name: title,
+          model: (structured && structured.model_name) || undefined,
+          brand: brand ? { "@type": "Brand", name: brand } : undefined,
+          productionDate: (structured && structured.manufacture_year) ? String(structured.manufacture_year) : undefined,
+          description: desc,
+          offers: price != null ? {
+            "@type": "Offer",
+            price: String(price),
+            priceCurrency: "LKR",
+            availability: "https://schema.org/InStock"
+          } : undefined
+        }
+      } else {
+        jsonld = {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: title,
+          description: desc,
+          offers: price != null ? {
+            "@type": "Offer",
+            price: String(price),
+            priceCurrency: "LKR",
+            availability: "https://schema.org/InStock"
+          } : undefined
+        }
       }
       script.text = JSON.stringify(jsonld)
     } catch (_) {}
-  }, [listing])
+  }, [listing, images])
 
   const isPropertyCat = String(listing?.main_category || '') === 'Property'
   const propAddress = String((structured && structured.address) || '')
@@ -497,7 +588,7 @@ export default function ViewListingPage() {
       const r = await fetch('/api/listings/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listing_id: Number(id), reason: reason.trim(), reporter_email: user.email })
+        body: JSON.stringify({ listing_id: Number(listingId), reason: reason.trim(), reporter_email: user.email })
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Failed to report listing')
@@ -616,8 +707,18 @@ export default function ViewListingPage() {
                   <div className="carousel-main">
                     {mainImage?.url ? (
                     <img
-                      src={mainImage.url}
+                      src={mainImage.medium_url || mainImage.url}
+                      srcSet={(() => {
+                        const m = mainImage.medium_url || '';
+                        const o = mainImage.url || '';
+                        const parts = [];
+                        if (m) parts.push(`${m} 1024w`);
+                        if (o) parts.push(`${o} 1600w`);
+                        return parts.join(', ');
+                      })()}
+                      sizes="(max-width: 780px) 100vw, 60vw"
                       alt={mainImage.original_name || 'Image'}
+                      loading="eager"
                       onClick={() => openLightbox(currentIndex)}
                       style={{ cursor: 'zoom-in' }}
                     />

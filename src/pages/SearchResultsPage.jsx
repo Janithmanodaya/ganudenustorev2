@@ -2,12 +2,26 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import CustomSelect from '../components/CustomSelect.jsx'
+import useSEO from '../components/useSEO.js'
 
 export default function SearchResultsPage() {
   const [sp, setSp] = useSearchParams()
   const q = sp.get('q') || ''
   const category = sp.get('category') || ''
   const navigate = useNavigate()
+
+  // SEO for search page via helper
+  const qp = new URLSearchParams()
+  if (q) qp.set('q', q)
+  if (category) qp.set('category', category)
+  const canonical = `https://ganudenu.store/search${qp.toString() ? `?${qp.toString()}` : ''}`
+  useSEO({
+    title: q ? `Search: ${q} — Ganudenu Marketplace` : 'Search — Ganudenu Marketplace',
+    description: q
+      ? `Find results for "${q}" across vehicles, property, jobs, electronics, mobiles, and home & garden.`
+      : 'Browse the latest listings across vehicles, property, jobs, electronics, mobiles, and home & garden.',
+    canonical
+  })
 
   // Advanced filters (query params aware)
   const [location, setLocation] = useState(sp.get('location') || '')
@@ -276,31 +290,55 @@ export default function SearchResultsPage() {
               const imgs = Array.isArray(r.small_images) ? r.small_images : []
               const hero = imgs.length ? imgs[0] : (r.thumbnail_url || null)
 
-              return (
-                <div
-                  key={r.id}
-                  className="card"
-                  onClick={() => navigate(`/listing/${r.id}`)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {hero && (
-                    <img src={hero} alt={r.title} style={{ width: '100%', height: 160, borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                    <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>
-                    {r.price != null && (
-                      <div style={{ margin: '6px 0', whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
-                        {`LKR ${Number(r.price).toLocaleString('en-US')}`}
-                      </div>
+              {
+                const makeSlug = (s) => {
+                  const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                  return base || 'listing';
+                };
+                const permalinkForItem = (it) => {
+                  const titleSlug = makeSlug(it.title || '');
+                  let year = '';
+                  try {
+                    const sj = JSON.parse(it.structured_json || '{}');
+                    const y = sj.manufacture_year || sj.year || sj.model_year || null;
+                    if (y) year = String(y);
+                  } catch (_) {}
+                  const idCode = Number(it.id).toString(36).toUpperCase();
+                  const parts = [titleSlug, year, idCode].filter(Boolean);
+                  return `/listing/${it.id}-${parts.join('-')}`;
+                };
+                return (
+                  <div
+                    key={r.id}
+                    className="card"
+                    onClick={() => navigate(permalinkForItem(r))}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {hero && (
+                      <img
+                        src={hero}
+                        alt={r.title}
+                        loading="lazy"
+                        sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        style={{ width: '100%', height: 160, borderRadius: 8, marginBottom: 8, objectFit: 'cover' }}
+                      />
                     )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                      <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>
+                      {r.price != null && (
+                        <div style={{ margin: '6px 0', whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
+                          {`LKR ${Number(r.price).toLocaleString('en-US')}`}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-muted" style={{ marginBottom: 6 }}>
+                      {r.location ? r.location : ''}
+                      {r.pricing_type ? ` • ${r.pricing_type}` : ''}
+                      {expires ? ` • ${expires}` : ''}
+                    </div>
                   </div>
-                  <div className="text-muted" style={{ marginBottom: 6 }}>
-                    {r.location ? r.location : ''}
-                    {r.pricing_type ? ` • ${r.pricing_type}` : ''}
-                    {expires ? ` • ${expires}` : ''}
-                  </div>
-                </div>
-              )
+                );
+              }
             })}
             {results.length === 0 && <p className="text-muted">No results yet.</p>}
           </div>

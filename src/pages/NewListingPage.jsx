@@ -13,6 +13,34 @@ export default function NewListingPage() {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false)
   const [processing, setProcessing] = useState(false)
 
+  // SEO for new listing page
+  useEffect(() => {
+    try {
+      const titleText = 'Create New Listing — Ganudenu Marketplace'
+      const descText = 'Post your ad in minutes. Upload photos and describe your vehicle, property, job, electronics, mobile, or home & garden listing.'
+      document.title = titleText
+      const setMeta = (name, content) => {
+        let tag = document.querySelector(`meta[name="${name}"]`)
+        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('name', name); document.head.appendChild(tag) }
+        tag.setAttribute('content', content)
+      }
+      const setProp = (property, content) => {
+        let tag = document.querySelector(`meta[property="${property}"]`)
+        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('property', property); document.head.appendChild(tag) }
+        tag.setAttribute('content', content)
+      }
+      let link = document.querySelector('link[rel="canonical"]')
+      if (!link) { link = document.createElement('link'); link.setAttribute('rel', 'canonical'); document.head.appendChild(link) }
+      link.setAttribute('href', 'https://ganudenu.store/new')
+      setMeta('description', descText)
+      setProp('og:title', titleText)
+      setProp('og:description', descText)
+      setProp('og:url', link.getAttribute('href'))
+      setMeta('twitter:title', titleText)
+      setMeta('twitter:description', descText)
+    } catch (_) {}
+  }, [])
+
   const hiddenFileInput = useRef(null)
   const pendingSlotRef = useRef(null)
 

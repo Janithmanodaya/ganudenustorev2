@@ -1,6 +1,13 @@
-import React from 'react'
+import React, { useEffect } from 'react'
+import useSEO from '../components/useSEO.js'
 
 export default function PolicyPage() {
+  useSEO({
+    title: 'Service Policy — Ganudenu Marketplace',
+    description: 'Read the service policy and user responsibilities for using Ganudenu Marketplace.',
+    canonical: 'https://ganudenu.store/policy'
+  })
+
   return (
     <div className="center">
       <div className="card">

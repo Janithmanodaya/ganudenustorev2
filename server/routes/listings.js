@@ -24,6 +24,18 @@ try {
 
 const router = Router();
 
+// Simple in-memory cache with TTL for GET endpoints
+const cacheStore = new Map();
+function cacheGet(key) {
+  const item = cacheStore.get(key);
+  if (!item) return null;
+  if (item.expires <= Date.now()) { cacheStore.delete(key); return null; }
+  return item.value;
+}
+function cacheSet(key, value, ttlMs) {
+  cacheStore.set(key, { value, expires: Date.now() + Math.max(1000, ttlMs || 15000) });
+}
+
 // Debug endpoint: inspect per-user temp AI DB (disabled unless DEBUG_TEMP_EXTRACT=true)
 router.get('/debug/temp-extract', (req, res) => {
   try {
@@ -147,6 +159,18 @@ db.prepare(
   ')'
 ).run();
 
+db.prepare(
+  'CREATE TABLE IF NOT EXISTS listing_views (' +
+  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+  '  listing_id INTEGER NOT NULL,' +
+  '  ip TEXT,' +
+  '  viewer_email TEXT,' +
+  '  ts TEXT NOT NULL,' +
+  '  UNIQUE(listing_id, ip),' +
+  '  FOREIGN KEY(listing_id) REFERENCES listings(id)' +
+  ')'
+).run();
+
 function ensureColumn(table, column, type) {
   const cols = db.prepare('PRAGMA table_info(' + table + ')').all();
   if (!cols.find(c => c.name === column)) {
@@ -158,7 +182,9 @@ ensureColumn('listings', 'model_name', 'TEXT');
 ensureColumn('listings', 'manufacture_year', 'INTEGER');
 ensureColumn('listings', 'remark_number', 'TEXT');
 ensureColumn('listings', 'views', 'INTEGER DEFAULT 0');
+ensureColumn('listings', 'og_image_path', 'TEXT');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
+ensureColumn('listing_images', 'medium_path', 'TEXT');
 
 try {
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)").run();
@@ -418,6 +444,33 @@ router.post('/draft', upload.array('images', 5), async (req, res) => {
         }
       } catch (_) {
         return res.status(400).json({ error: 'Failed to read file ' + (f.originalname) + '.' });
+      }
+    }
+
+    // Image compression & WebP conversion for all uploaded files (optimize storage and delivery)
+    if (sharp) {
+      for (const f of files) {
+        try {
+          const outDir = path.dirname(f.path);
+          const baseName = path.basename(f.path, path.extname(f.path));
+          const webpPath = path.join(outDir, `${baseName}-opt.webp`);
+          // Resize down to max width 1600px, keep aspect ratio, quality ~80
+          await sharp(f.path)
+            .resize({ width: 1600, withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toFile(webpPath);
+          // Replace file path with optimized webp and delete original
+          try { fs.unlinkSync(f.path); } catch (_) {}
+          f.path = webpPath;
+          // Update originalname extension for consistency
+          try {
+            const nameBase = path.basename(f.originalname, path.extname(f.originalname));
+            f.originalname = `${nameBase}.webp`;
+          } catch (_) {}
+        } catch (e) {
+          console.error('[sharp] Failed to optimize image:', f.originalname, e && e.message ? e.message : e);
+          // Keep original file on failure
+        }
       }
     }
 
@@ -833,13 +886,39 @@ router.post('/submit', async (req, res) => {
         
         thumbPath = path.join(outDir, `${baseName}-thumb.webp`);
         mediumPath = path.join(outDir, `${baseName}-medium.webp`);
+        const ogPath = path.join(outDir, `${baseName}-og.webp`);
 
+        // Thumbnail and medium
         await sharp(firstImgPath).resize(120, 90).toFile(thumbPath);
         await sharp(firstImgPath).resize(640, 480).toFile(mediumPath);
+
+        // OG image 1200x630 with subtle overlay
+        const bg = await sharp(firstImgPath).resize(1200, 630).blur(2).toBuffer();
+        const svgOverlay = `
+          <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="1200" height="630" fill="rgba(0,0,0,0.35)"/>
+            <text x="50" y="360" font-family="Arial, Helvetica, sans-serif" font-size="56" fill="#ffffff" font-weight="700">
+              ${String(draft.title || '').slice(0, 42).replace(/&/g,'&amp;')}
+            </text>
+            <text x="50" y="420" font-family="Arial, Helvetica, sans-serif" font-size="28" fill="#e5e7eb" font-weight="500">
+              ${draft.main_category}${typeof finalStruct.price === 'number' ? ' • LKR ' + Number(finalStruct.price).toLocaleString('en-US') : ''}
+            </text>
+            <text x="50" y="480" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#cbd5e1">
+              ${String(finalStruct.location || '').slice(0, 48).replace(/&/g,'&amp;')}
+            </text>
+          </svg>`;
+        await sharp(bg)
+          .composite([{ input: Buffer.from(svgOverlay), top: 0, left: 0 }])
+          .webp({ quality: 90 })
+          .toFile(ogPath);
+
+        // Save OG path into DB later
+        var ogImagePathCreated = ogPath;
       } catch (e) {
-        console.error('[sharp] Failed to create thumbnails:', e.message);
-        thumbPath = null;
-        mediumPath = null;
+        console.error('[sharp] Failed to create thumbnails/OG:', e.message);
+        thumbPath = thumbPath || null;
+        mediumPath = mediumPath || null;
+        var ogImagePathCreated = null;
       }
     }
 
@@ -858,19 +937,32 @@ router.post('/submit', async (req, res) => {
 
     const result = db.prepare(
       'INSERT INTO listings (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, ' +
-      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, valid_until, status, created_at, model_name, manufacture_year, remark_number) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, og_image_path, valid_until, status, created_at, model_name, manufacture_year, remark_number) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       draft.main_category, draft.title, userDescription, JSON.stringify(finalStruct), draft.seo_title, draft.seo_description, draft.seo_keywords,
-      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, validUntil, 'Pending Approval', ts, model_name, manufacture_year, remark
+      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, ogImagePathCreated, validUntil, 'Pending Approval', ts, model_name, manufacture_year, remark
     );
     const listingId = result.lastInsertRowid;
 
     for (const img of images) {
-      db.prepare('INSERT INTO listing_images (listing_id, path, original_name) VALUES (?, ?, ?)').run(
+      let eachMedium = null;
+      if (sharp && img.path) {
+        try {
+          const outDir = path.dirname(img.path);
+          const baseName = path.basename(img.path, path.extname(img.path));
+          eachMedium = path.join(outDir, `${baseName}-m1024.webp`);
+          await sharp(img.path).resize(1024).toFile(eachMedium);
+        } catch (e) {
+          console.error('[sharp] Failed to create per-image medium variant:', e && e.message ? e.message : e);
+          eachMedium = null;
+        }
+      }
+      db.prepare('INSERT INTO listing_images (listing_id, path, original_name, medium_path) VALUES (?, ?, ?, ?)').run(
         listingId,
         img.path,
-        img.original_name
+        img.original_name,
+        eachMedium
       );
     }
 
@@ -1046,8 +1138,15 @@ router.post('/vehicle-specs', express.json(), async (req, res) => {
 // Get all listings with basic filtering
 router.get('/', (req, res) => {
   try {
+    const cacheKey = 'list:' + (req.originalUrl || JSON.stringify(req.query));
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.set('Cache-Control', 'public, max-age=15');
+      return res.json(cached);
+    }
+
     const { category, sortBy, order = 'DESC', status } = req.query;
-    let query = "SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at FROM listings WHERE status != 'Archived'";
+    let query = "SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, og_image_path FROM listings WHERE status != 'Archived'";
     const params = [];
 
     if (status) {
@@ -1056,7 +1155,7 @@ router.get('/', (req, res) => {
     } else {
       query += " AND status = 'Approved'";
     }
-    
+
     if (category) {
       query += ' AND main_category = ?';
       params.push(category);
@@ -1064,29 +1163,32 @@ router.get('/', (req, res) => {
 
     const validSorts = ['created_at', 'price'];
     const validOrders = ['ASC', 'DESC'];
-    if (sortBy && validSorts.includes(sortBy) && validOrders.includes(order.toUpperCase())) {
-      query += ` ORDER BY ${sortBy} ${order.toUpperCase()}`;
+    if (sortBy && validSorts.includes(sortBy) && validOrders.includes(String(order).toUpperCase())) {
+      query += ` ORDER BY ${sortBy} ${String(order).toUpperCase()}`;
     } else {
       query += ' ORDER BY created_at DESC';
     }
 
-    query += ' LIMIT 100'; // Basic pagination
-    
+    query += ' LIMIT 100';
+
     const rows = db.prepare(query).all(params);
-    const firstImageStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
-    const listImagesStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
+    const firstImageStmt = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
+    const listImagesStmt = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
     const results = rows.map(r => {
-      // Prefer generated thumbnail; otherwise fall back to first original image
       let thumbnail_url = filePathToUrl(r.thumbnail_path);
       if (!thumbnail_url) {
         const first = firstImageStmt.get(r.id);
-        thumbnail_url = filePathToUrl(first?.path);
+        thumbnail_url = filePathToUrl(first?.medium_path || first?.path);
       }
       const imgs = listImagesStmt.all(r.id);
-      const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.path)).filter(Boolean) : [];
-      return { ...r, thumbnail_url, small_images };
+      const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.medium_path || x.path)).filter(Boolean) : [];
+      const og_image_url = filePathToUrl(r.og_image_path);
+      return { ...r, thumbnail_url, small_images, og_image_url };
     });
-    res.json({ results });
+    const payload = { results };
+    cacheSet(cacheKey, payload, 15000);
+    res.set('Cache-Control', 'public, max-age=15');
+    res.json(payload);
   } catch (e) {
     console.error('[listings] / error:', e.message);
     res.status(500).json({ error: 'Failed to fetch listings' });
@@ -1096,17 +1198,15 @@ router.get('/', (req, res) => {
 // Search listings with optional filters (used by HomePage and Search page)
 router.get('/search', (req, res) => {
   try {
-    const {
-      q = '',
-      category = '',
-      location = '',
-      price_min = '',
-      price_max = '',
-      filters = '',
-      sort = 'latest',
-      page = '1',
-      limit = '12'
-    } = req.query;
+    // Micro-cache per URL for 15s
+    const cacheKey = 'search:' + (req.originalUrl || JSON.stringify(req.query));
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.set('Cache-Control', 'public, max-age=15');
+      return res.json(cached);
+    }
+
+    const { q = '', category = '', location = '', price_min = '', price_max = '', filters = '', sort = 'latest', page = '1', limit = '12' } = req.query;
 
     const lim = Math.max(1, Math.min(100, parseInt(limit, 10) || 12));
     const pg = Math.max(1, parseInt(page, 10) || 1);
@@ -1195,20 +1295,23 @@ router.get('/search', (req, res) => {
       });
     }
 
-    const firstImageStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
-    const listImagesStmt = db.prepare('SELECT path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
+    const firstImageStmt = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 1');
+    const listImagesStmt = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 5');
     results = results.map(r => {
       let thumbnail_url = filePathToUrl(r.thumbnail_path);
       if (!thumbnail_url) {
         const first = firstImageStmt.get(r.id);
-        thumbnail_url = filePathToUrl(first?.path);
+        thumbnail_url = filePathToUrl(first?.medium_path || first?.path);
       }
       const imgs = listImagesStmt.all(r.id);
-      const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.path)).filter(Boolean) : [];
+      const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.medium_path || x.path)).filter(Boolean) : [];
       return { ...r, thumbnail_url, small_images };
     });
 
-    res.json({ results, page: pg, limit: lim });
+    const payload = { results, page: pg, limit: lim };
+    cacheSet(cacheKey, payload, 15000);
+    res.set('Cache-Control', 'public, max-age=15');
+    res.json(payload);
   } catch (e) {
     console.error('[listings] /search error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to search listings' });
@@ -1218,15 +1321,15 @@ router.get('/search', (req, res) => {
 // Dynamic filters for a category (keys and value options derived from existing listings)
 router.get('/filters', (req, res) => {
   try {
+    const cacheKey = 'filters:' + (req.originalUrl || JSON.stringify(req.query));
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.set('Cache-Control', 'public, max-age=60');
+      return res.json(cached);
+    }
+
     const category = String(req.query.category || '').trim();
     if (!category) return res.status(400).json({ error: 'category is required' });
-
-    const rows = db.prepare(`
-      SELECT title, description, structured_json
-      FROM listings
-      WHERE status = 'Approved' AND main_category = ?
-      ORDER BY id DESC LIMIT 500
-    `).all(category);
 
     function normalizeVehicleSubCategory(input) {
       let subCat = String(input || '').trim();
@@ -1286,7 +1389,10 @@ router.get('/filters', (req, res) => {
       outValues[k] = Array.from(valuesByKey[k]).slice(0, 50);
     }
 
-    res.json({ keys, valuesByKey: outValues });
+    const payload = { keys, valuesByKey: outValues };
+    cacheSet(cacheKey, payload, 60000);
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json(payload);
   } catch (e) {
     console.error('[listings] /filters error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to load filters' });
@@ -1296,6 +1402,13 @@ router.get('/filters', (req, res) => {
 // Suggestions for global search (titles, locations, sub_category, model)
 router.get('/suggestions', (req, res) => {
   try {
+    const cacheKey = 'suggestions:' + (req.originalUrl || JSON.stringify(req.query));
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.set('Cache-Control', 'public, max-age=30');
+      return res.json(cached);
+    }
+
     const q = String(req.query.q || '').trim().toLowerCase();
     if (!q) return res.json({ results: [] });
 
@@ -1321,14 +1434,18 @@ router.get('/suggestions', (req, res) => {
       if (suggestions.size >= 50) break;
     }
 
-    res.json({ results: Array.from(suggestions).slice(0, 50) });
+    const payload = { results: Array.from(suggestions).slice(0, 50) };
+    cacheSet(cacheKey, payload, 30000);
+    res.set('Cache-Control', 'public, max-age=30');
+    res.json(payload);
   } catch (e) {
     console.error('[listings] /suggestions error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to load suggestions' });
   }
 });
 
-// Get current user's listings (My Ads)
+
+// Get current user's listings (My _code (My Ads)
 router.get('/my', (req, res) => {
   try {
     const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
@@ -1371,25 +1488,69 @@ router.get('/:id', (req, res) => {
     const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
-    // Increment view counter (best-effort)
+    // Increment view counter (best-effort) with conditions:
+    // - Do not count views from the listing owner
+    // - Do not count duplicate views from the same IP
     try {
-      db.prepare('UPDATE listings SET views = COALESCE(views, 0) + 1 WHERE id = ?').run(id);
-      listing.views = (listing.views || 0) + 1;
+      const viewerEmail = String(req.header('X-User-Email') || '').toLowerCase().trim();
+      const ownerEmail = String(listing.owner_email || '').toLowerCase().trim();
+      // Determine client IP (favor X-Forwarded-For, else remoteAddress/ip)
+      let ip = '';
+      try {
+        const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+        ip = fwd || String(req.socket?.remoteAddress || req.ip || '').trim();
+        // Normalize IPv6 prefix ::ffff:
+        if (ip.startsWith('::ffff:')) ip = ip.slice(7);
+      } catch (_) {
+        ip = '';
+      }
+
+      let shouldCount = true;
+      // Skip owner's views
+      if (viewerEmail && ownerEmail && viewerEmail === ownerEmail) {
+        shouldCount = false;
+      }
+      // Purge old view records (older than 24 hours) so IPs don't persist forever
+      try {
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        db.prepare('DELETE FROM listing_views WHERE ts < ?').run(cutoff);
+      } catch (_) {}
+
+      // Skip duplicate IP views (only within the last 24 hours, since older records are purged above)
+      if (shouldCount && ip) {
+        const exists = db.prepare('SELECT 1 FROM listing_views WHERE listing_id = ? AND ip = ? LIMIT 1').get(id, ip);
+        if (exists) {
+          shouldCount = false;
+        }
+      }
+
+      if (shouldCount) {
+        db.prepare('UPDATE listings SET views = COALESCE(views, 0) + 1 WHERE id = ?').run(id);
+        listing.views = (listing.views || 0) + 1;
+        db.prepare('INSERT OR IGNORE INTO listing_views (listing_id, ip, viewer_email, ts) VALUES (?, ?, ?, ?)').run(
+          id,
+          ip || null,
+          viewerEmail || null,
+          new Date().toISOString()
+        );
+      }
     } catch (_) {}
 
-    const imagesRows = db.prepare('SELECT id, path, original_name FROM listing_images WHERE listing_id = ?').all(id);
+    const imagesRows = db.prepare('SELECT id, path, original_name, medium_path FROM listing_images WHERE listing_id = ?').all(id);
     const images = imagesRows.map(img => ({
       id: img.id,
       original_name: img.original_name,
       path: img.path,
-      url: filePathToUrl(img.path)
+      url: filePathToUrl(img.path),
+      medium_url: filePathToUrl(img.medium_path)
     }));
 
-    // Also expose public URLs for thumbnail/medium if present
+    // Also expose public URLs for thumbnail/medium/og if present
     const thumbnail_url = filePathToUrl(listing.thumbnail_path);
     const medium_url = filePathToUrl(listing.medium_path);
+    const og_image_url = filePathToUrl(listing.og_image_path);
     
-    res.json({ ...listing, thumbnail_url, medium_url, images });
+    res.json({ ...listing, thumbnail_url, medium_url, og_image_url, images });
   } catch (e) {
     console.error('[listings] /:id error:', e.message);
     res.status(500).json({ error: 'Failed to fetch listing' });
@@ -1461,6 +1622,13 @@ router.delete('/:id', (req, res) => {
  */
 router.get('/payment-info/:id', (req, res) => {
   try {
+    const cacheKey = 'payment-info:' + String(req.params.id || '');
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.set('Cache-Control', 'public, max-age=60');
+      return res.json(cached);
+    }
+
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid ID' });
     const listing = db.prepare('SELECT id, title, price, owner_email, status, remark_number, main_category FROM listings WHERE id = ?').get(id);
@@ -1481,14 +1649,17 @@ router.get('/payment-info/:id', (req, res) => {
     const payment_amount = Number(rule?.amount ?? defaults[listing.main_category] ?? defaults['Other']);
     const payments_enabled = rule ? !!rule.enabled : true;
 
-    res.json({
+    const payload = {
       ok: true,
       listing,
       bank_details: cfg?.bank_details || '',
       whatsapp_number: cfg?.whatsapp_number || '',
       payment_amount,
       payments_enabled
-    });
+    };
+    cacheSet(cacheKey, payload, 60000);
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json(payload);
   } catch (e) {
     console.error('[listings] /payment-info/:id error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to load payment info' });

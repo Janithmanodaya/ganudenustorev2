@@ -4,6 +4,7 @@ import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import ChatWidget from '../components/ChatWidget.jsx'
 
 import CustomSelect from '../components/CustomSelect.jsx'
+import useSEO from '../components/useSEO.js'
 
 export default function HomePage() {
   const [q, setQ] = useState('')
@@ -25,6 +26,13 @@ export default function HomePage() {
   const [locSuggestions, setLocSuggestions] = useState([])
   const [locationOptionsCache, setLocationOptionsCache] = useState([])
   const [sort, setSort] = useState('latest')
+
+  // Site-wide SEO for homepage (via helper)
+  useSEO({
+    title: 'Ganudenu Marketplace — Buy • Sell • Hire in Sri Lanka',
+    description: 'Discover great deals on vehicles, property, jobs, electronics, mobiles, and home & garden. Post your ad in minutes.',
+    canonical: 'https://ganudenu.store/'
+  })
 
   // Global search suggestions
   const [searchSuggestions, setSearchSuggestions] = useState([])
@@ -552,14 +560,33 @@ export default function HomePage() {
                   const idx = cardSlideIndex[item.id] || 0
                   const hero = imgs.length ? imgs[idx % imgs.length] : (item.thumbnail_url || null)
 
+                  function makeSlug(s) {
+                    const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                    return base || 'listing';
+                  }
+                  function permalinkForItem(it) {
+                    const titleSlug = makeSlug(it.title || '');
+                    // Try to include year from structured_json if present
+                    let year = '';
+                    try {
+                      const sj = JSON.parse(it.structured_json || '{}');
+                      const y = sj.manufacture_year || sj.year || sj.model_year || null;
+                      if (y) year = String(y);
+                    } catch (_) {}
+                    const idCode = Number(it.id).toString(36).toUpperCase(); // short alphanumeric
+                    const parts = [titleSlug, year, idCode].filter(Boolean);
+                    return `/listing/${it.id}-${parts.join('-')}`;
+                  }
                   return (
-                    <div key={item.id} className="card" onClick={() => navigate(`/listing/${item.id}`)} style={{ cursor: 'pointer' }}>
+                    <div key={item.id} className="card" onClick={() => navigate(permalinkForItem(item))} style={{ cursor: 'pointer' }}>
                       {/* Small image slider */}
                       {hero && (
                         <div style={{ position: 'relative', marginBottom: 8 }}>
                           <img
                             src={hero}
                             alt={item.title}
+                            loading="lazy"
+                            sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             style={{ width: '100%', borderRadius: 8, objectFit: 'cover', height: 180 }}
                           />
                           {imgs.length > 1 && (

@@ -1,12 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '../components/Modal.jsx'
+import useSEO from '../components/useSEO.js'
 
 export default function MyAdsPage() {
   const [items, setItems] = useState([])
   const [status, setStatus] = useState(null)
   const [rejectModal, setRejectModal] = useState({ open: false, reason: '', title: '' })
   const navigate = useNavigate()
+
+  // SEO for My Ads via helper
+  useSEO({
+    title: 'My Ads — Ganudenu Marketplace',
+    description: 'Manage your pending, approved, and rejected listings. Track views and status at a glance.',
+    canonical: 'https://ganudenu.store/my-ads'
+  })
 
   // Dashboard: Your Ad Progress
   const [lastUpdated, setLastUpdated] = useState(null)
@@ -69,17 +77,33 @@ export default function MyAdsPage() {
     }
   }
 
+  function makeSlug(s) {
+    const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    return base || 'listing'
+  }
+  function permalinkForItem(it) {
+    const titleSlug = makeSlug(it.title || '')
+    let year = ''
+    try {
+      const sj = JSON.parse(it.structured_json || '{}')
+      const y = sj.manufacture_year || sj.year || sj.model_year || null
+      if (y) year = String(y)
+    } catch (_) {}
+    const idCode = Number(it.id).toString(36).toUpperCase()
+    const parts = [titleSlug, year, idCode].filter(Boolean)
+    return `/listing/${it.id}-${parts.join('-')}`
+  }
   function handleCardClick(item) {
     const st = String(item.status || '').toLowerCase()
     if (st.includes('pending')) {
       navigate(`/payment/${item.id}`)
     } else if (st.includes('approved')) {
-      navigate(`/listing/${item.id}`)
+      navigate(permalinkForItem(item))
     } else if (st.includes('reject')) {
       const reason = String(item.reject_reason || '').trim()
       setRejectModal({ open: true, reason: reason || 'No reason provided.', title: item.title || 'Rejected Ad' })
     } else {
-      navigate(`/listing/${item.id}`)
+      navigate(permalinkForItem(item))
     }
   }
 
@@ -106,7 +130,13 @@ export default function MyAdsPage() {
         style={{ cursor: 'pointer', position: 'relative' }}
       >
         {hero && (
-          <img src={hero} alt={item.title} style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }} />
+          <img
+            src={hero}
+            alt={item.title}
+            loading="lazy"
+            sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            style={{ width: '100%', borderRadius: 8, marginBottom: 8, objectFit: 'cover' }}
+          />
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
           <div className="h2" style={{ margin: '6px 0' }}>{item.title}</div>
