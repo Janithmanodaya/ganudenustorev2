@@ -309,12 +309,12 @@ export default function JobPortalPage() {
                 return `/listing/${it.id}-${parts.join('-')}`;
               }
               return (
-               < div
+                <div
                   key={item.id}
                   className="card"
                   onClick={() => navigate(permalinkForItem(item))}
                   style={{ cursor: 'pointer' }}
-
+                >
                   {hero && (
                     <div style={{ position: 'relative', marginBottom: 8 }}>
                       <img
