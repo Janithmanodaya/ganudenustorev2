@@ -1384,6 +1384,15 @@ router.get('/filters', (req, res) => {
       return '';
     }
 
+    // Load recent approved listings for this category to derive dynamic filter values
+    const rows = db.prepare(`
+      SELECT title, description, structured_json, location
+      FROM listings
+      WHERE status = 'Approved' AND main_category = ?
+      ORDER BY created_at DESC
+      LIMIT 800
+    `).all(category);
+
     const valuesByKey = {};
     for (const row of rows) {
       let sj = {};
@@ -1416,6 +1425,27 @@ router.get('/filters', (req, res) => {
         }
       }
     }
+
+    // Include distinct locations for the selected category to power the Location dropdown on Home
+    try {
+      const locRows = db.prepare(`
+        SELECT DISTINCT location
+        FROM listings
+        WHERE status = 'Approved' AND main_category = ?
+          AND location IS NOT NULL AND TRIM(location) <> ''
+        ORDER BY location COLLATE NOCASE ASC
+        LIMIT 200
+      `).all(category);
+      const locSet = new Set();
+      for (const r of locRows) {
+        const loc = String(r.location || '').trim();
+        if (loc) locSet.add(loc);
+      }
+      if (locSet.size > 0) {
+        valuesByKey['location'] = valuesByKey['location'] || new Set();
+        for (const v of locSet) valuesByKey['location'].add(v);
+      }
+    } catch (_) {}
 
     const keys = Object.keys(valuesByKey).sort();
     const outValues = {};
