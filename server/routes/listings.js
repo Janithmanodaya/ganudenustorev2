@@ -1182,8 +1182,6 @@ router.get('/', (req, res) => {
     res.status(500).json({ error: 'Failed to fetch listings' });
   }
 });
-  }
-});
 
 // Search listings with optional filters (used by HomePage and Search page)
 router.get('/search', (req, res) => {
@@ -1431,11 +1429,11 @@ router.get('/suggestions', (req, res) => {
   } catch (e) {
     console.error('[listings] /suggestions error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to load suggestions' });
-  }_code
-}new)</;
+  }
+});
 
 
-// Get current user's listings (My Ads)
+// Get current user's listings (My _code (My Ads)
 router.get('/my', (req, res) => {
   try {
     const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
