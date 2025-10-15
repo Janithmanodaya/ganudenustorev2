@@ -142,6 +142,19 @@ export default function JobPortalPage() {
     runPortalSearch()
   }
 
+  function resetJobFilters() {
+    try {
+      setQ('');
+      setSalaryMin('');
+      setSalaryMax('');
+      setFilters({});
+      setPage(1);
+      runPortalSearch({}, '');
+      // Scroll back to top of results
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
+    } catch (_) {}
+  }
+
   const white = { color: '#fff' }
   const pageWindow = [page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1)
 
@@ -280,6 +293,7 @@ export default function JobPortalPage() {
                 ))}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn" type="button" onClick={() => setFilters({})}>Clear</button>
+                <button className="btn" type="button" onClick={resetJobFilters} title="Reset all job filters">Reset</button>
                 <button className="btn primary" type="button" onClick={applyJobFilters}>Apply</button>
               </div>
             </div>
