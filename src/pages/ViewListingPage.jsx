@@ -418,10 +418,16 @@ export default function ViewListingPage() {
     } catch (_) {}
   }, [listing])
 
+  const isPropertyCat = String(listing?.main_category || '') === 'Property'
+  const propAddress = String((structured && structured.address) || '')
+  const propLandType = String((structured && structured.land_type) || '')
+  const propLandSize = String((structured && structured.land_size) || '')
+
   const structuredEntries = useMemo(() => {
     const obj = structured || {}
     let entries = Object.entries(obj).filter(([k]) => k && k !== '')
     const isJobCat = String(listing?.main_category || '') === 'Job'
+    const isPropCat = String(listing?.main_category || '') === 'Property'
 
     // Always avoid duplicating the long description in the right-side details
     const removeKeys = new Set([
@@ -436,6 +442,11 @@ export default function ViewListingPage() {
       ;['model_name','model','manufacture_year','model_year','year','mfg_year'].forEach(k => removeKeys.add(k))
       // Also remove alternative salary fields to avoid duplicates when price/pricing_type are present
       ;['expected_salary','salary_lkr','pay','compensation','compensation_type'].forEach(k => removeKeys.add(k))
+    }
+
+    if (isPropCat) {
+      // We'll render these explicitly at the top of the details section
+      ;['address','land_type','land_size'].forEach(k => removeKeys.add(k))
     }
 
     entries = entries.filter(([k]) => !removeKeys.has(String(k)))
@@ -688,8 +699,28 @@ export default function ViewListingPage() {
               ) : null}
 
               <div className="h2" style={{ marginTop: 16 }}>Key Details</div>
-              {structuredEntries.length === 0 && <p className="text-muted">No structured data available.</p>}
+              {structuredEntries.length === 0 && !isPropertyCat && <p className="text-muted">No structured data available.</p>}
               <div className="details-grid">
+                {/* Property extras shown first if present */}
+                {isPropertyCat && propAddress && (
+                  <div className="detail">
+                    <div className="label">Address</div>
+                    <div className="value">{propAddress}</div>
+                  </div>
+                )}
+                {isPropertyCat && propLandType && (
+                  <div className="detail">
+                    <div className="label">Land Type</div>
+                    <div className="value">{propLandType}</div>
+                  </div>
+                )}
+                {isPropertyCat && propLandSize && (
+                  <div className="detail">
+                    <div className="label">Land Size</div>
+                    <div className="value">{propLandSize}</div>
+                  </div>
+                )}
+
                 {structuredEntries.map(([k, v]) => (
                   <div key={k} className="detail">
                     <div className="label">{prettyLabel(k)}</div>
