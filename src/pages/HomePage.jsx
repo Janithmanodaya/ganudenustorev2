@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import ChatWidget from '../components/ChatWidget.jsx'
+import { useI18n } from '../components/i18n.jsx'
 
 import CustomSelect from '../components/CustomSelect.jsx'
 import useSEO from '../components/useSEO.js'
 
 export default function HomePage() {
   const [q, setQ] = useState('')
+  const { t } = useI18n()
   const [latest, setLatest] = useState([])
   const [status, setStatus] = useState(null)
   const [localFilter, setLocalFilter] = useState('')
@@ -810,7 +812,7 @@ export default function HomePage() {
       {/* Standalone Feature section (separate from main card) */}
       <section style={{ marginTop: 18 }}>
         <div style={{ margin: '0 auto', maxWidth: 1000 }}>
-          <div className="h2" style={{ marginTop: 0, textAlign: 'center' }}>Our Features</div>
+          <div className="h2" style={{ marginTop: 0, textAlign: 'center' }}>{t('features.sectionTitle')}</div>
         </div>
 
         {/* Feature mini-cards - horizontal slider with floating nav buttons and hidden scrollbar */}
@@ -823,66 +825,66 @@ export default function HomePage() {
             <div style={{ display: 'flex', gap: 12, paddingBottom: 6, minWidth: 'max-content' }}>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🤖 AI Categories
+                  {t('features.aiCategoriesTitle')}
                 </div>
                 <div className="text-muted">
-                  AI auto-selects the best main category<br/>and sub-category for your ad.
+                  {t('features.aiCategoriesDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  ✍️ AI Descriptions
+                  {t('features.aiDescriptionsTitle')}
                 </div>
                 <div className="text-muted">
-                  One-click, polished descriptions with bullets<br/>and emoji for clarity.
+                  {t('features.aiDescriptionsDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🧭 Advanced Filters
+                  {t('features.advancedFiltersTitle')}
                 </div>
                 <div className="text-muted">
-                  Powerful, easy filters to find exactly what<br/>you need fast.
+                  {t('features.advancedFiltersDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🚀 Futuristic UI
+                  {t('features.futuristicUiTitle')}
                 </div>
                 <div className="text-muted">
-                  Clean, modern, and fast experience<br/>across devices.
+                  {t('features.futuristicUiDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🇱🇰 100% Sri Lankan
+                  {t('features.sriLankanTitle')}
                 </div>
                 <div className="text-muted">
-                  Built for Sri Lanka with local insights<br/>and simplicity.
+                  {t('features.sriLankanDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  💸 Low Cost
+                  {t('features.lowCostTitle')}
                 </div>
                 <div className="text-muted">
-                  Keep costs down while reaching more<br/>buyers and sellers.
+                  {t('features.lowCostDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🔗 Auto Facebook (Soon)
+                  {t('features.autoFacebookTitle')}
                 </div>
                 <div className="text-muted">
-                  Auto-create and auto-share to your FB<br/>page after publish.
+                  {t('features.autoFacebookDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🧩 All-in-one
+                  {t('features.allInOneTitle')}
                 </div>
                 <div className="text-muted">
-                  Everything you need to buy, sell, and hire —<br/>in one place.
+                  {t('features.allInOneDesc')}
                 </div>
               </div>
             </div>
