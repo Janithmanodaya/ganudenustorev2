@@ -869,13 +869,7 @@ export default function ViewListingPage() {
                   </div>
                 )}
 
-                {/* Public Views count */}
-                {Number.isFinite(Number(listing?.views)) && (
-                  <div className="detail">
-                    <div className="label">Views</div>
-                    <div className="value">{Number(listing.views).toLocaleString('en-US')}</div>
-                  </div>
-                )}
+                
 
                 {structuredEntries.map(([k, v]) => (
                   <div key={k} className="detail">
