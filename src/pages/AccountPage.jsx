@@ -199,9 +199,7 @@ export default function AccountPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-User-Email': user.email },
         body: JSON.stringify({
-          bio: profile.bio || '',
-          verified_email: !!profile.verified_email,
-          verified_phone: !!profile.verified_phone
+          bio: profile.bio || ''
         })
       })
       const data = await r.json().catch(() => ({}))
@@ -305,22 +303,6 @@ export default function AccountPage() {
                     onChange={e => setProfile(prev => ({ ...prev, bio: e.target.value }))}
                   />
                 </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={!!profile.verified_email}
-                    onChange={e => setProfile(prev => ({ ...prev, verified_email: e.target.checked }))}
-                  />
-                  Verified Email
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={!!profile.verified_phone}
-                    onChange={e => setProfile(prev => ({ ...prev, verified_phone: e.target.checked }))}
-                  />
-                  Verified Phone
-                </label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn primary" type="submit">Save Profile</button>
                 </div>
