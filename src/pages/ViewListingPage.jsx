@@ -713,14 +713,35 @@ export default function ViewListingPage() {
 
               {listing && (
                 <div className="seo-keys" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {listing.main_category && <span className="pill">{listing.main_category}</span>}
-                  {listing.status && <span className="pill">{listing.status}</span>}
-                  {listing.location && <span className="pill">{listing.location}</span>}
-                  {sellerUsername && (
-                    <a className="pill" href={`/seller/${encodeURIComponent(sellerUsername)}`} title="View seller profile">Seller: {sellerUsername}</a>
+                  {!isMobile ? (
+                    <>
+                      {listing.main_category && <span className="pill">{listing.main_category}</span>}
+                      {listing.status && <span className="pill">{listing.status}</span>}
+                      {listing.location && <span className="pill">{listing.location}</span>}
+                      {sellerUsername && (
+                        <a className="pill" href={`/seller/${encodeURIComponent(sellerUsername)}`} title="View seller profile">Seller: {sellerUsername}</a>
+                      )}
+                      {Number.isFinite(Number(listing?.views)) && <span className="pill">👁️ {Number(listing.views).toLocaleString('en-US')}</span>}
+                      {listing.pricing_type && <span className="pill">{String(listing?.main_category || '') === 'Job' ? 'Salary Type' : 'Price Type'}: {listing.pricing_type}</span>}
+                    </>
+                  ) : (
+                    <>
+                      {/* Row 1: location, views, pricing */}
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto' }}>
+                        {listing.location && <span className="pill">{listing.location}</span>}
+                        {Number.isFinite(Number(listing?.views)) && <span className="pill">👁️ {Number(listing.views).toLocaleString('en-US')}</span>}
+                        {listing.pricing_type && <span className="pill">{String(listing?.main_category || '') === 'Job' ? 'Salary Type' : 'Price Type'}: {listing.pricing_type}</span>}
+                      </div>
+                      {/* Row 2: category, status, seller */}
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto', marginTop: 6 }}>
+                        {listing.main_category && <span className="pill">{listing.main_category}</span>}
+                        {listing.status && <span className="pill">{listing.status}</span>}
+                        {sellerUsername && (
+                          <a className="pill" href={`/seller/${encodeURIComponent(sellerUsername)}`} title="View seller profile">Seller: {sellerUsername}</a>
+                        )}
+                      </div>
+                    </>
                   )}
-                  {Number.isFinite(Number(listing?.views)) && <span className="pill">👁️ {Number(listing.views).toLocaleString('en-US')}</span>}
-                  {listing.pricing_type && <span className="pill">{String(listing?.main_category || '') === 'Job' ? 'Salary Type' : 'Price Type'}: {listing.pricing_type}</span>}
                 </div>
               )}
             </div>
