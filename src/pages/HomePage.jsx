@@ -74,14 +74,11 @@ export default function HomePage() {
   // Mobile detection for UX tweaks (keyboard-safe dropdown)
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
+    let cleanup = null
     try {
-      const mq = window.matchMedia && window.matchMedia('(max-width: 780px)')
-      const initial = !!(mq && mq.matches)
-      setIsMobile(initial)
-      const handler = (e) => {
-        try { setIsMobile(!!e.matches) } catch (_) {}
-      }
-      // Prefer addEventListener; fallback to addListener for older browsers
+      const mq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width: 780px)') : null
+      setIsMobile(!!(mq && mq.matches))
+      const handler = (e) => { try { setIsMobile(!!e.matches) } catch (_) {} }
       if (mq && mq.addEventListener) {
         mq.addEventListener('change', handler)
         return () => { try { mq.removeEventListener('change', handler) } catch (_) {} }
@@ -372,8 +369,24 @@ export default function HomePage() {
               value={q}
               onChange={e => setQ(e.target.value)}
               onFocus={(e) => {
-                // Ensure the search box is visible above the mobile keyboard
-                try { e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (_) {}
+                // On mobile, make sure the search bar is fully visible above keyboard
+                try {
+                  if (isMobile) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  } else {
+                    e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }
+                } catch (_) {}
+              }}
+              onClick={(e) => {
+                // Also handle tap/click bringing the search bar to top on mobile
+                try {
+                  if (isMobile) window.scrollTo({ top: 0, behavior: 'smooth' })
+                } catch (_) {}
+              }}
+              onTouchStart={(e) => {
+                // Ensure early touch shows the input unobstructed on mobile
+                try { if (isMobile) window.scrollTo({ top: 0 }) } catch (_) {}
               }}
             />
             {/* Dynamic typed suggestions dropdown (titles, locations, sub_category, model) */}
@@ -388,10 +401,10 @@ export default function HomePage() {
                   top: '100%',
                   marginTop: 6,
                   zIndex: 60,
-                  maxHeight: isMobile ? 180 : 300, // keep short on mobile to avoid keyboard overlap
+                  maxHeight: isMobile ? 180 : 300,
                   overflowY: 'auto',
                   padding: 6,
-                  background: 'rgba(18,22,31,0.96)', // darker for readability
+                  background: 'rgba(18,22,31,0.96)',
                   border: '1px solid var(--border)',
                   boxShadow: '0 14px 36px var(--shadow)',
                   borderRadius: 12
@@ -419,8 +432,13 @@ export default function HomePage() {
                         setQ(v)
                         // Scroll a bit to keep the search bar visible while navigating
                         try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
-                        navigate(`/search?q=${encodeURIComponent(v)}`)
-                      }}
+                        // Build a smarter search path based on suggestion type
+                        const params = new URLSearchParams()
+                        if (type === 'location') {
+                          params.set('location', v)
+                        } else if (type === 'sub_category') {
+                          params.set('filters', JSON.stringify({ sub_category: v }))
+                        } else if (             }}
                       style={{
                         padding: '8px 10px',
                         borderRadius: 8,
@@ -1017,7 +1035,7 @@ export default function HomePage() {
             }}
             onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
             onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
-          >{'<'}</button>
+          >‹</button>
           <button
             className="btn feature-nav"
             type="button"
@@ -1044,7 +1062,7 @@ export default function HomePage() {
             }}
             onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
             onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
-          >{'>'}</button>
+          >›</button>
 
           {/* Hide scrollbar styling */}
           <style>{`
