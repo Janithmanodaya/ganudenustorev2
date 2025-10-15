@@ -326,7 +326,6 @@ export default function SearchResultsPage() {
                     return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
                   };
                   const tokenKeys = new Set(['sub_category', 'model', 'model_name']); // multi-select via tags
-                  const inputKeys = new Set(['manufacture_year']);
                   return filtersDef.keys
                     .filter(k => !['location','pricing_type','price'].includes(k))
                     .map(key => {
@@ -342,24 +341,6 @@ export default function SearchResultsPage() {
                           />
                         )
                       }
-                      if (inputKeys.has(key)) {
-                        const listId = `adv-filter-${key}-list`;
-                        return (
-                          <div key={key}>
-                            <input
-                              className="input"
-                              list={listId}
-                              placeholder={pretty(key)}
-                              value={filters[key] || ''}
-                              onChange={e => updateFilter(key, e.target.value)}
-                              aria-label={key}
-                            />
-                            <datalist id={listId}>
-                              {values.map(v => <option key={v} value={v} />)}
-                            </datalist>
-                          </div>
-                        );
-                      }
                       return (
                         <div key={key}>
                           <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
@@ -369,6 +350,7 @@ export default function SearchResultsPage() {
                             ariaLabel={key}
                             placeholder={pretty(key)}
                             options={[{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))]}
+                            searchable={true}
                           />
                         </div>
                       );
