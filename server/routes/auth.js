@@ -197,7 +197,7 @@ router.post('/verify-otp-and-register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
-  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path, is_banned, suspended_until, user_uid, is_verified FROM users WHERE email = ?').get(email.toLowerCase())</;
+  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path, is_banned, suspended_until, user_uid, is_verified FROM users WHERE email = ?').get(email.toLowerCase());
   if (!user) return res.status(401).json({ error: 'Invalid credentials.' });
   const match = await bcrypt.compare(password, user.password_hash);
   if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
@@ -252,7 +252,7 @@ router.post('/verify-admin-login-otp', async (req, res) => {
   const { email, password, otp } = req.body || {};
   if (!email || !password || !otp) return res.status(400).json({ error: 'Email, password, and OTP are required.' });
 
-  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path, user_uid, is_verified FROM users WHERE email = ?').get(email.toLowerCase_code()new)</;
+  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path, user_uid, is_verified FROM users WHERE email = ?').get(email.toLowerCase());
   if (!user || !user.is_admin) return res.status(401).json({ error: 'Invalid credentials.' });
 
   const match = await bcrypt.compare(password, user.password_hash);
@@ -272,7 +272,8 @@ router.post('/verify-admin-login-otp', async (req, res) => {
   try { db.prepare('DELETE FROM otps WHERE id = ?').run(otpRecord.id); } catch (_) {}
 
   const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
-  return res.json({ ok: true, user: { id: user.id, user_uid: user.user_uid, email: user.email, username: !!user.is_admin, photo_url } });
+  return res.json({ ok: true, user: { id: user.id, user_uid: user.user_uid, email: user.email, username: user.username, is_admin: !!user.is_admin, is_verified: !!user.is_verified, photo_url }_code }new)</;
+;
 });
 
 // Forgot Password
