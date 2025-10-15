@@ -14,6 +14,7 @@ export default function ViewListingPage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [favPulse, setFavPulse] = useState(false)
   const [descOpen, setDescOpen] = useState(false)
+  const [sellerUsername, setSellerUsername] = useState(null)
 
   function getUser() {
     try { return JSON.parse(localStorage.getItem('user') || 'null') } catch (_) { return null }
@@ -305,6 +306,23 @@ export default function ViewListingPage() {
         } catch (_) {
           setStructured({})
         }
+        // Load seller username
+        try {
+          const email = String(data.owner_email || '').trim()
+          if (email) {
+            const rs = await fetch(`/api/auth/status?email=${encodeURIComponent(email)}`)
+            const usr = await rs.json()
+            if (rs.ok && usr?.username) {
+              setSellerUsername(usr.username)
+            } else {
+              setSellerUsername(null)
+            }
+          } else {
+            setSellerUsername(null)
+          }
+        } catch (_) {
+          setSellerUsername(null)
+        }
       } catch (e) {
         setStatus(`Error: ${e.message}`)
       } finally {
@@ -552,6 +570,7 @@ export default function ViewListingPage() {
                   {listing.main_category && <span className="pill">{listing.main_category}</span>}
                   {listing.status && <span className="pill">{listing.status}</span>}
                   {listing.location && <span className="pill">{listing.location}</span>}
+                  {sellerUsername && <span className="pill">Seller: {sellerUsername}</span>}
                   {listing.pricing_type && <span className="pill">{String(listing?.main_category || '') === 'Job' ? 'Salary Type' : 'Price Type'}: {listing.pricing_type}</span>}
                 </div>
               )}
@@ -655,6 +674,7 @@ export default function ViewListingPage() {
               {listing?.phone ? (
                 <div className="card contact-mobile" style={{ marginTop: 0 }}>
                   <div className="h2" style={{ marginTop: 0 }}>Contact</div>
+                  {sellerUsername && <div className="text-muted" style={{ marginBottom: 6 }}>Seller: {sellerUsername}</div>}
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <a
                       className="btn primary"
@@ -682,6 +702,7 @@ export default function ViewListingPage() {
               {listing?.phone && (
                 <div className="card contact-desktop" style={{ marginTop: 16 }}>
                   <div className="h2" style={{ marginTop: 0 }}>Contact</div>
+                  {sellerUsername && <div className="text-muted" style={{ marginBottom: 6 }}>Seller: {sellerUsername}</div>}
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <a
                       className="btn primary"
