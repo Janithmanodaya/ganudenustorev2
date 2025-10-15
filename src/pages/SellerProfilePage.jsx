@@ -16,7 +16,8 @@ export default function SellerProfilePage() {
     async function load() {
       try {
         setStatus(null)
-        const r = await fetch(`/api/users/profile?username=${encodeURIComponent(username)}`)
+        // Try with both username and email params to maximize match
+        const r = await fetch(`/api/users/profile?username=${encodeURIComponent(username)}&email=${encodeURIComponent(username)}`)
         const d = await r.json()
         if (!r.ok) throw new Error(d.error || 'Failed to load profile')
         setData(d)
@@ -46,7 +47,7 @@ export default function SellerProfilePage() {
       if (!r.ok) throw new Error(d.error || 'Failed to rate')
       setStatus('Thank you for your rating.')
       // refresh ratings
-      const rr = await fetch(`/api/users/profile?username=${encodeURIComponent(username)}`)
+      const rr = await fetch(`/api/users/profile?username=${encodeURIComponent(username)}&email=${encodeURIComponent(username)}`)
       const dd = await rr.json()
       if (rr.ok) setData(dd)
       setRatingComment('')
@@ -60,7 +61,11 @@ export default function SellerProfilePage() {
       <div className="center">
         <div className="card">
           <div className="h1">Seller Profile</div>
-          <p className="text-muted">Loading...</p>
+          {status ? (
+            <p className="text-muted">{status}</p>
+          ) : (
+            <p className="text-muted">Loading...</p>
+          )}
         </div>
       </div>
     )

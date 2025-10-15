@@ -36,7 +36,15 @@ try {
 // Helper: fetch user by username or email
 function findUser({ username, email }) {
   if (username) {
-    return db.prepare(`SELECT id, email, username, profile_photo_path FROM users WHERE LOWER(username) = LOWER(?)`).get(username);
+    const u = db.prepare(`SELECT id, email, username, profile_photo_path FROM users WHERE LOWER(username) = LOWER(?)`).get(username);
+    if (u) return u;
+    // Fallback: if the "username" looks like an email or username not found, try as email
+    const maybeEmail = String(username || '').toLowerCase();
+    const hasAt = maybeEmail.includes('@');
+    if (hasAt) {
+      const ue = db.prepare(`SELECT id, email, username, profile_photo_path FROM users WHERE LOWER(email) = LOWER(?)`).get(maybeEmail);
+      if (ue) return ue;
+    }
   }
   if (email) {
     return db.prepare(`SELECT id, email, username, profile_photo_path FROM users WHERE LOWER(email) = LOWER(?)`).get(email);
@@ -47,9 +55,8 @@ function findUser({ username, email }) {
 // Public: get seller profile by username (or email via query)
 router.get('/profile', (req, res) => {
   try {
-    const username = String(req.query.username || '').trim();
-    const email = String(req.query.email || '').trim().toLowerCase();
-    const user = findUser({ username, email });
+    const handle = String(req.query.username || req.query.email || '').trim().toLowerCase();
+    const user = findUser({ username: handle, email: handle });
     if (!user) return res.status(404).json({ error: 'Seller not found' });
 
     const photo_url = user.profile_photo_path ? ('/uploads/' + (user.profile_photo_path.split('/').pop())) : null;
