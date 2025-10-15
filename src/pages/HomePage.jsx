@@ -389,7 +389,11 @@ export default function HomePage() {
                   zIndex: 60,
                   maxHeight: isMobile ? 180 : 300, // keep short on mobile to avoid keyboard overlap
                   overflowY: 'auto',
-                  padding: 6
+                  padding: 6,
+                  background: 'rgba(18,22,31,0.96)', // darker for readability
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 14px 36px var(--shadow)',
+                  borderRadius: 12
                 }}
               >
                 {(isMobile ? searchSuggestions.slice(0, 6) : searchSuggestions.slice(0, 12)).map((sug, idx) => {
@@ -422,7 +426,8 @@ export default function HomePage() {
                         cursor: 'pointer',
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        color: 'var(--text)'
                       }}
                     >
                       <span>{label}</span>
