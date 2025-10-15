@@ -1,7 +1,7 @@
 import express, { Router } from 'express';
 import { db } from '../lib/db.js';
 import bcrypt from 'bcrypt';
-import { generateOtp, sendEmail } from '../lib/utils.js';
+import { generateOtp, sendEmail, generateUserUID } from '../lib/utils.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -171,10 +171,20 @@ router.post('/verify-otp-and-register', async (req, res) => {
 
   const hashed = await bcrypt.hash(password, 12);
   try {
-    const stmt = db.prepare('INSERT INTO users (email, password_hash, is_admin, created_at, username) VALUES (?, ?, 0, ?, ?)');
-    const info = stmt.run(email.toLowerCase(), hashed, new Date().toISOString(), username);
+    // Generate a unique public UID; retry on rare collision
+    let uid = generateUserUID();
+    let tries = 0;
+    while (tries < 3) {
+      const exists = db.prepare('SELECT 1 FROM users WHERE user_uid = ?').get(uid);
+      if (!exists) break;
+      uid = generateUserUID();
+      tries++;
+    }
+
+    const stmt = db.prepare('INSERT INTO users (email, password_hash, is_admin, created_at, username, user_uid, is_verified) VALUES (?, ?, 0, ?, ?, ?, 0)');
+    const info = stmt.run(email.toLowerCase(), hashed, new Date().toISOString(), username, uid);
     db.prepare('DELETE FROM otps WHERE id = ?').run(otpRecord.id);
-    return res.json({ ok: true, userId: info.lastInsertRowid, is_admin: false, username });
+    return res.json({ ok: true, userId: info.lastInsertRowid, user_uid: uid, is_admin: false, username, is_verified: false });
   } catch (e) {
     if (String(e).includes('UNIQUE constraint')) {
       return res.status(409).json({ error: 'Email or username already registered.' });
@@ -187,7 +197,7 @@ router.post('/verify-otp-and-register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
-  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path, is_banned, suspended_until FROM users WHERE email = ?').get(email.toLowerCase());
+  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path, is_banned, suspended_until, user_uid, is_verified FROM users WHERE email = ?').get(email.toLowerCase())</;
   if (!user) return res.status(401).json({ error: 'Invalid credentials.' });
   const match = await bcrypt.compare(password, user.password_hash);
   if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
@@ -234,7 +244,7 @@ router.post('/login', async (req, res) => {
 
   // Normal user login (no OTP required)
   const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
-  return res.json({ ok: true, user: { id: user.id, email: user.email, username: user.username, is_admin: !!user.is_admin, photo_url } });
+  return res.json({ ok: true, user: { id: user.id, user_uid: user.user_uid, email: user.email, username: user.username, is_admin: !!user.is_admin, is_verified: !!user.is_verified, photo_url } });
 });
 
 // Verify Admin Login OTP (second step)
@@ -242,7 +252,7 @@ router.post('/verify-admin-login-otp', async (req, res) => {
   const { email, password, otp } = req.body || {};
   if (!email || !password || !otp) return res.status(400).json({ error: 'Email, password, and OTP are required.' });
 
-  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path FROM users WHERE email = ?').get(email.toLowerCase());
+  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path, user_uid, is_verified FROM users WHERE email = ?').get(email.toLowerCase_code()new)</;
   if (!user || !user.is_admin) return res.status(401).json({ error: 'Invalid credentials.' });
 
   const match = await bcrypt.compare(password, user.password_hash);
@@ -262,7 +272,7 @@ router.post('/verify-admin-login-otp', async (req, res) => {
   try { db.prepare('DELETE FROM otps WHERE id = ?').run(otpRecord.id); } catch (_) {}
 
   const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
-  return res.json({ ok: true, user: { id: user.id, email: user.email, username: user.username, is_admin: !!user.is_admin, photo_url } });
+  return res.json({ ok: true, user: { id: user.id, user_uid: user.user_uid, email: user.email, username: !!user.is_admin, photo_url } });
 });
 
 // Forgot Password

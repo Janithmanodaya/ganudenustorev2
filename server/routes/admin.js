@@ -596,7 +596,7 @@ router.get('/users', requireAdmin, (req, res) => {
   let rows;
   if (q) {
     rows = db.prepare(`
-      SELECT id, email, username, is_admin, is_banned, suspended_until, created_at
+      SELECT id, email, username, is_admin, is_banned, suspended_until, created_at, user_uid, is_verified
       FROM users
       WHERE LOWER(email) LIKE ? OR LOWER(COALESCE(username,'')) LIKE ?
       ORDER BY id DESC
@@ -604,13 +604,41 @@ router.get('/users', requireAdmin, (req, res) => {
     `).all(`%${q}%`, `%${q}%`, limit);
   } else {
     rows = db.prepare(`
-      SELECT id, email, username, is_admin, is_banned, suspended_until, created_at
+      SELECT id, email, username, is_admin, is_banned, suspended_until, created_at, user_uid, is_verified
       FROM users
       ORDER BY id DESC
       LIMIT ?
     `).all(limit);
   }
   res.json({ results: rows });
+});
+
+// Verify/unverify user
+router.post('/users/:id/verify', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare(`UPDATE users SET is_verified = 1 WHERE id = ?`).run(id);
+  // optional notification
+  try {
+    const user = db.prepare(`SELECT email FROM users WHERE id = ?`).get(id);
+    if (user?.email) {
+      db.prepare(`
+        INSERT INTO notifications (title, message, target_email, created_at, type)
+        VALUES (?, ?, ?, ?, 'verify')
+      `).run(
+        'Account Verified',
+        `Your account has been verified by an administrator.`,
+        String(user.email).toLowerCase().trim(),
+        new Date().toISOString()
+      );
+    }
+  } catch (_) {}
+  res.json({ ok: true });
+});
+
+router.post('/users/:id/unverify', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare(`UPDATE users SET is_verified = 0 WHERE id = ?`).run(id);
+  res.json({ ok: true });
 });
 
 router.post('/users/:id/ban', requireAdmin, (req, res) => {

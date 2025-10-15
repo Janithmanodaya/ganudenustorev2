@@ -6,6 +6,16 @@ export function generateOtp() {
 }
 
 /**
+ * Generate a short, unique public user ID (UID) suitable for display.
+ * Format: GN-<base36 timestamp>-<base36 random>
+ */
+export function generateUserUID() {
+  const ts = Math.floor(Date.now() / 1000).toString(36);
+  const rnd = Math.floor(Math.random() * 1679616).toString(36).padStart(3, '0'); // 36^3
+  return `GN-${ts}-${rnd}`.toUpperCase();
+}
+
+/**
  * sendEmail
  * Priority:
  * 1) If EMAIL_DEV_MODE=true OR missing env → log locally and return ok:true

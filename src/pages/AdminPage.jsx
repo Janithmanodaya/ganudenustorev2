@@ -875,6 +875,7 @@ export default function AdminPage() {
                       <strong>{u.email}</strong> {u.username ? <span className="text-muted">• @{u.username}</span> : null}
                     </div>
                     <div className="text-muted">ID: {u.id} • Admin: {u.is_admin ? 'Yes' : 'No'} • Created: {new Date(u.created_at).toLocaleString()}</div>
+                    <div className="text-muted">UID: {u.user_uid || '—'} • Verified: {u.is_verified ? 'Yes' : 'No'}</div>
                     <div className="text-muted">
                       Status: {u.is_banned ? 'Banned' : (u.suspended_until && u.suspended_until > new Date().toISOString() ? `Suspended until ${new Date(u.suspended_until).toLocaleString()}` : 'Active')}
                     </div>
@@ -887,6 +888,9 @@ export default function AdminPage() {
                       ) : (
                         <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend 7 days</button>
                       )}
+                      {/* Verify controls */}
+                      {!u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/verify`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } }); const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Verify</button>}
+                      {u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/unverify`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } }); const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Unverify</button>}
                     </div>
                   </div>
                 ))}
