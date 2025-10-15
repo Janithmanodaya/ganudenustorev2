@@ -507,41 +507,21 @@ export default function HomePage() {
                           </span>
                         ))}
                       </div>
-                      <input
-                        className="input"
-                        list="subcat-suggest"
-                        placeholder="Add sub-category..."
-                        value={subCategoryQuery}
-                        onChange={e => setSubCategoryQuery(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            const v = String(subCategoryQuery || '').trim()
-                            if (v) {
-                              const next = Array.from(new Set([...subCategorySelected, v]))
-                              updateFilter('sub_category', next)
-                              setSubCategoryQuery('')
-                            }
-                          }
-                        }}
-                      />
-                      <datalist id="subcat-suggest">
-                        {subCategoryOptions.map(opt => <option key={opt} value={opt} />)}
-                      </datalist>
                       <div style={{ marginTop: 4 }}>
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => {
-                            const v = String(subCategoryQuery || '').trim()
-                            if (v) {
-                              const next = Array.from(new Set([...subCategorySelected, v]))
-                              updateFilter('sub_category', next)
-                              setSubCategoryQuery('')
-                            }
+                        <CustomSelect
+                          value=""
+                          onChange={(val) => {
+                            const v = String(val || '').trim()
+                            if (!v) return
+                            const next = Array.from(new Set([...subCategorySelected, v]))
+                            updateFilter('sub_category', next)
                           }}
-                        >
-                          Add
-                        </button>
+                          ariaLabel="Add sub-category"
+                          placeholder="Add sub-category..."
+                          options={subCategoryOptions.map(v => ({ value: v, label: v }))}
+                          searchable={true}
+                          allowCustom={true}
+                        />
                       </div>
                     </div>
 
@@ -565,41 +545,21 @@ export default function HomePage() {
                           </span>
                         ))}
                       </div>
-                      <input
-                        className="input"
-                        list="model-suggest"
-                        placeholder="Add model..."
-                        value={modelQuery}
-                        onChange={e => setModelQuery(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            const v = String(modelQuery || '').trim()
-                            if (v) {
-                              const next = Array.from(new Set([...modelSelected, v]))
-                              updateFilter('model', next)
-                              setModelQuery('')
-                            }
-                          }
-                        }}
-                      />
-                      <datalist id="model-suggest">
-                        {modelOptions.map(opt => <option key={opt} value={opt} />)}
-                      </datalist>
                       <div style={{ marginTop: 4 }}>
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={() => {
-                            const v = String(modelQuery || '').trim()
-                            if (v) {
-                              const next = Array.from(new Set([...modelSelected, v]))
-                              updateFilter('model', next)
-                              setModelQuery('')
-                            }
+                        <CustomSelect
+                          value=""
+                          onChange={(val) => {
+                            const v = String(val || '').trim()
+                            if (!v) return
+                            const next = Array.from(new Set([...modelSelected, v]))
+                            updateFilter('model', next)
                           }}
-                        >
-                          Add
-                        </button>
+                          ariaLabel="Add model"
+                          placeholder="Add model..."
+                          options={modelOptions.map(v => ({ value: v, label: v }))}
+                          searchable={true}
+                          allowCustom={true}
+                        />
                       </div>
                     </div>
 
