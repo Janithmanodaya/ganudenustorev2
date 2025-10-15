@@ -325,22 +325,11 @@ export default function SearchResultsPage() {
                     if (map[k]) return map[k];
                     return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
                   };
-                  const tokenKeys = new Set(['sub_category', 'model', 'model_name']); // multi-select via tags
+                  // Render all dynamic keys as dropdowns (including sub_category and model)
                   return filtersDef.keys
                     .filter(k => !['location','pricing_type','price'].includes(k))
                     .map(key => {
                       const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
-                      if (tokenKeys.has(key)) {
-                        return (
-                          <TagInput
-                            key={key}
-                            label={pretty(key)}
-                            values={Array.isArray(filters[key]) ? filters[key] : []}
-                            suggestions={values}
-                            onChange={(arr) => updateFilterArray(key, arr)}
-                          />
-                        )
-                      }
                       return (
                         <div key={key}>
                           <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
@@ -351,6 +340,7 @@ export default function SearchResultsPage() {
                             placeholder={pretty(key)}
                             options={[{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))]}
                             searchable={true}
+                            allowCustom={true}
                           />
                         </div>
                       );
