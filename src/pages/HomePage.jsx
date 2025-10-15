@@ -304,10 +304,17 @@ export default function HomePage() {
       setFilters({});
       setShowFilters(false);
       setLocationOptionsCache([]);
+      setPage(1);
       // Trigger reload of latest listings
       setRefreshKey(k => k + 1)
+      // Scroll back to top of listings
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
     } catch (_) {}
   }
+
+  const hasActiveFilters = useMemo(() => {
+    return !!(filterCategory || filterLocation || filterPriceMin || filterPriceMax || Object.keys(filters).length);
+  }, [filterCategory, filterLocation, filterPriceMin, filterPriceMax, filters]);
 
   // Build pagination window (around 5 pages centered on current)
   const pageWindow = [page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1)
@@ -392,10 +399,19 @@ export default function HomePage() {
           <div className="h2" style={{ marginTop: 0 }}>{filterCategory ? `${filterCategory} listings` : 'Latest listings'}</div>
 
           {/* Filters dropdown toggle */}
-          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <button className="btn" type="button" onClick={() => setShowFilters(s => !s)}>
-              {showFilters ? 'Hide Filters' : 'Filters'}
-            </button>
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+            <div>
+              {hasActiveFilters && (
+                <button className="btn" type="button" onClick={resetHomeFilters} title="Reset all filters">
+                  Reset filters
+                </button>
+              )}
+            </div>
+            <div>
+              <button className="btn" type="button" onClick={() => setShowFilters(s => !s)}>
+                {showFilters ? 'Hide Filters' : 'Filters'}
+              </button>
+            </div>
           </div>
 
           {showFilters && (
