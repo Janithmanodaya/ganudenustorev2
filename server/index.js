@@ -30,6 +30,12 @@ try {
 } catch (_) {
   helmet = null;
 }
+let compression = null;
+try {
+  compression = (await import('compression')).default;
+} catch (_) {
+  compression = null;
+}
 
 dotenv.config();
 
@@ -41,6 +47,10 @@ if (helmet) {
   app.use(helmet({
     contentSecurityPolicy: false
   }));
+}
+// Gzip/deflate compression if available
+if (compression) {
+  app.use(compression());
 }
 
 // CORS
@@ -68,7 +78,13 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Serve uploaded images
-app.use('/uploads', express.static(path.resolve(process.cwd(), 'data', 'uploads')));
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'data', 'uploads'), {
+  maxAge: '365d',
+  immutable: true,
+  setHeaders: (res, filePath) => {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+}));
 
 // Global basic rate limit (can be tuned)
 const globalLimiter = rateLimit({

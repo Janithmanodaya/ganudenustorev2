@@ -24,6 +24,18 @@ try {
 
 const router = Router();
 
+// Simple in-memory cache with TTL for GET endpoints
+const cacheStore = new Map();
+function cacheGet(key) {
+  const item = cacheStore.get(key);
+  if (!item) return null;
+  if (item.expires <= Date.now()) { cacheStore.delete(key); return null; }
+  return item.value;
+}
+function cacheSet(key, value, ttlMs) {
+  cacheStore.set(key, { value, expires: Date.now() + Math.max(1000, ttlMs || 15000) });
+}
+
 // Debug endpoint: inspect per-user temp AI DB (disabled unless DEBUG_TEMP_EXTRACT=true)
 router.get('/debug/temp-extract', (req, res) => {
   try {
@@ -418,6 +430,33 @@ router.post('/draft', upload.array('images', 5), async (req, res) => {
         }
       } catch (_) {
         return res.status(400).json({ error: 'Failed to read file ' + (f.originalname) + '.' });
+      }
+    }
+
+    // Image compression & WebP conversion for all uploaded files (optimize storage and delivery)
+    if (sharp) {
+      for (const f of files) {
+        try {
+          const outDir = path.dirname(f.path);
+          const baseName = path.basename(f.path, path.extname(f.path));
+          const webpPath = path.join(outDir, `${baseName}-opt.webp`);
+          // Resize down to max width 1600px, keep aspect ratio, quality ~80
+          await sharp(f.path)
+            .resize({ width: 1600, withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toFile(webpPath);
+          // Replace file path with optimized webp and delete original
+          try { fs.unlinkSync(f.path); } catch (_) {}
+          f.path = webpPath;
+          // Update originalname extension for consistency
+          try {
+            const nameBase = path.basename(f.originalname, path.extname(f.originalname));
+            f.originalname = `${nameBase}.webp`;
+          } catch (_) {}
+        } catch (e) {
+          console.error('[sharp] Failed to optimize image:', f.originalname, e && e.message ? e.message : e);
+          // Keep original file on failure
+        }
       }
     }
 
@@ -1046,9 +1085,15 @@ router.post('/vehicle-specs', express.json(), async (req, res) => {
 // Get all listings with basic filtering
 router.get('/', (req, res) => {
   try {
+    const cacheKey = 'list:' + (req.originalUrl || JSON.stringify(req.query));
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.set('Cache-Control', 'public, max-age=15');
+      return res.json(cached);
+    }
+
     const { category, sortBy, order = 'DESC', status } = req.query;
-    let query = "SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at FROM listings WHERE status != 'Archived'";
-    const params = [];
+    let query = "SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location
 
     if (status) {
       query += ' AND status = ?';
@@ -1086,7 +1131,10 @@ router.get('/', (req, res) => {
       const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.path)).filter(Boolean) : [];
       return { ...r, thumbnail_url, small_images };
     });
-    res.json({ results });
+    const payload = { results };
+    cacheSet(cacheKey, payload, 15000);
+    res.set('Cache-Control', 'public, max-age=15');
+    res.json(payload);
   } catch (e) {
     console.error('[listings] / error:', e.message);
     res.status(500).json({ error: 'Failed to fetch listings' });
@@ -1096,18 +1144,11 @@ router.get('/', (req, res) => {
 // Search listings with optional filters (used by HomePage and Search page)
 router.get('/search', (req, res) => {
   try {
-    const {
-      q = '',
-      category = '',
-      location = '',
-      price_min = '',
-      price_max = '',
-      filters = '',
-      sort = 'latest',
-      page = '1',
-      limit = '12'
-    } = req.query;
-
+    // Micro-cache per URL for 15s
+    const cacheKey = 'search:' + (req.originalUrl || JSON.stringify(req.query));
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.set('Cache-Control', 'public, max-age=
     const lim = Math.max(1, Math.min(100, parseInt(limit, 10) || 12));
     const pg = Math.max(1, parseInt(page, 10) || 1);
     const offset = (pg - 1) * lim;
@@ -1208,25 +1249,29 @@ router.get('/search', (req, res) => {
       return { ...r, thumbnail_url, small_images };
     });
 
-    res.json({ results, page: pg, limit: lim });
+    const payload = { results, page: pg, limit: lim };
+    cacheSet(cacheKey, payload, 15000);
+    res.set('Cache-Control', 'public, max-age=15');
+    res.json(payload);
   } catch (e) {
     console.error('[listings] /search error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to search listings' });
-  }
-});
+  }_code
+}new)</;
+;
 
 // Dynamic filters for a category (keys and value options derived from existing listings)
 router.get('/filters', (req, res) => {
   try {
-    const category = String(req.query.category || '').trim();
-    if (!category) return res.status(400).json({ error: 'category is required' });
+    const cacheKey = 'filters:' + (req.originalUrl || JSON.stringify(req.query));
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.set('Cache-Control', 'public, max-age=60');
+      return res.json(cached);
+    }
 
-    const rows = db.prepare(`
-      SELECT title, description, structured_json
-      FROM listings
-      WHERE status = 'Approved' AND main_category = ?
-      ORDER BY id DESC LIMIT 500
-    `).all(category);
+    const category = String(req.query.category || '').trim();
+    if (!category) return res.status(400).jsonall(category);
 
     function normalizeVehicleSubCategory(input) {
       let subCat = String(input || '').trim();
@@ -1286,7 +1331,10 @@ router.get('/filters', (req, res) => {
       outValues[k] = Array.from(valuesByKey[k]).slice(0, 50);
     }
 
-    res.json({ keys, valuesByKey: outValues });
+    const payload = { keys, valuesByKey: outValues };
+    cacheSet(cacheKey, payload, 60000);
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json(payload);
   } catch (e) {
     console.error('[listings] /filters error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to load filters' });
@@ -1296,8 +1344,16 @@ router.get('/filters', (req, res) => {
 // Suggestions for global search (titles, locations, sub_category, model)
 router.get('/suggestions', (req, res) => {
   try {
+    const cacheKey = 'suggestions:' + (req.originalUrl || JSON.stringify(req.query));
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.set('Cache-Control', 'public, max-age=30');
+      return res.json(cached);
+    }
+
     const q = String(req.query.q || '').trim().toLowerCase();
-    if (!q) return res.json({ results: [] });
+    if (!q) return res.json({ results: []_code }new)</;
+});
 
     const rows = db.prepare(`
       SELECT title, location, structured_json
@@ -1321,12 +1377,16 @@ router.get('/suggestions', (req, res) => {
       if (suggestions.size >= 50) break;
     }
 
-    res.json({ results: Array.from(suggestions).slice(0, 50) });
+    const payload = { results: Array.from(suggestions).slice(0, 50) };
+    cacheSet(cacheKey, payload, 30000);
+    res.set('Cache-Control', 'public, max-age=30');
+    res.json(payload);
   } catch (e) {
     console.error('[listings] /suggestions error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to load suggestions' });
-  }
-});
+  }_code
+}new)</;
+
 
 // Get current user's listings (My Ads)
 router.get('/my', (req, res) => {
@@ -1461,6 +1521,13 @@ router.delete('/:id', (req, res) => {
  */
 router.get('/payment-info/:id', (req, res) => {
   try {
+    const cacheKey = 'payment-info:' + String(req.params.id || '');
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      res.set('Cache-Control', 'public, max-age=60');
+      return res.json(cached);
+    }
+
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid ID' });
     const listing = db.prepare('SELECT id, title, price, owner_email, status, remark_number, main_category FROM listings WHERE id = ?').get(id);
@@ -1481,14 +1548,17 @@ router.get('/payment-info/:id', (req, res) => {
     const payment_amount = Number(rule?.amount ?? defaults[listing.main_category] ?? defaults['Other']);
     const payments_enabled = rule ? !!rule.enabled : true;
 
-    res.json({
+    const payload = {
       ok: true,
       listing,
       bank_details: cfg?.bank_details || '',
       whatsapp_number: cfg?.whatsapp_number || '',
       payment_amount,
       payments_enabled
-    });
+    };
+    cacheSet(cacheKey, payload, 60000);
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json(payload);
   } catch (e) {
     console.error('[listings] /payment-info/:id error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to load payment info' });
