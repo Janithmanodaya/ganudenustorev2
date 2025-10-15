@@ -45,8 +45,9 @@ export default function SellerProfilePage() {
         body: JSON.stringify(body)
       })
       const d = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(d.error || 'Failed to rate')
-      setStatus('Thank you for your rating.')
+      if (!r.ok) {
+        // Show specific message if already reviewed
+       Thank you for your rating.')
       // refresh ratings
       const rr = await fetch(`/api/users/profile?username=${encodeURIComponent(username)}&email=${encodeURIComponent(username)}`)
       const dd = await rr.json()
@@ -87,7 +88,10 @@ export default function SellerProfilePage() {
           <div>
             <div><strong>{u.username || (u.id != null ? `User #${u.id}` : 'User')}</strong></div>
             <div className="text-muted" style={{ marginTop: 4 }}>ID: {u.id != null ? u.id : '—'}</div>
-            <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className="pill" title="Average rating" style={{ borderColor: 'transparent', background: 'rgba(255,255,255,0.08)' }}>
+                {Number(p.rating_avg || 0).toFixed(2)} ⭐ ({p.rating_count || 0})
+              </span>
               {p.verified_email ? <span className="pill">Verified Email</span> : null}
               {p.verified_phone ? <span className="pill">Verified Phone</span> : null}
             </div>
