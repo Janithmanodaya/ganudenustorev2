@@ -77,7 +77,15 @@ export default function HomePage() {
   })
   useEffect(() => {
     function onResize() {
-      try { setIsMobile(window.matchMedia &&])
+      try {
+        const mq = window.matchMedia && window.matchMedia('(max-width: 780px)')
+        setIsMobile(!!(mq && mq.matches))
+      } catch (_) {}
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  },_code [new]</)
+&])
 
   function onSearch(e) {
     e.preventDefault()
