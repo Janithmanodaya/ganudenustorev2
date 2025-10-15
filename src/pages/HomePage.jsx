@@ -88,7 +88,14 @@ export default function HomePage() {
       }
     } catch (_) {}
     return cleanup || (() => {})
-  },_code)}` : '/search')
+  }, [])
+
+  function onSearch(e) {
+    e.preventDefault()
+    const term = (q || '').trim()
+    const path = term ? `/search?q=${encodeURIComponent(term)}` : '/search'
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
+    navigate(path)
   }
 
   useEffect(() => {
