@@ -40,6 +40,8 @@ export default function HomePage() {
   // Autocomplete queries for sub_category and model
   const [subCategoryQuery, setSubCategoryQuery] = useState('')
   const [modelQuery, setModelQuery] = useState('')
+  const subCategorySelected = Array.isArray(filters.sub_category) ? filters.sub_category : []
+  const modelSelected = Array.isArray(filters.model) ? filters.model : []
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -482,58 +484,157 @@ export default function HomePage() {
                 <input className="input" type="number" placeholder="Min price" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
                 <input className="input" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
 
-                {/* Dynamic sub_category/model and other keys */}
-                {filterCategory && filtersDef.keys.length > 0 && (() => {
-                  const pretty = (k) => {
-                    if (!k) return '';
-                    const map = {
-                      model: 'Model',
-                      model_name: 'Model',
-                      manufacture_year: 'Manufacture Year',
-                      sub_category: 'Sub-category',
-                      pricing_type: 'Pricing',
-                    };
-                    if (map[k]) return map[k];
-                    // Fallback: title-case underscores
-                    return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
-                  };
-                  const hybridKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
-                  return filtersDef.keys
-                    .filter(k => !['location','pricing_type','price'].includes(k))
-                    .map(key => {
-                      const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
-                      const opts = [{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))];
-                      if (hybridKeys.has(key)) {
-                        // Searchable select with ability to type custom text AND choose from dropdown (mobile-friendly)
-                        return (
-                          <div key={key}>
-                            <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
-                            <CustomSelect
-                              value={filters[key] || ''}
-                              onChange={val => updateFilter(key, val)}
-                              ariaLabel={key}
-                              placeholder={pretty(key)}
-                              options={opts}
-                              searchable={true}
-                              allowCustom={false}
-                            />
-                          </div>
-                        );
-                      }
-                      return (
-                        <div key={key}>
-                          <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
-                          <CustomSelect
-                            value={filters[key] || ''}
-                            onChange={val => updateFilter(key, val)}
-                            ariaLabel={key}
-                            placeholder={pretty(key)}
-                            options={opts}
-                          />
-                        </div>
-                      );
-                    });
-                })()}
+                {/* Dynamic sub_category/model tag inputs + other keys */}
+                {filterCategory && filtersDef.keys.length > 0 && (
+                  <>
+                    {/* Sub-category multi-select tags */}
+                    <div>
+                      <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Sub-category</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                        {subCategorySelected.map((tag, idx) => (
+                          <span key={`subcat-${tag}-${idx}`} className="pill">
+                            {tag}
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={() => {
+                                const next = subCategorySelected.filter((t, i) => !(t === tag && i === idx))
+                                updateFilter('sub_category', next)
+                              }}
+                              aria-label="Remove"
+                              style={{ padding: '2px 6px', marginLeft: 6 }}
+                            >✕</button>
+                          </span>
+                        ))}
+                      </div>
+                      <input
+                        className="input"
+                        list="subcat-suggest"
+                        placeholder="Add sub-category..."
+                        value={subCategoryQuery}
+                        onChange={e => setSubCategoryQuery(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            const v = String(subCategoryQuery || '').trim()
+                            if (v) {
+                              const next = Array.from(new Set([...subCategorySelected, v]))
+                              updateFilter('sub_category', next)
+                              setSubCategoryQuery('')
+                            }
+                          }
+                        }}
+                      />
+                      <datalist id="subcat-suggest">
+                        {subCategoryOptions.map(opt => <option key={opt} value={opt} />)}
+                      </datalist>
+                      <div style={{ marginTop: 4 }}>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => {
+                            const v = String(subCategoryQuery || '').trim()
+                            if (v) {
+                              const next = Array.from(new Set([...subCategorySelected, v]))
+                              updateFilter('sub_category', next)
+                              setSubCategoryQuery('')
+                            }
+                          }}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Model multi-select tags */}
+                    <div>
+                      <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Model</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                        {modelSelected.map((tag, idx) => (
+                          <span key={`model-${tag}-${idx}`} className="pill">
+                            {tag}
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={() => {
+                                const next = modelSelected.filter((t, i) => !(t === tag && i === idx))
+                                updateFilter('model', next)
+                              }}
+                              aria-label="Remove"
+                              style={{ padding: '2px 6px', marginLeft: 6 }}
+                            >✕</button>
+                          </span>
+                        ))}
+                      </div>
+                      <input
+                        className="input"
+                        list="model-suggest"
+                        placeholder="Add model..."
+                        value={modelQuery}
+                        onChange={e => setModelQuery(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            const v = String(modelQuery || '').trim()
+                            if (v) {
+                              const next = Array.from(new Set([...modelSelected, v]))
+                              updateFilter('model', next)
+                              setModelQuery('')
+                            }
+                          }
+                        }}
+                      />
+                      <datalist id="model-suggest">
+                        {modelOptions.map(opt => <option key={opt} value={opt} />)}
+                      </datalist>
+                      <div style={{ marginTop: 4 }}>
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => {
+                            const v = String(modelQuery || '').trim()
+                            if (v) {
+                              const next = Array.from(new Set([...modelSelected, v]))
+                              updateFilter('model', next)
+                              setModelQuery('')
+                            }
+                          }}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Other dynamic keys as selects */}
+                    {(() => {
+                      const pretty = (k) => {
+                        if (!k) return '';
+                        const map = {
+                          manufacture_year: 'Manufacture Year',
+                          pricing_type: 'Pricing',
+                        };
+                        if (map[k]) return map[k];
+                        return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+                      };
+                      return filtersDef.keys
+                        .filter(k => !['location','pricing_type','price','sub_category','model','model_name'].includes(k))
+                        .map(key => {
+                          const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
+                          const opts = [{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))];
+                          return (
+                            <div key={key}>
+                              <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
+                              <CustomSelect
+                                value={filters[key] || ''}
+                                onChange={val => updateFilter(key, val)}
+                                ariaLabel={key}
+                                placeholder={pretty(key)}
+                                options={opts}
+                              />
+                            </div>
+                          );
+                        });
+                    })()}
+                  </>
+                )}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button className="btn accent" type="button" onClick={() => fetchFilteredListings()}>
