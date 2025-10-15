@@ -27,6 +27,47 @@ export default function App() {
   const location = useLocation()
   const isHome = location.pathname === '/'
 
+  // Track last distinct paths to provide a reliable "Back" fallback
+  const pathHistoryRef = useRef([])
+  useEffect(() => {
+    const p = location.pathname + location.search
+    const hist = pathHistoryRef.current
+    if (hist.length === 0 || hist[hist.length - 1] !== p) {
+      hist.push(p)
+      // cap history size to avoid unbounded growth
+      if (hist.length > 50) hist.shift()
+      try { sessionStorage.setItem('lastGoodPath', p) } catch (_) {}
+    }
+  }, [location])
+
+  function safeBack() {
+    // If native history has entries, try normal back first
+    const hasNativeHistory = typeof window !== 'undefined' && window.history && window.history.length > 1
+    if (hasNativeHistory) {
+      navigate(-1)
+      return
+    }
+    // Otherwise, find the last distinct path in our ref that isn't current
+    const hist = pathHistoryRef.current
+    const current = location.pathname + location.search
+    for (let i = hist.length - 2; i >= 0; i--) {
+      if (hist[i] && hist[i] !== current) {
+        navigate(hist[i], { replace: true })
+        return
+      }
+    }
+    // Fallback to lastGoodPath from sessionStorage
+    try {
+      const last = sessionStorage.getItem('lastGoodPath') || '/'
+      if (last && last !== current) {
+        navigate(last, { replace: true })
+        return
+      }
+    } catch (_) {}
+    // Final fallback
+    navigate('/', { replace: true })
+  }
+
   // Language switcher (basic infrastructure)
   const [lang, setLang] = useState(() => {
     try { return localStorage.getItem('lang') || 'en' } catch (_) { return 'en' }
@@ -259,7 +300,7 @@ export default function App() {
               className="back-btn"
               type="button"
               aria-label="Back"
-              onClick={() => navigate(-1)}
+              onClick={safeBack}
               title="Back"
             >
               ‹
