@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import MetaPayButton from '../components/MetaPayButton.jsx'
 
 export default function PaymentPendingPage() {
   const { id } = useParams()
@@ -70,6 +71,16 @@ export default function PaymentPendingPage() {
     )
   }
 
+  function handleMetaResult(result) {
+    if (!result) return
+    if (result.ok) {
+      setStatus('Meta Pay initialized. Please complete partner backend steps to process payment.')
+    } else {
+      setStatus(result.message || 'Meta Pay not available.')
+    }
+    setTimeout(() => setStatus(null), 3000)
+  }
+
   return (
     <div className="center">
       <div className="card">
@@ -100,6 +111,17 @@ export default function PaymentPendingPage() {
                 </div>
               )}
             </div>
+
+            {/* Meta Pay button (if payments enabled and amount > 0) */}
+            {payEnabled && payAmount > 0 && (
+              <MetaPayButton
+                amount={payAmount}
+                title={title}
+                remarkNumber={remark}
+                listingId={id}
+                onResult={handleMetaResult}
+              />
+            )}
 
             <div className="card" style={{ marginTop: 12 }}>
               <div className="h2">After Payment</div>

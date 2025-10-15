@@ -55,6 +55,14 @@ if (compression) {
   app.use(compression());
 }
 
+// Basic CSP to allow Meta Pay SDK (adjust in production as needed)
+app.use((req, res, next) => {
+  try {
+    res.setHeader('Content-Security-Policy', "default-src 'self' static.xx.fbcdn.net graph.facebook.com");
+  } catch (_) {}
+  next();
+});
+
 // CORS
 const isProd = process.env.NODE_ENV === 'production';
 const allowedOrigin = isProd ? (process.env.CORS_ORIGIN || process.env.PUBLIC_ORIGIN || '') : (process.env.CORS_ORIGIN || 'http://localhost:5173');
