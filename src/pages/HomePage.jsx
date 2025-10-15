@@ -433,6 +433,51 @@ export default function HomePage() {
                     searchable={true}
                     allowCustom={true}
                   />
+                  {/* Geolocation button to auto-fill nearest district */}
+                  <div style={{ marginTop: 6 }}>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setStatus('')
+                          if (!('geolocation' in navigator)) { setStatus('Geolocation not supported on this device.'); return }
+                          navigator.geolocation.getCurrentPosition(async (pos) => {
+                            try {
+                              const { latitude, longitude } = pos.coords
+                              const url = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}&format=json`
+                              const r = await fetch(url, { headers: { 'Accept': 'application/json' } })
+                              const data = await r.json().catch(() => ({}))
+                              const district = String(
+                                data?.address?.state_district ||
+                                data?.address?.county ||
+                                data?.address?.state ||
+                                data?.address?.city ||
+                                data?.address?.town ||
+                                data?.address?.suburb ||
+                                ''
+                              ).trim()
+                              if (district) {
+                                setFilterLocation(district)
+                                setLocQuery(district)
+                                setStatus(`Location set to: ${district}`)
+                              } else {
+                                setStatus('Could not determine district from location.')
+                              }
+                            } catch (e) {
+                              setStatus(`Failed to detect location: ${e.message}`)
+                            }
+                          }, (err) => {
+                            setStatus('Geolocation permission denied or failed.')
+                          }, { timeout: 8000 })
+                        } catch (e) {
+                          setStatus('Geolocation error.')
+                        }
+                      }}
+                    >
+                      Use my location
+                    </button>
+                  </div>
                 </div>
                 <input className="input" type="number" placeholder="Min price" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
                 <input className="input" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
@@ -490,12 +535,45 @@ export default function HomePage() {
                     });
                 })()}
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button className="btn accent" type="button" onClick={() => fetchFilteredListings()}>
                     Apply
                   </button>
                   <button className="btn" type="button" onClick={resetHomeFilters}>
                     Reset
+                  </button>
+                  {/* Save this search */}
+                  <button
+                    className="btn"
+                    type="button"
+                    title="Save this search and get alerts"
+                    onClick={async () => {
+                      try {
+                        const user = JSON.parse(localStorage.getItem('user') || 'null')
+                        const email = user?.email || ''
+                        if (!email) { setStatus('Please login to save searches.'); return }
+                        const body = {
+                          name: `${filterCategory || 'Any'} search`,
+                          category: filterCategory || '',
+                          location: filterLocation || '',
+                          price_min: filterPriceMin || '',
+                          price_max: filterPriceMax || '',
+                          filters
+                        }
+                        const r = await fetch('/api/notifications/saved-searches', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'X-User-Email': email },
+                          body: JSON.stringify(body)
+                        })
+                        const data = await r.json().catch(() => ({}))
+                        if (!r.ok) throw new Error(data.error || 'Failed to save search')
+                        setStatus('Search saved. You will be notified when new matching listings appear.')
+                      } catch (e) {
+                        setStatus(`Error: ${e.message}`)
+                      }
+                    }}
+                  >
+                    Save this search
                   </button>
                 </div>
               </div>
@@ -524,7 +602,16 @@ export default function HomePage() {
             const displayList = baseList.filter(it => (it.main_category || '') !== 'Job')
             return (
               <div className="grid three">
-                {displayList.map(item => {
+                {/* Skeletons while loading */}
+                {loading && Array.from({ length: 6 }).map((_, i) => (
+                  <div key={`sk-${i}`} className="skeleton-card">
+                    <div className="skeleton skeleton-img" />
+                    <div className="skeleton skeleton-line" style={{ width: '40%', marginTop: 10 }} />
+                    <div className="skeleton skeleton-line" style={{ width: '75%', marginTop: 6 }} />
+                    <div className="skeleton skeleton-line" style={{ width: '60%', marginTop: 6 }} />
+                  </div>
+                ))}
+                {!loading && displayList.map(item => {
                   // Background: keep expires calculation (not shown to user)
                   let expires = ''
                   try {
@@ -625,8 +712,15 @@ export default function HomePage() {
                     </div>
                   )
                 })}
-                {displayList.length === 0 && (
-                  <p className="text-muted">No listings yet.</p>
+                {!loading && displayList.length === 0 && (
+                  <div className="card">
+                    <div className="h2" style={{ marginTop: 0 }}>No listings match your filters</div>
+                    <ul className="text-muted" style={{ marginTop: 6 }}>
+                      <li>Try removing some filters</li>
+                      <li>Try a different location</li>
+                      <li><Link to="/new" style={{ color: 'var(--accent)' }}>Post your first ad</Link></li>
+                    </ul>
+                  </div>
                 )}
               </div>
             )
