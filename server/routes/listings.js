@@ -159,6 +159,18 @@ db.prepare(
   ')'
 ).run();
 
+db.prepare(
+  'CREATE TABLE IF NOT EXISTS listing_views (' +
+  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+  '  listing_id INTEGER NOT NULL,' +
+  '  ip TEXT,' +
+  '  viewer_email TEXT,' +
+  '  ts TEXT NOT NULL,' +
+  '  UNIQUE(listing_id, ip),' +
+  '  FOREIGN KEY(listing_id) REFERENCES listings(id)' +
+  ')'
+).run();
+
 function ensureColumn(table, column, type) {
   const cols = db.prepare('PRAGMA table_info(' + table + ')').all();
   if (!cols.find(c => c.name === column)) {
@@ -1476,10 +1488,46 @@ router.get('/:id', (req, res) => {
     const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
 
-    // Increment view counter (best-effort)
+    // Increment view counter (best-effort) with conditions:
+    // - Do not count views from the listing owner
+    // - Do not count duplicate views from the same IP
     try {
-      db.prepare('UPDATE listings SET views = COALESCE(views, 0) + 1 WHERE id = ?').run(id);
-      listing.views = (listing.views || 0) + 1;
+      const viewerEmail = String(req.header('X-User-Email') || '').toLowerCase().trim();
+      const ownerEmail = String(listing.owner_email || '').toLowerCase().trim();
+      // Determine client IP (favor X-Forwarded-For, else remoteAddress/ip)
+      let ip = '';
+      try {
+        const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+        ip = fwd || String(req.socket?.remoteAddress || req.ip || '').trim();
+        // Normalize IPv6 prefix ::ffff:
+        if (ip.startsWith('::ffff:')) ip = ip.slice(7);
+      } catch (_) {
+        ip = '';
+      }
+
+      let shouldCount = true;
+      // Skip owner's views
+      if (viewerEmail && ownerEmail && viewerEmail === ownerEmail) {
+        shouldCount = false;
+      }
+      // Skip duplicate IP views
+      if (shouldCount && ip) {
+        const exists = db.prepare('SELECT 1 FROM listing_views WHERE listing_id = ? AND ip = ? LIMIT 1').get(id, ip);
+        if (exists) {
+          shouldCount = false;
+        }
+      }
+
+      if (shouldCount) {
+        db.prepare('UPDATE listings SET views = COALESCE(views, 0) + 1 WHERE id = ?').run(id);
+        listing.views = (listing.views || 0) + 1;
+        db.prepare('INSERT OR IGNORE INTO listing_views (listing_id, ip, viewer_email, ts) VALUES (?, ?, ?, ?)').run(
+          id,
+          ip || null,
+          viewerEmail || null,
+          new Date().toISOString()
+        );
+      }
     } catch (_) {}
 
     const imagesRows = db.prepare('SELECT id, path, original_name, medium_path FROM listing_images WHERE listing_id = ?').all(id);

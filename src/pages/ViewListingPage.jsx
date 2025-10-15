@@ -300,7 +300,10 @@ export default function ViewListingPage() {
       if (!listingId) { setStatus('Error: Invalid ID'); return }
       try {
         setLoading(true)
-        const r = await fetch(`/api/listings/${encodeURIComponent(String(listingId))}`)
+        const user = getUser()
+        const headers = {}
+        if (user?.email) headers['X-User-Email'] = user.email
+        const r = await fetch(`/api/listings/${encodeURIComponent(String(listingId))}`, { headers })
         const data = await r.json()
         if (!r.ok) throw new Error(data.error || 'Failed to load listing')
         setListing(data)
