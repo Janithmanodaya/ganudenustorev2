@@ -273,13 +273,11 @@ export default function App() {
 
         {/* Navigation */}
         <nav className="nav" style={{ alignItems: 'center', gap: 10, flex: 1 }}>
-          {/* Language switcher (top-right) */}
           <div className="nav-desktop" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
             <div className="pill" title="Language" style={{ cursor: 'default' }}>Lang: {lang.toUpperCase()}</div>
             <CustomLangSelector lang={lang} onChange={setLanguage} />
           </div>
 
-          {/* Desktop navigation aligned to right */}
           <div className="nav-desktop" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
             <Link to="/"><LangText path="nav.home" /></Link>
             <Link to="/new"><LangText path="nav.sell" /></Link>
@@ -324,9 +322,7 @@ export default function App() {
             ) : null}
           </div>
 
-          {/* Mobile navigation: notifications, then account, then menu */}
           <div className="nav-mobile" style={{ position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-            {/* Language selector (mobile) */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div className="pill" title="Language">Lang: {lang.toUpperCase()}</div>
               <div style={{ width: 140 }}>
@@ -334,7 +330,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Notifications icon */}
             {userEmail ? (
               <div style={{ position: 'relative' }}>
                 <button
@@ -372,10 +367,8 @@ export default function App() {
               </div>
             ) : null}
 
-            {/* Account icon */}
             <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
 
-            {/* Menu dropdown toggle */}
             <div style={{ position: 'relative' }}>
               <button
                 ref={mobileMenuBtnRef}
@@ -400,7 +393,8 @@ export default function App() {
                 </div>
               )}
             </div>
-          </nav>
+          </div>
+        </nav>
 
         {/* Notifications dropdown panel */}
         {notifOpen && (
