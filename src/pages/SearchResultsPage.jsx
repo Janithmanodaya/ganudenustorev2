@@ -9,6 +9,39 @@ export default function SearchResultsPage() {
   const category = sp.get('category') || ''
   const navigate = useNavigate()
 
+  // SEO for search page
+  useEffect(() => {
+    try {
+      const title = q ? `Search: ${q} — Ganudenu Marketplace` : 'Search — Ganudenu Marketplace'
+      const desc = q
+        ? `Find results for "${q}" across vehicles, property, jobs, electronics, mobiles, and home & garden.`
+        : 'Browse the latest listings across vehicles, property, jobs, electronics, mobiles, and home & garden.'
+      document.title = title
+      const setMeta = (name, content) => {
+        let tag = document.querySelector(`meta[name="${name}"]`)
+        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('name', name); document.head.appendChild(tag) }
+        tag.setAttribute('content', content)
+      }
+      const setProp = (property, content) => {
+        let tag = document.querySelector(`meta[property="${property}"]`)
+        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('property', property); document.head.appendChild(tag) }
+        tag.setAttribute('content', content)
+      }
+      let link = document.querySelector('link[rel="canonical"]')
+      if (!link) { link = document.createElement('link'); link.setAttribute('rel', 'canonical'); document.head.appendChild(link) }
+      const qp = new URLSearchParams()
+      if (q) qp.set('q', q)
+      if (category) qp.set('category', category)
+      link.setAttribute('href', `https://ganudenu.store/search${qp.toString() ? `?${qp.toString()}` : ''}`)
+      setMeta('description', desc)
+      setProp('og:title', title)
+      setProp('og:description', desc)
+      setProp('og:url', link.getAttribute('href'))
+      setMeta('twitter:title', title)
+      setMeta('twitter:description', desc)
+    } catch (_) {}
+  }, [q, category])
+
   // Advanced filters (query params aware)
   const [location, setLocation] = useState(sp.get('location') || '')
   const [pricingType, setPricingType] = useState(sp.get('pricing_type') || '')
@@ -277,10 +310,26 @@ export default function SearchResultsPage() {
               const hero = imgs.length ? imgs[0] : (r.thumbnail_url || null)
 
               return (
+                function makeSlug(s) {
+                  const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                  return base || 'listing';
+                }
+                function permalinkForItem(it) {
+                  const titleSlug = makeSlug(it.title || '');
+                  let year = '';
+                  try {
+                    const sj = JSON.parse(it.structured_json || '{}');
+                    const y = sj.manufacture_year || sj.year || sj.model_year || null;
+                    if (y) year = String(y);
+                  } catch (_) {}
+                  const idCode = Number(it.id).toString(36).toUpperCase();
+                  const parts = [titleSlug, year, idCode].filter(Boolean);
+                  return `/listing/${it.id}-${parts.join('-')}`;
+                }
                 <div
                   key={r.id}
                   className="card"
-                  onClick={() => navigate(`/listing/${r.id}`)}
+                  onClick={() => navigate(permalinkForItem(r))}
                   style={{ cursor: 'pointer' }}
                 >
                   {hero && (

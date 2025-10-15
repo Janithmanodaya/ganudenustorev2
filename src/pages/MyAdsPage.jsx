@@ -8,6 +8,34 @@ export default function MyAdsPage() {
   const [rejectModal, setRejectModal] = useState({ open: false, reason: '', title: '' })
   const navigate = useNavigate()
 
+  // SEO for My Ads
+  useEffect(() => {
+    try {
+      const title = 'My Ads — Ganudenu Marketplace'
+      const desc = 'Manage your pending, approved, and rejected listings. Track views and status at a glance.'
+      document.title = title
+      const setMeta = (name, content) => {
+        let tag = document.querySelector(`meta[name="${name}"]`)
+        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('name', name); document.head.appendChild(tag) }
+        tag.setAttribute('content', content)
+      }
+      const setProp = (property, content) => {
+        let tag = document.querySelector(`meta[property="${property}"]`)
+        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('property', property); document.head.appendChild(tag) }
+        tag.setAttribute('content', content)
+      }
+      let link = document.querySelector('link[rel="canonical"]')
+      if (!link) { link = document.createElement('link'); link.setAttribute('rel', 'canonical'); document.head.appendChild(link) }
+      link.setAttribute('href', 'https://ganudenu.store/my-ads')
+      setMeta('description', desc)
+      setProp('og:title', title)
+      setProp('og:description', desc)
+      setProp('og:url', link.getAttribute('href'))
+      setMeta('twitter:title', title)
+      setMeta('twitter:description', desc)
+    } catch (_) {}
+  }, [])
+
   // Dashboard: Your Ad Progress
   const [lastUpdated, setLastUpdated] = useState(null)
   // Poll in the background for near‑real‑time progress
@@ -69,17 +97,33 @@ export default function MyAdsPage() {
     }
   }
 
+  function makeSlug(s) {
+    const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    return base || 'listing'
+  }
+  function permalinkForItem(it) {
+    const titleSlug = makeSlug(it.title || '')
+    let year = ''
+    try {
+      const sj = JSON.parse(it.structured_json || '{}')
+      const y = sj.manufacture_year || sj.year || sj.model_year || null
+      if (y) year = String(y)
+    } catch (_) {}
+    const idCode = Number(it.id).toString(36).toUpperCase()
+    const parts = [titleSlug, year, idCode].filter(Boolean)
+    return `/listing/${it.id}-${parts.join('-')}`
+  }
   function handleCardClick(item) {
     const st = String(item.status || '').toLowerCase()
     if (st.includes('pending')) {
       navigate(`/payment/${item.id}`)
     } else if (st.includes('approved')) {
-      navigate(`/listing/${item.id}`)
+      navigate(permalinkForItem(item))
     } else if (st.includes('reject')) {
       const reason = String(item.reject_reason || '').trim()
       setRejectModal({ open: true, reason: reason || 'No reason provided.', title: item.title || 'Rejected Ad' })
     } else {
-      navigate(`/listing/${item.id}`)
+      navigate(permalinkForItem(item))
     }
   }
 

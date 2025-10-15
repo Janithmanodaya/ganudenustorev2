@@ -25,6 +25,34 @@ export default function AuthPage() {
     } catch (_) {}
   }, [navigate])
 
+  // SEO for auth page
+  useEffect(() => {
+    try {
+      const title = 'Login / Register — Ganudenu Marketplace'
+      const desc = 'Secure login and registration. Create your account to buy, sell, and hire on Ganudenu.'
+      document.title = title
+      const setMeta = (name, content) => {
+        let tag = document.querySelector(`meta[name="${name}"]`)
+        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('name', name); document.head.appendChild(tag) }
+        tag.setAttribute('content', content)
+      }
+      const setProp = (property, content) => {
+        let tag = document.querySelector(`meta[property="${property}"]`)
+        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('property', property); document.head.appendChild(tag) }
+        tag.setAttribute('content', content)
+      }
+      let link = document.querySelector('link[rel="canonical"]')
+      if (!link) { link = document.createElement('link'); link.setAttribute('rel', 'canonical'); document.head.appendChild(link) }
+      link.setAttribute('href', 'https://ganudenu.store/auth')
+      setMeta('description', desc)
+      setProp('og:title', title)
+      setProp('og:description', desc)
+      setProp('og:url', link.getAttribute('href'))
+      setMeta('twitter:title', title)
+      setMeta('twitter:description', desc)
+    } catch (_) {}
+  }, [])
+
   async function submit(e) {
     e.preventDefault()
 

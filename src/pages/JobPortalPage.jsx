@@ -7,6 +7,34 @@ export default function JobPortalPage() {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   // Dynamic job filters
+
+  // SEO for job portal
+  useEffect(() => {
+    try {
+      const title = 'Jobs — Ganudenu Marketplace'
+      const desc = 'Find jobs or list vacancies in Sri Lanka. Search roles across IT, Marketing, Sales, Accounting, and more.'
+      document.title = title
+      const setMeta = (name, content) => {
+        let tag = document.querySelector(`meta[name="${name}"]`)
+        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('name', name); document.head.appendChild(tag) }
+        tag.setAttribute('content', content)
+      }
+      const setProp = (property, content) => {
+        let tag = document.querySelector(`meta[property="${property}"]`)
+        if (!tag) { tag = document.createElement('meta'); tag.setAttribute('property', property); document.head.appendChild(tag) }
+        tag.setAttribute('content', content)
+      }
+      let link = document.querySelector('link[rel="canonical"]')
+      if (!link) { link = document.createElement('link'); link.setAttribute('rel', 'canonical'); document.head.appendChild(link) }
+      link.setAttribute('href', 'https://ganudenu.store/jobs')
+      setMeta('description', desc)
+      setProp('og:title', title)
+      setProp('og:description', desc)
+      setProp('og:url', link.getAttribute('href'))
+      setMeta('twitter:title', title)
+      setMeta('twitter:description', desc)
+    } catch (_) {}
+  }, [])
   const [filtersDef, setFiltersDef] = useState({ keys: [], valuesByKey: {} })
   const [filters, setFilters] = useState({})
   const [results, setResults] = useState([])
@@ -284,13 +312,29 @@ export default function JobPortalPage() {
               const idx = cardSlideIndex[item.id] || 0
               const hero = imgs.length ? imgs[idx % imgs.length] : (item.thumbnail_url || null)
 
+              function makeSlug(s) {
+                const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                return base || 'listing';
+              }
+              function permalinkForItem(it) {
+                const titleSlug = makeSlug(it.title || '');
+                let year = '';
+                try {
+                  const sj = JSON.parse(it.structured_json || '{}');
+                  const y = sj.manufacture_year || sj.year || sj.model_year || null;
+                  if (y) year = String(y);
+                } catch (_) {}
+                const idCode = Number(it.id).toString(36).toUpperCase();
+                const parts = [titleSlug, year, idCode].filter(Boolean);
+                return `/listing/${it.id}-${parts.join('-')}`;
+              }
               return (
-                <div
+               < div
                   key={item.id}
                   className="card"
-                  onClick={() => navigate(`/listing/${item.id}`)}
+                  onClick={() => navigate(permalinkForItem(item))}
                   style={{ cursor: 'pointer' }}
-                >
+
                   {hero && (
                     <div style={{ position: 'relative', marginBottom: 8 }}>
                       <img
