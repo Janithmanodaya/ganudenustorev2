@@ -81,21 +81,14 @@ export default function HomePage() {
       const handler = (e) => { try { setIsMobile(!!e.matches) } catch (_) {} }
       if (mq && mq.addEventListener) {
         mq.addEventListener('change', handler)
-        cleanup = () => { try { mq.removeEventListener('change', handler) } catch (_) {} }
-      } else if (mq && mq.addListener) {
-        mq.addListener(handler)
-        cleanup = () => { try { mq.removeListener(handler) } catch (_) {} }
-      }
-    } catch (_) {}
-    return cleanup || (() => {})
-  }, [])
+        return () => { try { mq.removeEventListener('change', handler) } catch (_) {} }
+      } else ife [new]</)
+&])
 
   function onSearch(e) {
     e.preventDefault()
-    const term = (q || '').trim()
-    const path = term ? `/search?q=${encodeURIComponent(term)}` : '/search'
-    try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
-    navigate(path)
+    const query = q.trim()
+    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
   }
 
   useEffect(() => {
