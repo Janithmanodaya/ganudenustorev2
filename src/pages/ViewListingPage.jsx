@@ -582,7 +582,7 @@ export default function ViewListingPage() {
                   {listing.status && <span className="pill">{listing.status}</span>}
                   {listing.location && <span className="pill">{listing.location}</span>}
                   {sellerUsername && <span className="pill">Seller: {sellerUsername}</span>}
-                  {typeof listing?.views === 'number' && <span className="pill">👁️ {Number(listing.views).toLocaleString('en-US')}</span>}
+                  {Number.isFinite(Number(listing?.views)) && <span className="pill">👁️ {Number(listing.views).toLocaleString('en-US')}</span>}
                   {listing.pricing_type && <span className="pill">{String(listing?.main_category || '') === 'Job' ? 'Salary Type' : 'Price Type'}: {listing.pricing_type}</span>}
                 </div>
               )}
@@ -723,7 +723,7 @@ export default function ViewListingPage() {
                 )}
 
                 {/* Public Views count */}
-                {typeof listing?.views === 'number' && (
+                {Number.isFinite(Number(listing?.views)) && (
                   <div className="detail">
                     <div className="label">Views</div>
                     <div className="value">{Number(listing.views).toLocaleString('en-US')}</div>
