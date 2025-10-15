@@ -387,7 +387,7 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
       }
     }
     if (notified) {
-      console.log(\`[notify] Saved-search alerts created for \${notified} users for listing #\${id}\`);
+      console.log(`[notify] Saved-search alerts created for ${notified} users for listing #${id}`);
     }
   } catch (e) {
     console.warn('[notify] Saved-search notification error:', e && e.message ? e.message : e);
@@ -402,7 +402,7 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
         VALUES (?, ?, ?, ?, 'facebook_post', ?, ?)
       `).run(
         'Your ad was shared on Facebook',
-        \`Your ad "\${listing.title}" has been shared on our Facebook page. View it here: \${fbPostUrl}\`,
+        `Your ad "${listing.title}" has been shared on our Facebook page. View it here: ${fbPostUrl}`,
         target,
         new Date().toISOString(),
         listing.id,
@@ -412,14 +412,14 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
       const cfg = db.prepare('SELECT email_on_approve FROM admin_config WHERE id = 1').get();
       const emailOnApprove = !!(cfg && cfg.email_on_approve);
       if (emailOnApprove) {
-        const html = \`
+        const html = `
           <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
             <h2 style="margin:0 0 10px 0;">Your ad was shared on Facebook</h2>
-            <p style="margin:0 0 8px 0;">We have shared your approved ad "<strong>\${listing.title}</strong>" on our Facebook page.</p>
-            <p style="margin:0 0 12px 0;"><a href="\${fbPostUrl}" style="color:#0b5fff;text-decoration:none;">View Facebook post</a></p>
-            <p style="color:#666;font-size:12px;margin:0;">Listing ID: \${listing.id}</p>
+            <p style="margin:0 0 8px 0;">We have shared your approved ad "<strong>${listing.title}</strong>" on our Facebook page.</p>
+            <p style="margin:0 0 12px 0;"><a href="${fbPostUrl}" style="color:#0b5fff;text-decoration:none;">View Facebook post</a></p>
+            <p style="color:#666;font-size:12px;margin:0;">Listing ID: ${listing.id}</p>
           </div>
-        \`;
+        `;
         const sent = await sendEmail(target, 'Your ad was shared on Facebook', html);
         if (!sent?.ok) {
           console.warn('[email] approve email failed:', sent?.error || sent);
