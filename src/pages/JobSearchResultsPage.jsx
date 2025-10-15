@@ -80,6 +80,24 @@ export default function JobSearchResultsPage() {
     return () => { clearTimeout(t); ctrl.abort() }
   }, [locQuery])
 
+  // Fetch job-only search suggestions for Advanced input
+  useEffect(() => {
+    const term = (q || '').trim()
+    if (!term) { setSearchSuggestions([]); return }
+    const ctrl = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/listings/suggestions?q=${encodeURIComponent(term)}&category=Job`, { signal: ctrl.signal })
+        const data = await r.json()
+        if (r.ok && Array.isArray(data.results)) {
+          const arr = data.results.map(x => (typeof x === 'string' ? x : String(x.value || ''))).filter(Boolean)
+          setSearchSuggestions(arr)
+        }
+      } catch (_) {}
+    }, 250)
+    return () => { clearTimeout(t); ctrl.abort() }
+  }, [q])
+
   function onSubmit(e) {
     e.preventDefault()
     const next = new URLSearchParams()

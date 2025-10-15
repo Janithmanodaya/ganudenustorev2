@@ -1463,7 +1463,12 @@ router.get('/filters', (req, res) => {
   }
 });
 
-// Suggestions for global search (titles, locations, sub_category, model)
+// Suggestions for global search (typed)
+// Returns compact typed entries for richer dropdowns:
+// { value: string, type: 'title'|'location'|'sub_category'|'model', category?: string }
+// Supports optional filtering via query params:
+// - category: only include rows matching this main_category
+// - exclude_category: exclude rows matching this main_category (e.g., exclude_category=Job)
 router.get('/suggestions', (req, res) => {
   try {
     const cacheKey = 'suggestions:' + (req.originalUrl || JSON.stringify(req.query));
@@ -1476,29 +1481,53 @@ router.get('/suggestions', (req, res) => {
     const q = String(req.query.q || '').trim().toLowerCase();
     if (!q) return res.json({ results: [] });
 
-    const rows = db.prepare(`
-      SELECT title, location, structured_json
+    const category = String(req.query.category || '').trim();
+    const exclude = String(req.query.exclude_category || '').trim();
+
+    let sql = `
+      SELECT title, location, structured_json, main_category
       FROM listings
       WHERE status = 'Approved'
+    `;
+    const params = [];
+    if (category) {
+      sql += ' AND main_category = ?';
+      params.push(category);
+    } else if (exclude) {
+      sql += ' AND main_category != ?';
+      params.push(exclude);
+    }
+    sql += `
       ORDER BY created_at DESC
       LIMIT 300
-    `).all();
+    `;
 
-    const suggestions = new Set();
+    const rows = db.prepare(sql).all(params);
+
+    const results = [];
+    const seen = new Set();
+    function pushSuggestion(value, type, cat) {
+      const key = type + '|' + String(value).toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      results.push({ value: String(value), type, category: cat || undefined });
+    }
+
     for (const r of rows) {
-      if (r.title && r.title.toLowerCase().includes(q)) suggestions.add(r.title);
-      if (r.location && r.location.toLowerCase().includes(q)) suggestions.add(r.location);
+      const cat = String(r.main_category || '');
+      if (r.title && r.title.toLowerCase().includes(q)) pushSuggestion(r.title, 'title', cat);
+      if (r.location && r.location.toLowerCase().includes(q)) pushSuggestion(r.location, 'location', cat);
       try {
         const sj = JSON.parse(r.structured_json || '{}');
         const sub = String(sj.sub_category || '').trim();
         const model = String(sj.model_name || '').trim();
-        if (sub && sub.toLowerCase().includes(q)) suggestions.add(sub);
-        if (model && model.toLowerCase().includes(q)) suggestions.add(model);
+        if (sub && sub.toLowerCase().includes(q)) pushSuggestion(sub, 'sub_category', cat);
+        if (model && model.toLowerCase().includes(q)) pushSuggestion(model, 'model', cat);
       } catch (_) {}
-      if (suggestions.size >= 50) break;
+      if (results.length >= 50) break;
     }
 
-    const payload = { results: Array.from(suggestions).slice(0, 50) };
+    const payload = { results };
     cacheSet(cacheKey, payload, 30000);
     res.set('Cache-Control', 'public, max-age=30');
     res.json(payload);

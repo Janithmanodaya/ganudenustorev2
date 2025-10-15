@@ -71,10 +71,24 @@ export default function HomePage() {
     return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25)
   }, [filtersDef, modelQuery])
 
-  function onSearch(e) {
-    e.preventDefault()
-    const query = q.trim()
-    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
+  // Mobile detection for UX tweaks (keyboard-safe dropdown)
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    let cleanup = null
+    try {
+      const mq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width: 780px)') : null
+      setIsMobile(!!(mq && mq.matches))
+      const handler = (e) => { try { setIsMobile(!!e.matches) } catch (_) {} }
+      if (mq && mq.addEventListener) {
+        mq.addEventListener('change', handler)
+        cleanup = () => { try { mq.removeEventListener('change', handler) } catch (_) {} }
+      } else if (mq && mq.addListener) {
+        mq.addListener(handler)
+        cleanup = () => { try { mq.removeListener(handler) } catch (_) {} }
+      }
+    } catch (_) {}
+    return cleanup || (() => {})
+  },_code)}` : '/search')
   }
 
   useEffect(() => {
@@ -143,13 +157,14 @@ export default function HomePage() {
   // Pressing "Apply" will show the default latest 10 listings.
 
   // Fetch global search suggestions (titles, locations, sub_category, model)
+  // Home page must NOT show job suggestions; exclude Job via backend param.
   useEffect(() => {
     const term = (q || '').trim()
     if (!term) { setSearchSuggestions([]); return }
     const ctrl = new AbortController()
     const t = setTimeout(async () => {
       try {
-        const r = await fetch(`/api/listings/suggestions?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
+        const r = await fetch(`/api/listings/suggestions?q=${encodeURIComponent(term)}&exclude_category=Job`, { signal: ctrl.signal })
         const data = await r.json()
         if (r.ok && Array.isArray(data.results)) setSearchSuggestions(data.results)
       } catch (_) {}
@@ -346,18 +361,84 @@ export default function HomePage() {
             </div>
           )}
 
-          <form onSubmit={onSearch} className="searchbar" style={{ margin: '16px auto 0', maxWidth: 720 }}>
+          <form onSubmit={onSearch} className="searchbar" style={{ margin: '16px auto 0', maxWidth: 720, position: 'relative' }}>
             <input
               className="input"
               type="text"
-              list="global-suggest"
-              placeholder="Search anything (e.g., Toyota, House in Kandy, Accountant)..."
+              placeholder="Search anything (e.g., Toyota, House in Kandy)..."
               value={q}
               onChange={e => setQ(e.target.value)}
+              onFocus={(e) => {
+                // Ensure the search box is visible above the mobile keyboard
+                try { e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (_) {}
+              }}
             />
-            <datalist id="global-suggest">
-              {Array.isArray(searchSuggestions) ? searchSuggestions.map(s => <option key={s} value={s} />) : null}
-            </datalist>
+            {/* Dynamic typed suggestions dropdown (titles, locations, sub_category, model) */}
+            {q.trim() && Array.isArray(searchSuggestions) && searchSuggestions.length > 0 && (
+              <div
+                className="card"
+                role="listbox"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: '100%',
+                  marginTop: 6,
+                  zIndex: 60,
+                  maxHeight: isMobile ? 180 : 300, // keep short on mobile to avoid keyboard overlap
+                  overflowY: 'auto',
+                  padding: 6,
+                  background: 'rgba(18,22,31,0.96)', // darker for readability
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 14px 36px var(--shadow)',
+                  borderRadius: 12
+                }}
+              >
+                {(isMobile ? searchSuggestions.slice(0, 6) : searchSuggestions.slice(0, 12)).map((sug, idx) => {
+                  const isObj = typeof sug === 'object' && sug !== null
+                  const label = isObj ? String(sug.value) : String(sug)
+                  const type = isObj ? String(sug.type || '') : ''
+                  const badge = type
+                    ? { title: 'Title', location: 'Location', sub_category: 'Sub-category', model: 'Model' }[type] || ''
+                    : ''
+                  return (
+                    <div
+                      key={`${label}-${idx}`}
+                      role="option"
+                      className="custom-select-option"
+                      onMouseDown={(e) => {
+                        // Prevent input blur before click handler runs
+                        e.preventDefault()
+                      }}
+                      onClick={() => {
+                        const v = String(label || '').trim()
+                        if (!v) return
+                        setQ(v)
+                        // Scroll a bit to keep the search bar visible while navigating
+                        try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
+                        navigate(`/search?q=${encodeURIComponent(v)}`)
+                      }}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        color: 'var(--text)'
+                      }}
+                    >
+                      <span>{label}</span>
+                      {badge && (
+                        <span className="pill" style={{ fontSize: 11 }}>
+                          {badge}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
             <button className="btn primary" type="submit">Search</button>
           </form>
 
