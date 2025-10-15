@@ -2,6 +2,16 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import CustomSelect from '../components/CustomSelect.jsx'
 
+// Safe JSON reader: throws a clear error if server returns HTML (e.g., backend down)
+async function readJsonSafe(r) {
+  const ct = String(r.headers.get('content-type') || '').toLowerCase()
+  if (!ct.includes('application/json')) {
+    const txt = await r.text().catch(() => '')
+    throw new Error('Server returned non-JSON. Backend may be down.')
+  }
+  return r.json()
+}
+
 export default function AdminPage() {
   const navigate = useNavigate()
   const [adminEmail, setAdminEmail] = useState('')
@@ -57,7 +67,7 @@ export default function AdminPage() {
   async function fetchConfig() {
     try {
       const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load config')
       setMaskedKey(data.gemini_api_key_masked)
       setBankDetails(data.bank_details || '')
@@ -78,7 +88,7 @@ export default function AdminPage() {
         },
         body: JSON.stringify({ geminiApiKey, bankDetails, whatsappNumber, emailOnApprove })
       })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to save config')
       setStatus('Configuration saved.')
       setGeminiApiKey('')
@@ -94,7 +104,7 @@ export default function AdminPage() {
         method: 'POST',
         headers: { 'X-Admin-Email': adminEmail }
       })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error?.message || data.error || 'Failed to test API key')
       setStatus(`API key OK. Models available: ${data.models_count}`)
     } catch (e) {
@@ -105,8 +115,8 @@ export default function AdminPage() {
   async function loadPending() {
     try {
       const r = await fetch('/api/admin/pending', { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
-      if (!r.ok) throw new Error(data.error || 'Failed to load pending')
+      const data = await readJsonSafe(r)
+f (!r.ok) throw new Error(data.error || 'Failed to load pending')
       setPending(data.items || [])
     } catch (e) {
       setStatus(`Error: ${e.message}`)
@@ -138,7 +148,7 @@ export default function AdminPage() {
           structured_json: editStructured
         })
       })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to save edits')
       setStatus('Edits saved.')
       await loadDetail(selectedId)
@@ -153,7 +163,7 @@ export default function AdminPage() {
         method: 'POST',
         headers: { 'X-Admin-Email': adminEmail }
       })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to approve')
       setStatus('Approved.')
       setDetail(null)
@@ -174,7 +184,7 @@ export default function AdminPage() {
         },
         body: JSON.stringify({ reason: rejectReason })
       })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to reject')
       setStatus('Rejected.')
       setDetail(null)
@@ -183,8 +193,8 @@ export default function AdminPage() {
       await loadPending()
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }
-  }
+    }_code
+ new </}
 
   async function loadBanners() {
     try {
@@ -200,7 +210,7 @@ export default function AdminPage() {
   async function loadMetrics(days = rangeDays) {
     try {
       const r = await fetch(`/api/admin/metrics?days=${encodeURIComponent(days)}`, { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load metrics')
       setMetrics(data)
     } catch (e) {
@@ -233,13 +243,13 @@ export default function AdminPage() {
   async function unbanUser(id) {
     try {
       const r = await fetch(`/api/admin/users/${id}/unban`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to unban user')
       loadUsers(userQuery)
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }
-  }
+    }_code
+ new </}
 
   async function suspend7Days(id) {
     try {
@@ -270,7 +280,7 @@ export default function AdminPage() {
   async function loadReports(filter = 'pending') {
     try {
       const r = await fetch(`/api/admin/reports?status=${encodeURIComponent(filter)}`, { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load reports')
       setReports(data.results || [])
     } catch (e) {
@@ -358,14 +368,12 @@ export default function AdminPage() {
   async function loadAdminNotifications() {
     try {
       const r = await fetch('/api/admin/notifications', { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await r.json()
+      const data = await readJsonSafe(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load notifications')
       setNotificationsAdmin(data.results || [])
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }
-  }
-
+   
   async function sendNotification() {
     if (!notifyTitle.trim() || !notifyMessage.trim()) {
       setStatus('Title and message are required.')
