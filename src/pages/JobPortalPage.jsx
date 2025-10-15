@@ -297,9 +297,9 @@ export default function JobPortalPage() {
                   </div>
                 ))}
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" type="button" onClick={() => setFilters({})}>Clear</button>
-                <button className="btn" type="button" onClick={resetJobFilters} title="Reset all job filters">Reset</button>
-                <button className="btn primary" type="button" onClick={applyJobFilters}>Apply</button>
+                <button className="btn compact" type="button" onClick={() => setFilters({})} style={{ flex: '0 0 auto' }}>Clear</button>
+                <button className="btn compact" type="button" onClick={resetJobFilters} title="Reset all job filters" style={{ flex: '0 0 auto' }}>Reset</button>
+                <button className="btn primary compact" type="button" onClick={applyJobFilters} style={{ flex: '0 0 auto' }}>Apply</button>
               </div>
             </div>
           </div>

@@ -402,7 +402,7 @@ export default function HomePage() {
           <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
             <div>
               {hasActiveFilters && (
-                <button className="btn" type="button" onClick={resetHomeFilters} title="Reset all filters">
+                <button className="btn compact" type="button" onClick={resetHomeFilters} title="Reset all filters" style={{ flex: '0 0 auto' }}>
                   Reset filters
                 </button>
               )}
@@ -615,10 +615,10 @@ export default function HomePage() {
                 )}
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <button className="btn accent" type="button" onClick={() => fetchFilteredListings()}>
+                  <button className="btn accent compact" type="button" onClick={() => fetchFilteredListings()} style={{ flex: '0 0 auto' }}>
                     Apply
                   </button>
-                  <button className="btn" type="button" onClick={resetHomeFilters}>
+                  <button className="btn compact" type="button" onClick={resetHomeFilters} style={{ flex: '0 0 auto' }}>
                     Reset
                   </button>
                   {/* Save this search */}

@@ -359,8 +359,8 @@ export default function SearchResultsPage() {
                       { value: 'price_desc', label: 'Price: High to Low' },
                     ]}
                   />
-                  <button className="btn accent" type="submit">Apply</button>
-                  <button className="btn" type="button" onClick={resetAdvancedFilters}>Reset</button>
+                  <button className="btn accent compact" type="submit" style={{ flex: '0 0 auto' }}>Apply</button>
+                  <button className="btn compact" type="button" onClick={resetAdvancedFilters} style={{ flex: '0 0 auto' }}>Reset</button>
                 </div>
               </form>
             </>
