@@ -74,21 +74,24 @@ export default function HomePage() {
   // Mobile detection for UX tweaks (keyboard-safe dropdown)
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
-    let cleanup = null
     try {
-      const mq = (typeof window !== 'undefined' && window.matchMedia) ? window.matchMedia('(max-width: 780px)') : null
-      setIsMobile(!!(mq && mq.matches))
-      const handler = (e) => { try { setIsMobile(!!e.matches) } catch (_) {} }
+      const mq = window.matchMedia && window.matchMedia('(max-width: 780px)')
+      const initial = !!(mq && mq.matches)
+      setIsMobile(initial)
+      const handler = (e) => {
+        try { setIsMobile(!!e.matches) } catch (_) {}
+      }
+      // Prefer addEventListener; fallback to addListener for older browsers
       if (mq && mq.addEventListener) {
         mq.addEventListener('change', handler)
-        cleanup = () => { try { mq.removeEventListener('change', handler) } catch (_) {} }
-      } else if (mq && mq.addListener) {
-        mq.addListener(handler)
-        cleanup = () => { try { mq.removeListener(handler) } catch (_) {} }
-      }
-    } catch (_) {}
-    return cleanup || (() => {})
-  },_code)}` : '/search')
+        return () => { try { mq.removeEventListener('change', handler) } catch (_) {} }
+      } else ife [new]</)
+&])
+
+  function onSearch(e) {
+    e.preventDefault()
+    const query = q.trim()
+    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
   }
 
   useEffect(() => {
