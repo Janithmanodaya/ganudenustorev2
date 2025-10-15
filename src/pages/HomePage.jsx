@@ -445,7 +445,14 @@ export default function HomePage() {
                           params.set('location', v)
                         } else if (type === 'sub_category') {
                           params.set('filters', JSON.stringify({ sub_category: v }))
-                        } else if (             }}
+                        } else if (type === 'model') {
+                          params.set('filters', JSON.stringify({ model: v }))
+                        } else {
+                          // default: keyword search
+                          params.set('q', v)
+                        }
+                        navigate(`/search?${params.toString()}`)
+                      }}
                       style={{
                         padding: '8px 10px',
                         borderRadius: 8,
