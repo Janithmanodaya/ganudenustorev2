@@ -1,26 +1,40 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { Suspense, useEffect, useRef, useState } from 'react'
 import { Routes, Route, Link, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import HomePage from './pages/HomePage.jsx'
-import ViewListingPage from './pages/ViewListingPage.jsx'
-import NewListingPage from './pages/NewListingPage.jsx'
-import VerifyListingPage from './pages/VerifyListingPage.jsx'
-import AdminPage from './pages/AdminPage.jsx'
-import AuthPage from './pages/AuthPage.jsx'
-import JobPortalPage from './pages/JobPortalPage.jsx'
-import PostEmployeeAdPage from './pages/PostEmployeeAdPage.jsx'
-import SearchResultsPage from './pages/SearchResultsPage.jsx'
-import VerifyEmployeePage from './pages/VerifyEmployeePage.jsx'
-import MyAdsPage from './pages/MyAdsPage.jsx'
-import AccountPage from './pages/AccountPage.jsx'
-import JobSearchResultsPage from './pages/JobSearchResultsPage.jsx'
-import PolicyPage from './pages/PolicyPage.jsx'
-import PaymentPendingPage from './pages/PaymentPendingPage.jsx'
 import Modal from './components/Modal.jsx'
+import LoadingOverlay from './components/LoadingOverlay.jsx'
+import { I18nProvider, useI18n } from './components/i18n.jsx'
+
+// Code-splitting: lazy-load route components
+const HomePage = React.lazy(() => import('./pages/HomePage.jsx'))
+const ViewListingPage = React.lazy(() => import('./pages/ViewListingPage.jsx'))
+const NewListingPage = React.lazy(() => import('./pages/NewListingPage.jsx'))
+const VerifyListingPage = React.lazy(() => import('./pages/VerifyListingPage.jsx'))
+const AdminPage = React.lazy(() => import('./pages/AdminPage.jsx'))
+const AuthPage = React.lazy(() => import('./pages/AuthPage.jsx'))
+const JobPortalPage = React.lazy(() => import('./pages/JobPortalPage.jsx'))
+const PostEmployeeAdPage = React.lazy(() => import('./pages/PostEmployeeAdPage.jsx'))
+const SearchResultsPage = React.lazy(() => import('./pages/SearchResultsPage.jsx'))
+const VerifyEmployeePage = React.lazy(() => import('./pages/VerifyEmployeePage.jsx'))
+const MyAdsPage = React.lazy(() => import('./pages/MyAdsPage.jsx'))
+const AccountPage = React.lazy(() => import('./pages/AccountPage.jsx'))
+const JobSearchResultsPage = React.lazy(() => import('./pages/JobSearchResultsPage.jsx'))
+const PolicyPage = React.lazy(() => import('./pages/PolicyPage.jsx'))
+const PaymentPendingPage = React.lazy(() => import('./pages/PaymentPendingPage.jsx'))
+const SellerProfilePage = React.lazy(() => import('./pages/SellerProfilePage.jsx'))
 
 export default function App() {
   const navigate = useNavigate()
   const location = useLocation()
   const isHome = location.pathname === '/'
+
+  // Language switcher (basic infrastructure)
+  const [lang, setLang] = useState(() => {
+    try { return localStorage.getItem('lang') || 'en' } catch (_) { return 'en' }
+  })
+  function setLanguage(next) {
+    try { localStorage.setItem('lang', next) } catch (_) {}
+    setLang(next)
+  }
 
   // Notifications state (top-right bell)
   const [userEmail, setUserEmail] = useState('')
@@ -236,6 +250,7 @@ export default function App() {
   }
 
   return (
+    <I18nProvider lang={lang}>
     <div className="app light">
       <header className="topbar" style={{ position: 'sticky' }}>
         <div className="topbar-left">
@@ -252,19 +267,23 @@ export default function App() {
           )}
           <div className="brand">
             <Link to="/">Ganudenu</Link>
-            <span className="domain">Marketplace</span>
+            <span className="domain"><LangText path="brand.marketplace" /></span>
           </div>
         </div>
 
         {/* Navigation */}
         <nav className="nav" style={{ alignItems: 'center', gap: 10, flex: 1 }}>
-          {/* Desktop navigation aligned to right */}
           <div className="nav-desktop" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Link to="/">Home</Link>
-            <Link to="/new">Sell</Link>
-            <Link to="/jobs">Jobs</Link>
-            <Link to="/my-ads">My Ads</Link>
-            <Link to="/account">Account</Link>
+            <div className="pill" title="Language" style={{ cursor: 'default' }}>Lang: {lang.toUpperCase()}</div>
+            <CustomLangSelector lang={lang} onChange={setLanguage} />
+          </div>
+
+          <div className="nav-desktop" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Link to="/"><LangText path="nav.home" /></Link>
+            <Link to="/new"><LangText path="nav.sell" /></Link>
+            <Link to="/jobs"><LangText path="nav.jobs" /></Link>
+            <Link to="/my-ads"><LangText path="nav.myAds" /></Link>
+            <Link to="/account"><LangText path="nav.account" /></Link>
             {userEmail ? (
               <div style={{ position: 'relative' }}>
                 <button
@@ -303,9 +322,13 @@ export default function App() {
             ) : null}
           </div>
 
-          {/* Mobile navigation: notifications, then account, then menu (swap notif and profile) */}
           <div className="nav-mobile" style={{ position: 'relative', width: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-            {/* Notifications icon (moved to first) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 140 }}>
+                <CustomLangSelector lang={lang} onChange={setLanguage} />
+              </div>
+            </div>
+
             {userEmail ? (
               <div style={{ position: 'relative' }}>
                 <button
@@ -343,10 +366,8 @@ export default function App() {
               </div>
             ) : null}
 
-            {/* Account icon (moved to middle) */}
             <Link to="/account" className="back-btn" aria-label="Account" title="Account">👤</Link>
 
-            {/* Menu dropdown toggle (remains last / far right) */}
             <div style={{ position: 'relative' }}>
               <button
                 ref={mobileMenuBtnRef}
@@ -364,10 +385,10 @@ export default function App() {
                   className="card dropdown-panel"
                   style={{ width: 200, padding: 8, right: 0, left: 'auto' }}
                 >
-                  <Link to="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
-                  <Link to="/new" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
-                  <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}>Jobs</Link>
-                  <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}>My Ads</Link>
+                  <Link to="/" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.home" /></Link>
+                  <Link to="/new" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.sell" /></Link>
+                  <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.jobs" /></Link>
+                  <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.myAds" /></Link>
                 </div>
               )}
             </div>
@@ -378,7 +399,7 @@ export default function App() {
         {notifOpen && (
           <div ref={notifPanelRef} style={{ position: 'absolute', top: 62, right: 14, zIndex: 20 }}>
             <div className="card" style={{ width: 340, maxHeight: 420, overflow: 'auto' }}>
-              <div className="h2" style={{ marginTop: 0 }}>Notifications</div>
+              <div className="h2" style={{ marginTop: 0 }}><LangText path="notifications.title" /></div>
               {notifications.length === 0 && <p className="text-muted">No notifications.</p>}
               {notifications.map(n => (
                 <div
@@ -389,7 +410,7 @@ export default function App() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                     <strong>{n.title}</strong>
-                    {!n.is_read && <span className="pill" style={{ background: 'rgba(108,127,247,0.15)', borderColor: 'transparent', color: '#c9d1ff' }}>New</span>}
+                    {!n.is_read && <span className="pill" style={{ background: 'rgba(108,127,247,0.15)', borderColor: 'transparent', color: '#c9d1ff' }}><LangText path="notifications.new" /></span>}
                   </div>
                   <div className="text-muted" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.message}</div>
                   <div className="text-muted" style={{ marginTop: 6, fontSize: 12 }}>
@@ -399,39 +420,42 @@ export default function App() {
                 </div>
               ))}
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8 }}>
-                <button className="btn" onClick={() => setNotifOpen(false)}>Close</button>
-                <button className="btn" onClick={markAllRead} disabled={unreadCount === 0}>Mark all read</button>
+                <button className="btn" onClick={() => setNotifOpen(false)}><LangText path="notifications.close" /></button>
+                <button className="btn" onClick={markAllRead} disabled={unreadCount === 0}><LangText path="notifications.markAllRead" /></button>
               </div>
             </div>
           </div>
         )}
       </header>
       <main className="content">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          {/* Permalink with SEO-friendly slug support (place slug route first to avoid matching plain :id) */}
-          <Route path="/listing/:id-:slug" element={<ViewListingPage />} />
-          <Route path="/listing/:id" element={<ViewListingPage />} />
-          <Route path="/new" element={<NewListingPage />} />
-          <Route path="/verify" element={<VerifyListingPage />} />
-          <Route path="/verify-employee" element={<VerifyEmployeePage />} />
-          <Route path="/janithmanodya" element={<AdminPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/account" element={<AccountPage />} />
-          <Route path="/my-ads" element={<MyAdsPage />} />
-          <Route path="/jobs" element={<JobPortalPage />} />
-          <Route path="/jobs/search" element={<JobSearchResultsPage />} />
-          <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
-          <Route path="/search" element={<SearchResultsPage />} />
-          <Route path="/policy" element={<PolicyPage />} />
-          <Route path="/payment/:id" element={<PaymentPendingPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<LoadingOverlay message="Loading..." />}>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            {/* Permalink with SEO-friendly slug support (place slug route first to avoid matching plain :id) */}
+            <Route path="/listing/:id-:slug" element={<ViewListingPage />} />
+            <Route path="/listing/:id" element={<ViewListingPage />} />
+            <Route path="/new" element={<NewListingPage />} />
+            <Route path="/verify" element={<VerifyListingPage />} />
+            <Route path="/verify-employee" element={<VerifyEmployeePage />} />
+            <Route path="/janithmanodya" element={<AdminPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/account" element={<AccountPage />} />
+            <Route path="/my-ads" element={<MyAdsPage />} />
+            <Route path="/jobs" element={<JobPortalPage />} />
+            <Route path="/jobs/search" element={<JobSearchResultsPage />} />
+            <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
+            <Route path="/search" element={<SearchResultsPage />} />
+            <Route path="/policy" element={<PolicyPage />} />
+            <Route path="/payment/:id" element={<PaymentPendingPage />} />
+            <Route path="/seller/:username" element={<SellerProfilePage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </main>
       <footer className="footer">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, width: '100%' }}>
-          <small>© {new Date().getFullYear()} Ganudenu Marketplace</small>
-          <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Service Policy</Link>
+          <small><LangText path="footer.copyright" params={new Date().getFullYear()} /></small>
+          <Link to="/policy" style={{ color: 'var(--muted)', textDecoration: 'none' }}><LangText path="footer.policy" /></Link>
         </div>
       </footer>
 
@@ -491,6 +515,30 @@ export default function App() {
           </div>
         </div>
       )}
+    </div>
+    </I18nProvider>
+  )
+}
+
+function LangText({ path, params }) {
+  const { t } = useI18n()
+  return <>{t(path, params)}</>
+}
+
+function CustomLangSelector({ lang, onChange }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <select
+        className="select"
+        aria-label="Language"
+        value={lang}
+        onChange={e => onChange(e.target.value)}
+        style={{ minWidth: 120 }}
+      >
+        <option value="en">English</option>
+        <option value="si">සිංහල</option>
+        <option value="ta">தமிழ்</option>
+      </select>
     </div>
   )
 }

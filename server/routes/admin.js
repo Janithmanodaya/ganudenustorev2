@@ -235,7 +235,7 @@ router.post('/pending/:id/approve', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
 
   // Load listing to get owner and title
-  const listing = db.prepare(`SELECT id, title, owner_email FROM listings WHERE id = ?`).get(id);
+  const listing = db.prepare(`SELECT id, title, owner_email, main_category, location, price, structured_json FROM listings WHERE id = ?`).get(id);
 
   // Set status to 'Approved' to match public listing queries
   db.prepare(`UPDATE listings SET status = 'Approved', reject_reason = NULL WHERE id = ?`).run(id);
@@ -260,6 +260,78 @@ router.post('/pending/:id/approve', requireAdmin, (req, res) => {
       );
     }
   } catch (_) {}
+
+  // Notify users with saved searches that match this listing
+  try {
+    const searches = db.prepare('SELECT * FROM saved_searches').all();
+    let notified = 0;
+
+    function listingMatchesSearch(listingRow, search) {
+      try {
+        const catOk = search.category ? String(listingRow.main_category || '') === String(search.category || '') : true;
+        const locOk = search.location ? String(listingRow.location || '').toLowerCase().includes(String(search.location || '').toLowerCase()) : true;
+        const p = listingRow.price != null ? Number(listingRow.price) : null;
+        const pMinOk = search.price_min != null ? (p != null && p >= Number(search.price_min)) : true;
+        const pMaxOk = search.price_max != null ? (p != null && p <= Number(search.price_max)) : true;
+
+        let filtersOk = true;
+        let filters = {};
+        try { filters = search.filters_json ? JSON.parse(search.filters_json) : {}; } catch (_) { filters = {}; }
+        if (filters && Object.keys(filters).length) {
+          const sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {};
+          for (const [k, v] of Object.entries(filters)) {
+            if (v == null || v === '') continue;
+            const key = k === 'model' ? 'model_name' : k;
+            const got = String(sj[key] || '').toLowerCase();
+
+            // Support multi-select arrays
+            if (Array.isArray(v)) {
+              const wants = v.map(x => String(x).toLowerCase()).filter(Boolean);
+              if (key === 'model_name' || key === 'sub_category') {
+                if (!wants.some(w => got.includes(w))) { filtersOk = false; break; }
+              } else {
+                if (!wants.some(w => got === w)) { filtersOk = false; break; }
+              }
+            } else {
+              const want = String(v).toLowerCase();
+              if (key === 'model_name' || key === 'sub_category') {
+                if (!got.includes(want)) { filtersOk = false; break; }
+              } else {
+                if (got !== want) { filtersOk = false; break; }
+              }
+            }
+          }
+        }
+        return catOk && locOk && pMinOk && pMaxOk && filtersOk;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    for (const s of searches) {
+      if (listingMatchesSearch(listing, s)) {
+        try {
+          db.prepare(`
+            INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+            VALUES (?, ?, ?, ?, 'saved_search', ?, ?)
+          `).run(
+            'New listing matches your search',
+            `A new "${listing.title}" matches your saved search.`,
+            String(s.user_email).toLowerCase().trim(),
+            new Date().toISOString(),
+            listing.id,
+            JSON.stringify({ saved_search_id: s.id })
+          );
+          notified++;
+        } catch (_) {}
+      }
+    }
+    if (notified) {
+      console.log(`[notify] Saved-search alerts created for ${notified} users for listing #${id}`);
+    }
+  } catch (e) {
+    console.warn('[notify] Saved-search notification error:', e && e.message ? e.message : e);
+  }
 
   res.json({ ok: true });
 });

@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import ChatWidget from '../components/ChatWidget.jsx'
+import { useI18n } from '../components/i18n.jsx'
 
 import CustomSelect from '../components/CustomSelect.jsx'
 import useSEO from '../components/useSEO.js'
 
 export default function HomePage() {
   const [q, setQ] = useState('')
+  const { t } = useI18n()
   const [latest, setLatest] = useState([])
   const [status, setStatus] = useState(null)
   const [localFilter, setLocalFilter] = useState('')
@@ -40,6 +42,8 @@ export default function HomePage() {
   // Autocomplete queries for sub_category and model
   const [subCategoryQuery, setSubCategoryQuery] = useState('')
   const [modelQuery, setModelQuery] = useState('')
+  const subCategorySelected = Array.isArray(filters.sub_category) ? filters.sub_category : []
+  const modelSelected = Array.isArray(filters.model) ? filters.model : []
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -433,69 +437,206 @@ export default function HomePage() {
                     searchable={true}
                     allowCustom={true}
                   />
+                  {/* Geolocation button to auto-fill nearest district */}
+                  <div style={{ marginTop: 6 }}>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setStatus('')
+                          if (!('geolocation' in navigator)) { setStatus('Geolocation not supported on this device.'); return }
+                          navigator.geolocation.getCurrentPosition(async (pos) => {
+                            try {
+                              const { latitude, longitude } = pos.coords
+                              const url = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}&format=json`
+                              const r = await fetch(url, { headers: { 'Accept': 'application/json' } })
+                              const data = await r.json().catch(() => ({}))
+                              const district = String(
+                                data?.address?.state_district ||
+                                data?.address?.county ||
+                                data?.address?.state ||
+                                data?.address?.city ||
+                                data?.address?.town ||
+                                data?.address?.suburb ||
+                                ''
+                              ).trim()
+                              if (district) {
+                                setFilterLocation(district)
+                                setLocQuery(district)
+                                setStatus(`Location set to: ${district}`)
+                              } else {
+                                setStatus('Could not determine district from location.')
+                              }
+                            } catch (e) {
+                              setStatus(`Failed to detect location: ${e.message}`)
+                            }
+                          }, (err) => {
+                            setStatus('Geolocation permission denied or failed.')
+                          }, { timeout: 8000 })
+                        } catch (e) {
+                          setStatus('Geolocation error.')
+                        }
+                      }}
+                    >
+                      Use my location
+                    </button>
+                  </div>
                 </div>
                 <input className="input" type="number" placeholder="Min price" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
                 <input className="input" type="number" placeholder="Max price" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
 
-                {/* Dynamic sub_category/model and other keys */}
-                {filterCategory && filtersDef.keys.length > 0 && (() => {
-                  const pretty = (k) => {
-                    if (!k) return '';
-                    const map = {
-                      model: 'Model',
-                      model_name: 'Model',
-                      manufacture_year: 'Manufacture Year',
-                      sub_category: 'Sub-category',
-                      pricing_type: 'Pricing',
-                    };
-                    if (map[k]) return map[k];
-                    // Fallback: title-case underscores
-                    return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
-                  };
-                  const hybridKeys = new Set(['manufacture_year', 'sub_category', 'model', 'model_name']);
-                  return filtersDef.keys
-                    .filter(k => !['location','pricing_type','price'].includes(k))
-                    .map(key => {
-                      const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
-                      const opts = [{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))];
-                      if (hybridKeys.has(key)) {
-                        // Searchable select with ability to type custom text AND choose from dropdown (mobile-friendly)
-                        return (
-                          <div key={key}>
-                            <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
-                            <CustomSelect
-                              value={filters[key] || ''}
-                              onChange={val => updateFilter(key, val)}
-                              ariaLabel={key}
-                              placeholder={pretty(key)}
-                              options={opts}
-                              searchable={true}
-                              allowCustom={false}
-                            />
-                          </div>
-                        );
-                      }
-                      return (
-                        <div key={key}>
-                          <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
-                          <CustomSelect
-                            value={filters[key] || ''}
-                            onChange={val => updateFilter(key, val)}
-                            ariaLabel={key}
-                            placeholder={pretty(key)}
-                            options={opts}
-                          />
-                        </div>
-                      );
-                    });
-                })()}
+                {/* Dynamic sub_category/model tag inputs + other keys */}
+                {filterCategory && filtersDef.keys.length > 0 && (
+                  <>
+                    {/* Sub-category multi-select tags */}
+                    <div>
+                      <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Sub-category</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                        {subCategorySelected.map((tag, idx) => (
+                          <span key={`subcat-${tag}-${idx}`} className="pill">
+                            {tag}
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={() => {
+                                const next = subCategorySelected.filter((t, i) => !(t === tag && i === idx))
+                                updateFilter('sub_category', next)
+                              }}
+                              aria-label="Remove"
+                              style={{ padding: '2px 6px', marginLeft: 6 }}
+                            >✕</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: 4 }}>
+                        <CustomSelect
+                          value=""
+                          onChange={(val) => {
+                            const v = String(val || '').trim()
+                            if (!v) return
+                            const next = Array.from(new Set([...subCategorySelected, v]))
+                            updateFilter('sub_category', next)
+                          }}
+                          ariaLabel="Add sub-category"
+                          placeholder="Add sub-category..."
+                          options={subCategoryOptions.map(v => ({ value: v, label: v }))}
+                          searchable={true}
+                          allowCustom={true}
+                        />
+                      </div>
+                    </div>
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {/* Model multi-select tags */}
+                    <div>
+                      <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Model</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                        {modelSelected.map((tag, idx) => (
+                          <span key={`model-${tag}-${idx}`} className="pill">
+                            {tag}
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={() => {
+                                const next = modelSelected.filter((t, i) => !(t === tag && i === idx))
+                                updateFilter('model', next)
+                              }}
+                              aria-label="Remove"
+                              style={{ padding: '2px 6px', marginLeft: 6 }}
+                            >✕</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: 4 }}>
+                        <CustomSelect
+                          value=""
+                          onChange={(val) => {
+                            const v = String(val || '').trim()
+                            if (!v) return
+                            const next = Array.from(new Set([...modelSelected, v]))
+                            updateFilter('model', next)
+                          }}
+                          ariaLabel="Add model"
+                          placeholder="Add model..."
+                          options={modelOptions.map(v => ({ value: v, label: v }))}
+                          searchable={true}
+                          allowCustom={true}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Other dynamic keys as selects */}
+                    {(() => {
+                      const pretty = (k) => {
+                        if (!k) return '';
+                        const map = {
+                          manufacture_year: 'Manufacture Year',
+                          pricing_type: 'Pricing',
+                        };
+                        if (map[k]) return map[k];
+                        return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+                      };
+                      return filtersDef.keys
+                        .filter(k => !['location','pricing_type','price','sub_category','model','model_name'].includes(k))
+                        .map(key => {
+                          const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
+                          const opts = [{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))];
+                          return (
+                            <div key={key}>
+                              <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
+                              <CustomSelect
+                                value={filters[key] || ''}
+                                onChange={val => updateFilter(key, val)}
+                                ariaLabel={key}
+                                placeholder={pretty(key)}
+                                options={opts}
+                              />
+                            </div>
+                          );
+                        });
+                    })()}
+                  </>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button className="btn accent" type="button" onClick={() => fetchFilteredListings()}>
                     Apply
                   </button>
                   <button className="btn" type="button" onClick={resetHomeFilters}>
                     Reset
+                  </button>
+                  {/* Save this search */}
+                  <button
+                    className="btn"
+                    type="button"
+                    title="Save this search and get alerts"
+                    onClick={async () => {
+                      try {
+                        const user = JSON.parse(localStorage.getItem('user') || 'null')
+                        const email = user?.email || ''
+                        if (!email) { setStatus('Please login to save searches.'); return }
+                        const body = {
+                          name: `${filterCategory || 'Any'} search`,
+                          category: filterCategory || '',
+                          location: filterLocation || '',
+                          price_min: filterPriceMin || '',
+                          price_max: filterPriceMax || '',
+                          filters
+                        }
+                        const r = await fetch('/api/notifications/saved-searches', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'X-User-Email': email },
+                          body: JSON.stringify(body)
+                        })
+                        const data = await r.json().catch(() => ({}))
+                        if (!r.ok) throw new Error(data.error || 'Failed to save search')
+                        setStatus('Search saved. You will be notified when new matching listings appear.')
+                      } catch (e) {
+                        setStatus(`Error: ${e.message}`)
+                      }
+                    }}
+                  >
+                    Save this search
                   </button>
                 </div>
               </div>
@@ -524,7 +665,16 @@ export default function HomePage() {
             const displayList = baseList.filter(it => (it.main_category || '') !== 'Job')
             return (
               <div className="grid three">
-                {displayList.map(item => {
+                {/* Skeletons while loading */}
+                {loading && Array.from({ length: 6 }).map((_, i) => (
+                  <div key={`sk-${i}`} className="skeleton-card">
+                    <div className="skeleton skeleton-img" />
+                    <div className="skeleton skeleton-line" style={{ width: '40%', marginTop: 10 }} />
+                    <div className="skeleton skeleton-line" style={{ width: '75%', marginTop: 6 }} />
+                    <div className="skeleton skeleton-line" style={{ width: '60%', marginTop: 6 }} />
+                  </div>
+                ))}
+                {!loading && displayList.map(item => {
                   // Background: keep expires calculation (not shown to user)
                   let expires = ''
                   try {
@@ -625,8 +775,15 @@ export default function HomePage() {
                     </div>
                   )
                 })}
-                {displayList.length === 0 && (
-                  <p className="text-muted">No listings yet.</p>
+                {!loading && displayList.length === 0 && (
+                  <div className="card">
+                    <div className="h2" style={{ marginTop: 0 }}>No listings match your filters</div>
+                    <ul className="text-muted" style={{ marginTop: 6 }}>
+                      <li>Try removing some filters</li>
+                      <li>Try a different location</li>
+                      <li><Link to="/new" style={{ color: 'var(--accent)' }}>Post your first ad</Link></li>
+                    </ul>
+                  </div>
                 )}
               </div>
             )
@@ -655,7 +812,7 @@ export default function HomePage() {
       {/* Standalone Feature section (separate from main card) */}
       <section style={{ marginTop: 18 }}>
         <div style={{ margin: '0 auto', maxWidth: 1000 }}>
-          <div className="h2" style={{ marginTop: 0, textAlign: 'center' }}>Our Features</div>
+          <div className="h2" style={{ marginTop: 0, textAlign: 'center' }}>{t('features.sectionTitle')}</div>
         </div>
 
         {/* Feature mini-cards - horizontal slider with floating nav buttons and hidden scrollbar */}
@@ -668,66 +825,66 @@ export default function HomePage() {
             <div style={{ display: 'flex', gap: 12, paddingBottom: 6, minWidth: 'max-content' }}>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🤖 AI Categories
+                  {t('features.aiCategoriesTitle')}
                 </div>
                 <div className="text-muted">
-                  AI auto-selects the best main category<br/>and sub-category for your ad.
+                  {t('features.aiCategoriesDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  ✍️ AI Descriptions
+                  {t('features.aiDescriptionsTitle')}
                 </div>
                 <div className="text-muted">
-                  One-click, polished descriptions with bullets<br/>and emoji for clarity.
+                  {t('features.aiDescriptionsDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🧭 Advanced Filters
+                  {t('features.advancedFiltersTitle')}
                 </div>
                 <div className="text-muted">
-                  Powerful, easy filters to find exactly what<br/>you need fast.
+                  {t('features.advancedFiltersDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🚀 Futuristic UI
+                  {t('features.futuristicUiTitle')}
                 </div>
                 <div className="text-muted">
-                  Clean, modern, and fast experience<br/>across devices.
+                  {t('features.futuristicUiDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🇱🇰 100% Sri Lankan
+                  {t('features.sriLankanTitle')}
                 </div>
                 <div className="text-muted">
-                  Built for Sri Lanka with local insights<br/>and simplicity.
+                  {t('features.sriLankanDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  💸 Low Cost
+                  {t('features.lowCostTitle')}
                 </div>
                 <div className="text-muted">
-                  Keep costs down while reaching more<br/>buyers and sellers.
+                  {t('features.lowCostDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🔗 Auto Facebook (Soon)
+                  {t('features.autoFacebookTitle')}
                 </div>
                 <div className="text-muted">
-                  Auto-create and auto-share to your FB<br/>page after publish.
+                  {t('features.autoFacebookDesc')}
                 </div>
               </div>
               <div className="card" style={{ minWidth: 180 }}>
                 <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  🧩 All-in-one
+                  {t('features.allInOneTitle')}
                 </div>
                 <div className="text-muted">
-                  Everything you need to buy, sell, and hire —<br/>in one place.
+                  {t('features.allInOneDesc')}
                 </div>
               </div>
             </div>

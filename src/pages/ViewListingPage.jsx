@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 
 export default function ViewListingPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   // Support both legacy "/listing/:id" and SEO-friendly "/listing/:id-:slug"
   const listingId = (() => {
     const raw = String(id || '')
@@ -22,6 +23,9 @@ export default function ViewListingPage() {
   const [favPulse, setFavPulse] = useState(false)
   const [descOpen, setDescOpen] = useState(false)
   const [sellerUsername, setSellerUsername] = useState(null)
+
+  const [similar, setSimilar] = useState([])
+  const [similarLoading, setSimilarLoading] = useState(false)
 
   function getUser() {
     try { return JSON.parse(localStorage.getItem('user') || 'null') } catch (_) { return null }
@@ -341,6 +345,46 @@ export default function ViewListingPage() {
     }
     load()
   }, [listingId])
+
+  // Fetch similar listings once structured is available
+  useEffect(() => {
+    async function loadSimilar() {
+      try {
+        if (!listing) return
+        setSimilarLoading(true)
+        const params = new URLSearchParams()
+        params.set('limit', '6')
+        params.set('page', '1')
+        params.set('sort', 'latest')
+        if (listing.main_category) params.set('category', listing.main_category)
+        // Build filters from structured fields
+        const f = {}
+        const sub = String(structured?.sub_category || '').trim()
+        const model = String(structured?.model_name || '').trim()
+        const loc = String(listing.location || '').trim()
+        if (sub) f.sub_category = sub
+        if (model) f.model = model
+        // Prefer location match, but only set as query param (not in filters) so server can do LIKE
+        if (loc) params.set('location', loc)
+        if (Object.keys(f).length) params.set('filters', JSON.stringify(f))
+        const url = `/api/listings/search?${params.toString()}`
+        const r = await fetch(url)
+        const data = await r.json().catch(() => ({}))
+        if (r.ok && Array.isArray(data.results)) {
+          const trimmed = data.results.filter(x => Number(x.id) !== Number(listing.id)).slice(0, 6)
+          setSimilar(trimmed)
+        } else {
+          setSimilar([])
+        }
+      } catch (_) {
+        setSimilar([])
+      } finally {
+        setSimilarLoading(false)
+      }
+    }
+    loadSimilar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listing, structured?.sub_category, structured?.model_name])
 
   // Load favorite status from local storage (client-only favorite)
   useEffect(() => {
@@ -669,12 +713,31 @@ export default function ViewListingPage() {
 
               {listing && (
                 <div className="seo-keys" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  {listing.main_category && <span className="pill">{listing.main_category}</span>}
-                  {listing.status && <span className="pill">{listing.status}</span>}
-                  {listing.location && <span className="pill">{listing.location}</span>}
-                  {sellerUsername && <span className="pill">Seller: {sellerUsername}</span>}
-                  {Number.isFinite(Number(listing?.views)) && <span className="pill">👁️ {Number(listing.views).toLocaleString('en-US')}</span>}
-                  {listing.pricing_type && <span className="pill">{String(listing?.main_category || '') === 'Job' ? 'Salary Type' : 'Price Type'}: {listing.pricing_type}</span>}
+                  {!isMobile ? (
+                    <>
+                      {listing.main_category && <span className="pill">{listing.main_category}</span>}
+                      {listing.location && <span className="pill">{listing.location}</span>}
+                      {sellerUsername && (
+                        <a className="pill" href={`/seller/${encodeURIComponent(sellerUsername)}`} title="View seller profile">Seller: {sellerUsername}</a>
+                      )}
+                      {Number.isFinite(Number(listing?.views)) && <span className="pill">👁️ {Number(listing.views).toLocaleString('en-US')}</span>}
+                    </>
+                  ) : (
+                    <>
+                      {/* Row 1: location, views */}
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto' }}>
+                        {listing.location && <span className="pill">{listing.location}</span>}
+                        {Number.isFinite(Number(listing?.views)) && <span className="pill">👁️ {Number(listing.views).toLocaleString('en-US')}</span>}
+                      </div>
+                      {/* Row 2: category, seller */}
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto', marginTop: 6 }}>
+                        {listing.main_category && <span className="pill">{listing.main_category}</span>}
+                        {sellerUsername && (
+                          <a className="pill" href={`/seller/${encodeURIComponent(sellerUsername)}`} title="View seller profile">Seller: {sellerUsername}</a>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -823,13 +886,7 @@ export default function ViewListingPage() {
                   </div>
                 )}
 
-                {/* Public Views count */}
-                {Number.isFinite(Number(listing?.views)) && (
-                  <div className="detail">
-                    <div className="label">Views</div>
-                    <div className="value">{Number(listing.views).toLocaleString('en-US')}</div>
-                  </div>
-                )}
+                
 
                 {structuredEntries.map(([k, v]) => (
                   <div key={k} className="detail">
@@ -861,6 +918,77 @@ export default function ViewListingPage() {
                 <button className="btn" onClick={onReport} type="button">Report this listing</button>
               </div>
             </div>
+          </div>
+
+          {/* Similar listings */}
+          <div style={{ marginTop: 16 }}>
+            <div className="h2" style={{ marginTop: 0 }}>Similar listings</div>
+            {similarLoading && (
+              <div className="grid three">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={`sk-sim-${i}`} className="skeleton-card">
+                    <div className="skeleton skeleton-img" />
+                    <div className="skeleton skeleton-line" style={{ width: '60%', marginTop: 8 }} />
+                    <div className="skeleton skeleton-line" style={{ width: '40%', marginTop: 6 }} />
+                  </div>
+                ))}
+              </div>
+            )}
+            {!similarLoading && (
+              <div className="grid three">
+                {similar.map(item => {
+                  const imgs = Array.isArray(item.small_images) ? item.small_images : []
+                  const hero = imgs.length ? imgs[0] : (item.thumbnail_url || null)
+                  function makeSlug(s) {
+                    const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+                    return base || 'listing';
+                  }
+                  function permalinkForItem(it) {
+                    const titleSlug = makeSlug(it.title || '');
+                    let year = '';
+                    try {
+                      const sj = JSON.parse(it.structured_json || '{}');
+                      const y = sj.manufacture_year || sj.year || sj.model_year || null;
+                      if (y) year = String(y);
+                    } catch (_) {}
+                    const idCode = Number(it.id).toString(36).toUpperCase();
+                    const parts = [titleSlug, year, idCode].filter(Boolean);
+                    return `/listing/${it.id}-${parts.join('-')}`;
+                  }
+                  return (
+                    <div
+                      key={item.id}
+                      className="card"
+                      onClick={() => navigate(permalinkForItem(item))}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {hero && (
+                        <img
+                          src={hero}
+                          alt={item.title}
+                          loading="lazy"
+                          sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          style={{ width: '100%', height: 160, borderRadius: 8, marginBottom: 8, objectFit: 'cover' }}
+                        />
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                        <div className="h2" style={{ margin: '6px 0' }}>{item.title}</div>
+                        {item.price != null && (
+                          <div style={{ margin: '6px 0', whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
+                            {`LKR ${Number(item.price).toLocaleString('en-US')}`}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-muted" style={{ marginBottom: 6 }}>
+                        {item.location ? item.location : ''}
+                        {item.pricing_type ? ` • ${item.pricing_type}` : ''}
+                      </div>
+                    </div>
+                  )
+                })}
+                {similar.length === 0 && <p className="text-muted">No similar listings found.</p>}
+              </div>
+            )}
           </div>
         </div>
 
