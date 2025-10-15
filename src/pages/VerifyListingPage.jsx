@@ -70,6 +70,10 @@ export default function VerifyListingPage() {
   const sizeText = String(struct.size || '')
   const furnishing = String(struct.furnishing || '')
   const parking = Boolean(struct.parking)
+  // Property extras
+  const address = String(struct.address || '')
+  const landType = String(struct.land_type || '')
+  const landSize = String(struct.land_size || '')
 
   // Generic optional brand (useful for Mobile/Electronic/Home Garden)
   const brand = String(struct.brand || '')
@@ -492,6 +496,15 @@ export default function VerifyListingPage() {
 
                 {isProperty && (
                   <>
+                    {/* Address (extra) */}
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Address</label>
+                    <input
+                      className="input"
+                      placeholder="Street/Area, City (optional)"
+                      value={address}
+                      onChange={e => { const s = parseStruct(); s.address = e.target.value; patchStruct(s) }}
+                    />
+
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
                     <input
                       className="input"
@@ -534,6 +547,27 @@ export default function VerifyListingPage() {
                       <option value="Commercial">Commercial</option>
                       <option value="Other">Other</option>
                     </select>
+
+                    {/* Land-specific extras */}
+                    {String(subCategory) === 'Land' && (
+                      <>
+                        <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Land type</label>
+                        <input
+                          className="input"
+                          placeholder="e.g., Residential, Agricultural, Commercial"
+                          value={landType}
+                          onChange={e => { const s = parseStruct(); s.land_type = e.target.value; patchStruct(s) }}
+                        />
+
+                        <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Land size</label>
+                        <input
+                          className="input"
+                          placeholder="e.g., 10 perches or 1 acre"
+                          value={landSize}
+                          onChange={e => { const s = parseStruct(); s.land_size = e.target.value; patchStruct(s) }}
+                        />
+                      </>
+                    )}
 
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Bedrooms</label>
                     <input
