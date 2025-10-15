@@ -56,21 +56,6 @@ body {
     width: 100%;
   }
 }
-body {
-  margin: 0;
-  background:
-    radial-gradient(1200px 600px at 0% 0%, #0a0c12 0%, #0f1320 40%, #0a0c12 100%),
-    linear-gradient(180deg, #0a0c12 0%, #0c1018 100%);
-  color: var(--text);
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-}
-
-.app.light {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
 .topbar {
   display: flex;
   align-items: center;
