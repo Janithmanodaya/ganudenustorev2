@@ -267,29 +267,13 @@ export default function SearchResultsPage() {
                   />
                 </div>
 
-                {/* Price slider (dynamic bounds) */}
+                {/* Price inputs */}
                 <div>
                   <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Min price</div>
-                  <input
-                    type="range"
-                    min={priceBounds.min}
-                    max={priceBounds.max || (Number(priceMin) || 1000000)}
-                    value={Number(priceMin || priceBounds.min)}
-                    onChange={e => setPriceMin(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
                   <input className="input" type="number" placeholder="Min price" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
                 </div>
                 <div>
                   <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Max price</div>
-                  <input
-                    type="range"
-                    min={priceBounds.min}
-                    max={priceBounds.max || (Number(priceMax) || 1000000)}
-                    value={Number(priceMax || priceBounds.max)}
-                    onChange={e => setPriceMax(e.target.value)}
-                    style={{ width: '100%' }}
-                  />
                   <input className="input" type="number" placeholder="Max price" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
                 </div>
 
