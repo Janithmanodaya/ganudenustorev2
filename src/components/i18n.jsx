@@ -2,7 +2,7 @@ import React, { createContext, useContext, useMemo } from 'react'
 
 const dictionaries = {
   en: {
-    brand: { marketplace: 'Marketplace' },
+    brand: { marketplace: '.store' },
     nav: { home: 'Home', sell: 'Sell', jobs: 'Jobs', myAds: 'My Ads', account: 'Account' },
     notifications: { title: 'Notifications', close: 'Close', markAllRead: 'Mark all read', new: 'New' },
     footer: { policy: 'Service Policy', copyright: year => `© ${year} Ganudenu Marketplace` },
@@ -38,7 +38,7 @@ const dictionaries = {
     common: { language: 'Language' }
   },
   si: {
-    brand: { marketplace: 'වෙළඳමධ්‍යස්ථානය' },
+    brand: { marketplace: '.store' },
     nav: { home: 'මුල් පිටුව', sell: 'විකුණන්න', jobs: 'රැකියා', myAds: 'මගේ දැන්වීම්', account: 'ගිණුම' },
     notifications: { title: 'දැනුම්දීම්', close: 'වසන්න', markAllRead: 'සියල්ල කියවූ ලෙස සැකසන්න', new: 'නව' },
     footer: { policy: 'සේවා ප්‍රතිපත්තිය', copyright: year => `© ${year} Ganudenu වෙළඳමධ්‍යස්ථානය` },
@@ -74,7 +74,7 @@ const dictionaries = {
     common: { language: 'භාෂාව' }
   },
   ta: {
-    brand: { marketplace: 'சந்தைக்களம்' },
+    brand: { marketplace: '.store' },
     nav: { home: 'முகப்பு', sell: 'விற்க', jobs: 'வேலைகள்', myAds: 'எனது விளம்பரங்கள்', account: 'கணக்கு' },
     notifications: { title: 'அறிவிப்புகள்', close: 'மூடு', markAllRead: 'அனைத்தையும் படித்ததாக குறி', new: 'புது' },
     footer: { policy: 'சேவை கொள்கை', copyright: year => `© ${year} Ganudenu சந்தைக்களம்` },
