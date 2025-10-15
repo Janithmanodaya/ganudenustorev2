@@ -1065,6 +1065,16 @@ export default function HomePage() {
 
       {/* Bottom-right chat widget (homepage) */}
       <ChatWidget />
+
+      {/* Mobile sticky reset/filter action bar */}
+      {hasActiveFilters && (
+        <div className="mobile-actionbar" aria-label="Filter actions">
+          <button className="btn" type="button" onClick={resetHomeFilters} title="Reset all filters">Reset filters</button>
+          <button className="btn" type="button" onClick={() => setShowFilters(s => !s)}>
+            {showFilters ? 'Hide Filters' : 'Filters'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
