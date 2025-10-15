@@ -3,8 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 /**
  * MetaPayButton
  * - Shows a Meta Pay checkout button if the SDK is available and payments are enabled.
- * - Meta Pay has been deprecated and is not accepting new partners. This component is defensive:
- *   it tries to initialize the SDK and provides clear guidance and graceful fallback.
+ * - Sends the returned Meta Pay container to backend for authorization/record.
  *
  * Props:
  * - amount: number (final amount in LKR)
@@ -23,6 +22,8 @@ export default function MetaPayButton({
   const [sdkAvailable, setSdkAvailable] = useState(false)
   const [initializing, setInitializing] = useState(false)
   const [error, setError] = useState(null)
+
+  const appId = import.meta.env.VITE_META_APP_ID || '' // set this in your .env as VITE_META_APP_ID=XXXXXXXX
 
   // Detect SDK presence (very defensive as SDK object names vary in docs)
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function MetaPayButton({
       // Minimal configuration object; specific fields depend on partner integration.
       const client = new PaymentClientCtor({
         environment: 'PRODUCTION', // or 'TEST' depending on your setup with partner
+        appId: appId || undefined
       })
 
       // Create a minimal PaymentRequest-like object if supported by SDK.
@@ -98,8 +100,31 @@ export default function MetaPayButton({
         throw new Error('Unable to start Meta Pay flow: unsupported SDK method.')
       }
 
-      // At this point, you would send `container` to your payment partner/back-end
-      // to authorize/capture the payment method.
+      // Send `container` to backend for authorization/record
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || 'null')
+        const email = user?.email || ''
+        const r = await fetch('/api/payments/meta/authorize', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(email ? { 'X-User-Email': email } : {})
+          },
+          body: JSON.stringify({
+            listing_id: listingId,
+            amount_lkr: amount,
+            remark_number: remarkNumber,
+            container
+          })
+        })
+        const data = await r.json()
+        if (!r.ok) {
+          throw new Error(data?.error || 'Failed to record Meta Pay authorization')
+        }
+      } catch (e) {
+        console.warn('[MetaPay] Backend record failed:', e && e.message ? e.message : e)
+      }
+
       if (onResult) onResult({ ok: true, message: 'Meta Pay container received', container })
     } catch (e) {
       const msg = e?.message || 'Failed to start Meta Pay.'

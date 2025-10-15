@@ -24,6 +24,7 @@ import jobsRouter from './routes/jobs.js';
 import notificationsRouter from './routes/notifications.js';
 import chatsRouter from './routes/chats.js';
 import usersRouter from './routes/users.js';
+import paymentsRouter from './routes/payments.js';
 import { sendEmail } from './lib/utils.js';
 
 let helmet = null;
@@ -310,6 +311,8 @@ const chatsLimiter = rateLimit({
   legacyHeaders: false
 });
 app.use('/api/chats', chatsLimiter, chatsRouter);
+
+// Payments);
 
 
 // Public banners endpoint
