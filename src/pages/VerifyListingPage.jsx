@@ -41,6 +41,15 @@ export default function VerifyListingPage() {
   const modelName = String(struct.model_name || '')
   const year = struct.manufacture_year != null && struct.manufacture_year !== '' ? String(struct.manufacture_year) : ''
   const subCategory = String(struct.sub_category || '')
+  const condition = String(struct.condition || '')
+
+  // Vehicle extra fields
+  const mileageKm = struct.mileage_km != null && struct.mileage_km !== '' ? String(struct.mileage_km) : ''
+  const engineCc = struct.engine_capacity_cc != null && struct.engine_capacity_cc !== '' ? String(struct.engine_capacity_cc) : ''
+  const transmission = String(struct.transmission || '')
+  const colour = String(struct.colour || '')
+  const manufacturer = String(struct.manufacturer || '')
+  const fuelType = String(struct.fuel_type || '')
 
   // Category flags
   const mainCat = String(draft?.main_category || '')
@@ -61,6 +70,10 @@ export default function VerifyListingPage() {
   const sizeText = String(struct.size || '')
   const furnishing = String(struct.furnishing || '')
   const parking = Boolean(struct.parking)
+  // Property extras
+  const address = String(struct.address || '')
+  const landType = String(struct.land_type || '')
+  const landSize = String(struct.land_size || '')
 
   // Generic optional brand (useful for Mobile/Electronic/Home Garden)
   const brand = String(struct.brand || '')
@@ -208,6 +221,38 @@ export default function VerifyListingPage() {
     }
   }
 
+  async function autoFillVehicleSpecs() {
+    try {
+      setStatus(null)
+      const s = parseStruct()
+      const model = String(s.model_name || '').trim()
+      if (!model) { setStatus('Please enter a model name first.'); return }
+      const r = await fetch('/api/listings/vehicle-specs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model_name: model,
+          description: descriptionText,
+          sub_category: subCategory
+        })
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error || 'Failed to infer vehicle specs')
+      const specs = data.specs || {}
+      const next = { ...s }
+      if (specs.manufacturer && !next.manufacturer) next.manufacturer = specs.manufacturer
+      if (typeof specs.engine_capacity_cc !== 'undefined' && (next.engine_capacity_cc == null || next.engine_capacity_cc === '')) next.engine_capacity_cc = specs.engine_capacity_cc
+      if (specs.transmission && !next.transmission) next.transmission = specs.transmission
+      if (specs.fuel_type && !next.fuel_type) next.fuel_type = specs.fuel_type
+      if (specs.colour && !next.colour) next.colour = specs.colour
+      if (typeof specs.mileage_km !== 'undefined' && (next.mileage_km == null || next.mileage_km === '')) next.mileage_km = specs.mileage_km
+      patchStruct(next)
+      setStatus('Vehicle specs filled (you can edit them).')
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
   return (
     <div className="center">
       <div className="card">
@@ -231,6 +276,22 @@ export default function VerifyListingPage() {
                   value={loc}
                   onChange={e => { const s = parseStruct(); s.location = e.target.value; patchStruct(s) }}
                 />
+
+                {/* Condition for categories that sell items */}
+                {(isVehicle || isMobile || isElectronic || isHomeGarden) && (
+                  <>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Condition</label>
+                    <select
+                      className="select"
+                      value={condition || ''}
+                      onChange={e => { const s = parseStruct(); s.condition = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select condition</option>
+                      <option value="Brand New">Brand New</option>
+                      <option value="Used">Used</option>
+                    </select>
+                  </>
+                )}
 
                 {/* Category-specific fields */}
                 {isVehicle && (
@@ -288,6 +349,73 @@ export default function VerifyListingPage() {
                       <option value="Van">Van</option>
                       <option value="Bus">Bus</option>
                     </select>
+
+                    {/* Vehicle extra specs */}
+                    <div className="card" style={{ marginTop: 8 }}>
+                      <div className="h2" style={{ marginTop: 0 }}>Vehicle Specs</div>
+
+                      <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Mileage (km)</label>
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="e.g., 65000"
+                        value={mileageKm}
+                        onChange={e => { const s = parseStruct(); const v = e.target.value; s.mileage_km = v === '' ? '' : Number(v); patchStruct(s) }}
+                      />
+
+                      <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Engine Capacity (cc)</label>
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="e.g., 1500"
+                        value={engineCc}
+                        onChange={e => { const s = parseStruct(); const v = e.target.value; s.engine_capacity_cc = v === '' ? '' : Number(v); patchStruct(s) }}
+                      />
+
+                      <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Transmission</label>
+                      <select
+                        className="select"
+                        value={transmission || ''}
+                        onChange={e => { const s = parseStruct(); s.transmission = e.target.value; patchStruct(s) }}
+                      >
+                        <option value="">Select transmission</option>
+                        <option value="Automatic">Automatic</option>
+                        <option value="Manual">Manual</option>
+                      </select>
+
+                      <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Colour</label>
+                      <input
+                        className="input"
+                        placeholder="e.g., White"
+                        value={colour}
+                        onChange={e => { const s = parseStruct(); s.colour = e.target.value; patchStruct(s) }}
+                      />
+
+                      <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Manufacturer</label>
+                      <input
+                        className="input"
+                        placeholder="e.g., Toyota"
+                        value={manufacturer}
+                        onChange={e => { const s = parseStruct(); s.manufacturer = e.target.value; patchStruct(s) }}
+                      />
+
+                      <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Fuel Type</label>
+                      <select
+                        className="select"
+                        value={fuelType || ''}
+                        onChange={e => { const s = parseStruct(); s.fuel_type = e.target.value; patchStruct(s) }}
+                      >
+                        <option value="">Select fuel type</option>
+                        <option value="Petrol">Petrol</option>
+                        <option value="Diesel">Diesel</option>
+                        <option value="Hybrid">Hybrid</option>
+                        <option value="Electric">Electric</option>
+                      </select>
+
+                      <div style={{ marginTop: 8 }}>
+                        <button className="btn" type="button" onClick={autoFillVehicleSpecs}>AI: Auto-fill from model</button>
+                      </div>
+                    </div>
                   </>
                 )}
 
@@ -368,6 +496,15 @@ export default function VerifyListingPage() {
 
                 {isProperty && (
                   <>
+                    {/* Address (extra) */}
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Address</label>
+                    <input
+                      className="input"
+                      placeholder="Street/Area, City (optional)"
+                      value={address}
+                      onChange={e => { const s = parseStruct(); s.address = e.target.value; patchStruct(s) }}
+                    />
+
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Price</label>
                     <input
                       className="input"
@@ -410,6 +547,27 @@ export default function VerifyListingPage() {
                       <option value="Commercial">Commercial</option>
                       <option value="Other">Other</option>
                     </select>
+
+                    {/* Land-specific extras */}
+                    {String(subCategory) === 'Land' && (
+                      <>
+                        <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Land type</label>
+                        <input
+                          className="input"
+                          placeholder="e.g., Residential, Agricultural, Commercial"
+                          value={landType}
+                          onChange={e => { const s = parseStruct(); s.land_type = e.target.value; patchStruct(s) }}
+                        />
+
+                        <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Land size</label>
+                        <input
+                          className="input"
+                          placeholder="e.g., 10 perches or 1 acre"
+                          value={landSize}
+                          onChange={e => { const s = parseStruct(); s.land_size = e.target.value; patchStruct(s) }}
+                        />
+                      </>
+                    )}
 
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Bedrooms</label>
                     <input
@@ -515,6 +673,17 @@ export default function VerifyListingPage() {
                       value={year}
                       onChange={e => { const s = parseStruct(); const v = e.target.value; s.manufacture_year = v === '' ? '' : Number(v); patchStruct(s) }}
                     />
+
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Condition</label>
+                    <select
+                      className="select"
+                      value={condition || ''}
+                      onChange={e => { const s = parseStruct(); s.condition = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">Select condition</option>
+                      <option value="Brand New">Brand New</option>
+                      <option value="Used">Used</option>
+                    </select>
 
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
                     <select className="select" value={subCategory || ''} disabled>

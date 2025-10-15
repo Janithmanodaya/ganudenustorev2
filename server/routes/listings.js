@@ -157,6 +157,7 @@ ensureColumn('listings', 'reject_reason', 'TEXT');
 ensureColumn('listings', 'model_name', 'TEXT');
 ensureColumn('listings', 'manufacture_year', 'INTEGER');
 ensureColumn('listings', 'remark_number', 'TEXT');
+ensureColumn('listings', 'views', 'INTEGER DEFAULT 0');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
 
 try {
@@ -957,6 +958,91 @@ ${JSON.stringify(finalStruct, null, 2)}
 });
 
 
+// Infer vehicle specs from model name using Gemini (best-effort; returns JSON fields)
+// Input: { model_name, description?, sub_category? }
+// Output: { manufacturer?, engine_capacity_cc?, transmission?, fuel_type?, colour?, mileage_km? }
+router.post('/vehicle-specs', express.json(), async (req, res) => {
+  try {
+    const key = getGeminiKey();
+    if (!key) return res.status(400).json({ error: 'Gemini API key not configured' });
+    const model = String(req.body?.model_name || '').trim();
+    const desc = String(req.body?.description || '').trim();
+    const sub = String(req.body?.sub_category || '').trim();
+    if (!model) return res.status(400).json({ error: 'model_name is required' });
+
+    const role = [
+      'Given a vehicle model name and optional description, infer likely specifications.',
+      'Respond with a compact JSON object with these keys where applicable:',
+      '- manufacturer (e.g., Toyota, Honda)',
+      '- engine_capacity_cc (number; e.g., 1500 for 1.5L)',
+      '- transmission (Automatic or Manual; if both common, default to Automatic for cars, Manual for bikes)',
+      '- fuel_type (Petrol, Diesel, Hybrid, Electric)',
+      '- colour (best guess from text; if unknown, empty string)',
+      '- mileage_km (number only; if unknown, empty or null)',
+      'Use Sri Lankan market common trims if ambiguous. If unknown, leave field empty rather than guessing wildly.'
+    ].join('\n');
+
+    const userText = JSON.stringify({
+      model_name: model,
+      sub_category: sub || undefined,
+      description: desc || undefined
+    }, null, 2);
+
+    let out = '{}';
+    try {
+      out = await callGemini(key, role, userText);
+    } catch (e) {
+      return res.status(500).json({ error: 'AI inference failed' });
+    }
+
+    let obj = {};
+    try { obj = JSON.parse(out); } catch (_) { obj = {}; }
+
+    // Normalize fields and clamp formats
+    const result = {};
+    if (obj.manufacturer) result.manufacturer = String(obj.manufacturer).trim();
+    // Engine capacity numeric
+    let cc = obj.engine_capacity_cc ?? obj.engine_cc ?? obj.engine_capacity;
+    if (typeof cc === 'string') {
+      const m = cc.match(/([0-9]{2,4})/);
+      if (m) cc = parseInt(m[1], 10);
+    }
+    if (typeof cc === 'number' && isFinite(cc)) {
+      result.engine_capacity_cc = Math.max(50, Math.min(8000, Math.trunc(cc)));
+    }
+    // Transmission
+    if (obj.transmission) {
+      const t = String(obj.transmission).toLowerCase();
+      if (t.includes('auto')) result.transmission = 'Automatic';
+      else if (t.includes('manual')) result.transmission = 'Manual';
+    }
+    // Fuel type
+    if (obj.fuel_type) {
+      const f = String(obj.fuel_type).toLowerCase();
+      if (f.includes('diesel')) result.fuel_type = 'Diesel';
+      else if (f.includes('hybrid')) result.fuel_type = 'Hybrid';
+      else if (f.includes('electric')) result.fuel_type = 'Electric';
+      else if (f.includes('petrol') || f.includes('gasoline') || f.includes('benzine')) result.fuel_type = 'Petrol';
+    }
+    // Colour
+    if (obj.colour || obj.color) result.colour = String(obj.colour || obj.color || '').trim();
+    // Mileage
+    let mileage = obj.mileage_km ?? obj.mileage ?? obj.odometer;
+    if (typeof mileage === 'string') {
+      const m = mileage.replace(/,/g, '').match(/([0-9]{3,7})/);
+      if (m) mileage = parseInt(m[1], 10);
+    }
+    if (typeof mileage === 'number' && isFinite(mileage)) {
+      result.mileage_km = Math.max(0, Math.min(1000000, Math.trunc(mileage)));
+    }
+
+    return res.json({ ok: true, specs: result });
+  } catch (e) {
+    console.error('[listings] /vehicle-specs error:', e && e.message ? e.message : e);
+    return res.status(500).json({ error: 'Unexpected error' });
+  }
+});
+
 // Get all listings with basic filtering
 router.get('/', (req, res) => {
   try {
@@ -1249,7 +1335,7 @@ router.get('/my', (req, res) => {
     if (!email) return res.status(401).json({ error: 'Missing user email' });
 
     const rows = db.prepare(`
-      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views
       FROM listings
       WHERE owner_email = ?
       ORDER BY created_at DESC
@@ -1284,7 +1370,13 @@ router.get('/:id', (req, res) => {
     
     const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
-    
+
+    // Increment view counter (best-effort)
+    try {
+      db.prepare('UPDATE listings SET views = COALESCE(views, 0) + 1 WHERE id = ?').run(id);
+      listing.views = (listing.views || 0) + 1;
+    } catch (_) {}
+
     const imagesRows = db.prepare('SELECT id, path, original_name FROM listing_images WHERE listing_id = ?').all(id);
     const images = imagesRows.map(img => ({
       id: img.id,

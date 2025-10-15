@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '../components/Modal.jsx'
 
@@ -8,22 +8,37 @@ export default function MyAdsPage() {
   const [rejectModal, setRejectModal] = useState({ open: false, reason: '', title: '' })
   const navigate = useNavigate()
 
-  async function refresh() {
+  // Dashboard: Your Ad Progress
+  const [lastUpdated, setLastUpdated] = useState(null)
+  // Poll in the background for near‑real‑time progress
+  useEffect(() => {
+    let timer = null
+    async function tick() {
+      await refresh(true)
+    }
+    tick()
+    timer = setInterval(tick, 20000)
+    return () => { if (timer) clearInterval(timer) }
+  }, [])
+
+  async function refresh(silent = false) {
     try {
       const user = JSON.parse(localStorage.getItem('user') || 'null')
       if (!user?.email) {
         setStatus('Please login to view your ads.')
         return
       }
+      if (!silent) setStatus(null)
       const r = await fetch('/api/listings/my', {
         headers: { 'X-User-Email': user.email }
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Failed to load')
       setItems(data.results || [])
-      setStatus(null)
+      setLastUpdated(new Date())
+      if (!silent) setStatus(null)
     } catch (e) {
-      setStatus(`Error: ${e.message}`)
+      if (!silent) setStatus(`Error: ${e.message}`)
     }
   }
 
@@ -101,13 +116,17 @@ export default function MyAdsPage() {
             </div>
           )}
         </div>
-        <div className="text-muted" style={{ marginBottom: 6 }}>
+        <div className="text-muted" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <span className="pill" style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'transparent', color: '#cbd5e1' }}>
             <span style={{ width: 8, height: 8, borderRadius: 999, background: badgeColor, display: 'inline-block' }} /> {st}
           </span>
-          {' '}• {item.location || 'N/A'}
-          {item.pricing_type ? ` • ${item.pricing_type}` : ''}
-          {expires ? ` • ${expires}` : ''}
+          <span>{item.location || 'N/A'}</span>
+          {item.pricing_type ? <span>• {item.pricing_type}</span> : null}
+          {expires ? <span>• {expires}</span> : null}
+          {/* Views badge */}
+          <span className="pill" title="Total views" style={{ marginLeft: 'auto' }}>
+            👁️ {Number(item.views || 0).toLocaleString('en-US')}
+          </span>
         </div>
         {st === 'Rejected' && item.reject_reason ? (
           <div className="card" style={{ background: 'rgba(239,68,68,0.08)', borderColor: '#ef44441a' }}>
@@ -140,11 +159,96 @@ export default function MyAdsPage() {
   const approved = items.filter(x => String(x.status).toLowerCase().includes('approved'))
   const rejected = items.filter(x => String(x.status).toLowerCase().includes('reject'))
 
+  // Dashboard aggregates
+  const totals = useMemo(() => {
+    const total = items.length
+    const totalViews = items.reduce((acc, it) => acc + (Number(it.views || 0)), 0)
+    return { total, totalViews, approved: approved.length, pending: pending.length, rejected: rejected.length }
+  }, [items])
+
+  // Last 7 days status trend (counts per day by created_at & current status)
+  const last7 = useMemo(() => {
+    const days = []
+    const now = new Date()
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
+      const key = d.toISOString().slice(0, 10)
+      days.push({ key, label: d.toLocaleDateString(undefined, { weekday: 'short' }), approved: 0, pending: 0, rejected: 0 })
+    }
+    function dayKey(ts) {
+      try { return new Date(ts).toISOString().slice(0, 10) } catch { return '' }
+    }
+    for (const it of items) {
+      const k = dayKey(it.created_at)
+      const slot = days.find(x => x.key === k)
+      if (slot) {
+        const st = String(it.status || '').toLowerCase()
+        if (st.includes('approved')) slot.approved++
+        else if (st.includes('pending')) slot.pending++
+        else if (st.includes('reject')) slot.rejected++
+      }
+    }
+    return days
+  }, [items])
+
   return (
     <div className="center">
       <div className="card">
         <div className="h1">My Ads</div>
         {status && <p className="text-muted">{status}</p>}
+
+        {/* Your Ad Progress dashboard */}
+        <div className="card" style={{ marginTop: 8 }}>
+          <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>Your Ad Progress</span>
+            <small className="text-muted">{lastUpdated ? `Updated ${Math.max(0, Math.floor((Date.now() - lastUpdated.getTime())/1000))}s ago` : '—'}</small>
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="pill">Total: {totals.total}</span>
+            <span className="pill" style={{ background: 'rgba(120,200,140,0.15)', border: '1px solid rgba(120,200,140,0.4)' }}>Approved: {totals.approved}</span>
+            <span className="pill" style={{ background: 'rgba(255,200,120,0.15)', border: '1px solid rgba(255,200,120,0.4)' }}>Pending: {totals.pending}</span>
+            <span className="pill" style={{ background: 'rgba(255,120,120,0.15)', border: '1px solid rgba(255,120,120,0.4)' }}>Rejected: {totals.rejected}</span>
+            <span className="pill" title="Sum of all listing views">👁️ Total Views: {totals.totalViews.toLocaleString('en-US')}</span>
+          </div>
+          {/* Progress bar */}
+          {totals.total > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Approval progress</div>
+              <div style={{ height: 10, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', position: 'relative' }}>
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0, top: 0, bottom: 0,
+                    width: `${Math.round((totals.approved / totals.total) * 100)}%`,
+                    background: 'linear-gradient(90deg, #6c7ff7, #00d1ff)',
+                    transition: 'width 300ms ease'
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Last 7 days stacked mini-bars */}
+          <div style={{ marginTop: 12 }}>
+            <div className="text-muted" style={{ fontSize: 12, marginBottom: 6 }}>Last 7 days (by created date)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, alignItems: 'end' }}>
+              {last7.map(day => {
+                const total = day.approved + day.pending + day.rejected
+                const h = (n) => (total ? (n / Math.max(1, total)) * 70 : 0)
+                return (
+                  <div key={day.key} title={`${day.label}\nApproved: ${day.approved}\nPending: ${day.pending}\nRejected: ${day.rejected}`} style={{ display: 'grid', gridTemplateRows: 'auto 70px auto', alignItems: 'end' }}>
+                    <div style={{ height: 70, display: 'grid', gridTemplateRows: 'auto auto auto', alignItems: 'end' }}>
+                      <div style={{ height: `${h(day.rejected)}px`, background: 'rgba(239,68,68,0.7)', borderTopLeftRadius: 4, borderTopRightRadius: 4 }} />
+                      <div style={{ height: `${h(day.pending)}px`, background: 'rgba(245,158,11,0.7)' }} />
+                      <div style={{ height: `${h(day.approved)}px`, background: 'rgba(34,197,94,0.7)', borderBottomLeftRadius: 4, borderBottomRightRadius: 4 }} />
+                    </div>
+                    <div className="text-muted" style={{ textAlign: 'center', fontSize: 11, marginTop: 4 }}>{day.label}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
 
         <div className="card" style={{ marginTop: 8 }}>
           <div className="h2" style={{ marginTop: 0 }}>Pending Approval</div>

@@ -41,6 +41,9 @@ export default function HomePage() {
   // Ref for features mini-cards scroller
   const featureRef = useRef(null)
 
+  // Seamless ad-free experience flag (hides banner slider)
+  const AD_FREE = true
+
 
   // Suggestions derived from filtersDef values
   const subCategoryOptions = useMemo(() => {
@@ -67,10 +70,7 @@ export default function HomePage() {
       try {
         setLoading(true)
         const initialSort = filterCategory ? 'latest' : 'random'
-        const [lr, br] = await Promise.all([
-          fetch(`/api/listings/search?limit=${limit}&page=${page}&sort=${initialSort}`),
-          fetch('/api/banners')
-        ])
+        const lr = await fetch(`/api/listings/search?limit=${limit}&page=${page}&sort=${initialSort}`)
         // listings
         if (lr.status === 204) {
           setLatest([])
@@ -82,10 +82,17 @@ export default function HomePage() {
           const items = Array.isArray(ldata.results) ? ldata.results : []
           setLatest(items)
         }
-        // banners
-        const bdata = await br.json().catch(() => ({}))
-        if (br.ok && Array.isArray(bdata.results)) {
-          setBanners(bdata.results)
+        // banners (skip when ad-free)
+        if (!AD_FREE) {
+          try {
+            const br = await fetch('/api/banners')
+            const bdata = await br.json().catch(() => ({}))
+            if (br.ok && Array.isArray(bdata.results)) {
+              setBanners(bdata.results)
+            }
+          } catch (_) {}
+        } else {
+          setBanners([])
         }
       } catch (e) {
         setStatus(`Error: ${e.message}`)
@@ -311,6 +318,15 @@ export default function HomePage() {
             Discover great deals on vehicles, property, jobs, electronics, mobiles, and home &amp; garden.
           </p>
 
+          {/* Seamless ad‑free badge */}
+          {AD_FREE && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+              <span className="pill" style={{ background: 'rgba(108,127,247,0.15)', border: '1px solid rgba(108,127,247,0.35)' }}>
+                ✨ Seamless ad‑free experience
+              </span>
+            </div>
+          )}
+
           <form onSubmit={onSearch} className="searchbar" style={{ margin: '16px auto 0', maxWidth: 720 }}>
             <input
               className="input"
@@ -336,8 +352,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Banner slider - shows up to 3 wide, auto-rotates */}
-        {visibleBanners.length > 0 && (
+        {/* Banner slider - hidden in ad‑free mode */}
+        {!AD_FREE && visibleBanners.length > 0 && (
           <div style={{ padding: 18 }}>
             <div className="grid three">
               {visibleBanners.map(b => (
@@ -357,6 +373,8 @@ export default function HomePage() {
             </div>
           </div>
         )}
+
+        
 
         <div style={{ padding: 18 }}>
           <div className="h2" style={{ marginTop: 0 }}>{filterCategory ? `${filterCategory} listings` : 'Latest listings'}</div>
@@ -499,12 +517,37 @@ export default function HomePage() {
             return (
               <div className="grid three">
                 {displayList.map(item => {
+                  // Background: keep expires calculation (not shown to user)
                   let expires = ''
-                  if (item.valid_until) {
-                    const diff = new Date(item.valid_until).getTime() - Date.now()
-                    const days = Math.max(0, Math.ceil(diff / (1000*60*60*24)))
-                    expires = `Expires in ${days} day${days === 1 ? '' : 's'}`
-                  }
+                  try {
+                    if (item.valid_until) {
+                      const diff = new Date(item.valid_until).getTime() - Date.now()
+                      const days = Math.max(0, Math.ceil(diff / (1000*60*60*24)))
+                      expires = `Expires in ${days} day${days === 1 ? '' : 's'}`
+                    }
+                  } catch (_) {}
+
+                  // Age label from created_at: minutes in first hour, then hours, then days
+                  let ageStr = ''
+                  try {
+                    if (item.created_at) {
+                      const created = new Date(item.created_at)
+                      const diffMs = Date.now() - created.getTime()
+                      const mins = Math.max(0, Math.floor(diffMs / 60000))
+                      if (mins < 60) {
+                        ageStr = `${mins} min${mins === 1 ? '' : 's'} ago`
+                      } else {
+                        const hours = Math.floor(mins / 60)
+                        if (hours < 24) {
+                          ageStr = `${hours} hour${hours === 1 ? '' : 's'} ago`
+                        } else {
+                          const days = Math.floor(hours / 24)
+                          ageStr = `${days} day${days === 1 ? '' : 's'} ago`
+                        }
+                      }
+                    }
+                  } catch (_) {}
+
                   const imgs = Array.isArray(item.small_images) ? item.small_images : []
                   const idx = cardSlideIndex[item.id] || 0
                   const hero = imgs.length ? imgs[idx % imgs.length] : (item.thumbnail_url || null)
@@ -549,7 +592,7 @@ export default function HomePage() {
                       <div className="text-muted" style={{ marginBottom: 6, marginTop: 4 }}>
                         {item.location ? item.location : ''}
                         {item.pricing_type ? ` • ${item.pricing_type}` : ''}
-                        {expires ? ` • ${expires}` : ''}
+                        {ageStr ? ` • ${ageStr}` : ''}
                       </div>
                       
                     </div>
