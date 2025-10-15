@@ -376,8 +376,24 @@ export default function HomePage() {
               value={q}
               onChange={e => setQ(e.target.value)}
               onFocus={(e) => {
-                // Ensure the search box is visible above the mobile keyboard
-                try { e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (_) {}
+                // On mobile, make sure the search bar is fully visible above keyboard
+                try {
+                  if (isMobile) {
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  } else {
+                    e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }
+                } catch (_) {}
+              }}
+              onClick={(e) => {
+                // Also handle tap/click bringing the search bar to top on mobile
+                try {
+                  if (isMobile) window.scrollTo({ top: 0, behavior: 'smooth' })
+                } catch (_) {}
+              }}
+              onTouchStart={(e) => {
+                // Ensure early touch shows the input unobstructed on mobile
+                try { if (isMobile) window.scrollTo({ top: 0 }) } catch (_) {}
               }}
             />
             {/* Dynamic typed suggestions dropdown (titles, locations, sub_category, model) */}
