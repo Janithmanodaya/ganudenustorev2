@@ -41,6 +41,54 @@ export default function HomePage() {
   // Ref for features mini-cards scroller
   const featureRef = useRef(null)
 
+  // Seamless ad-free experience flag (hides banner slider)
+  const AD_FREE = true
+
+  // Real-time ad progress (for logged-in user)
+  const [userEmail, setUserEmail] = useState(null)
+  const [myStats, setMyStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0 })
+  const [lastUpdated, setLastUpdated] = useState(null)
+
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || 'null')
+      setUserEmail(u?.email || null)
+    } catch (_) {
+      setUserEmail(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    let timer = null
+    async function loadMyProgress() {
+      if (!userEmail) return
+      try {
+        const r = await fetch('/api/listings/my', { headers: { 'X-User-Email': userEmail } })
+        const data = await r.json()
+        if (!r.ok) throw new Error(data?.error || 'Failed to load your ads')
+        const rows = Array.isArray(data.results) ? data.results : []
+        const total = rows.length
+        let approved = 0, pending = 0, rejected = 0
+        for (const it of rows) {
+          const st = String(it.status || '')
+          if (st === 'Approved') approved++
+          else if (st === 'Pending Approval' || st === 'Pending') pending++
+          else if (st === 'Rejected') rejected++
+        }
+        setMyStats({ total, approved, pending, rejected })
+        setLastUpdated(new Date())
+      } catch (e) {
+        // Silent failure; do not surface on home
+      }
+    }
+    loadMyProgress()
+    // Poll every 15s for real-time progress
+    if (userEmail) {
+      timer = setInterval(loadMyProgress, 15000)
+    }
+    return () => { if (timer) clearInterval(timer) }
+  }, [userEmail])
+
 
   // Suggestions derived from filtersDef values
   const subCategoryOptions = useMemo(() => {
@@ -67,10 +115,7 @@ export default function HomePage() {
       try {
         setLoading(true)
         const initialSort = filterCategory ? 'latest' : 'random'
-        const [lr, br] = await Promise.all([
-          fetch(`/api/listings/search?limit=${limit}&page=${page}&sort=${initialSort}`),
-          fetch('/api/banners')
-        ])
+        const lr = await fetch(`/api/listings/search?limit=${limit}&page=${page}&sort=${initialSort}`)
         // listings
         if (lr.status === 204) {
           setLatest([])
@@ -82,10 +127,17 @@ export default function HomePage() {
           const items = Array.isArray(ldata.results) ? ldata.results : []
           setLatest(items)
         }
-        // banners
-        const bdata = await br.json().catch(() => ({}))
-        if (br.ok && Array.isArray(bdata.results)) {
-          setBanners(bdata.results)
+        // banners (skip when ad-free)
+        if (!AD_FREE) {
+          try {
+            const br = await fetch('/api/banners')
+            const bdata = await br.json().catch(() => ({}))
+            if (br.ok && Array.isArray(bdata.results)) {
+              setBanners(bdata.results)
+            }
+          } catch (_) {}
+        } else {
+          setBanners([])
         }
       } catch (e) {
         setStatus(`Error: ${e.message}`)
@@ -311,6 +363,15 @@ export default function HomePage() {
             Discover great deals on vehicles, property, jobs, electronics, mobiles, and home &amp; garden.
           </p>
 
+          {/* Seamless ad‑free badge */}
+          {AD_FREE && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+              <span className="pill" style={{ background: 'rgba(108,127,247,0.15)', border: '1px solid rgba(108,127,247,0.35)' }}>
+                ✨ Seamless ad‑free experience
+              </span>
+            </div>
+          )}
+
           <form onSubmit={onSearch} className="searchbar" style={{ margin: '16px auto 0', maxWidth: 720 }}>
             <input
               className="input"
@@ -336,8 +397,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Banner slider - shows up to 3 wide, auto-rotates */}
-        {visibleBanners.length > 0 && (
+        {/* Banner slider - hidden in ad‑free mode */}
+        {!AD_FREE && visibleBanners.length > 0 && (
           <div style={{ padding: 18 }}>
             <div className="grid three">
               {visibleBanners.map(b => (
@@ -354,6 +415,49 @@ export default function HomePage() {
                   />
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Real-time ad progress (for logged-in users) */}
+        {userEmail && (
+          <div style={{ padding: 18, paddingBottom: 0 }}>
+            <div className="card" style={{ marginBottom: 12 }}>
+              <div className="h2" style={{ marginTop: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Your Ad Progress</span>
+                <small className="text-muted">
+                  {lastUpdated ? `Updated ${Math.max(0, Math.floor((Date.now() - lastUpdated.getTime()) / 1000))}s ago` : '—'}
+                </small>
+              </div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span className="pill">Total: {myStats.total}</span>
+                <span className="pill" style={{ background: 'rgba(120,200,140,0.15)', border: '1px solid rgba(120,200,140,0.4)' }}>Approved: {myStats.approved}</span>
+                <span className="pill" style={{ background: 'rgba(255,200,120,0.15)', border: '1px solid rgba(255,200,120,0.4)' }}>Pending: {myStats.pending}</span>
+                <span className="pill" style={{ background: 'rgba(255,120,120,0.15)', border: '1px solid rgba(255,120,120,0.4)' }}>Rejected: {myStats.rejected}</span>
+              </div>
+              {/* Progress bar: approved out of total */}
+              {myStats.total > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Approval progress</div>
+                  <div style={{ height: 10, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', position: 'relative' }}>
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: `${Math.round((myStats.approved / myStats.total) * 100)}%`,
+                        background: 'linear-gradient(90deg, #6c7ff7, #00d1ff)',
+                        transition: 'width 300ms ease'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="btn" type="button" onClick={() => navigate('/my-ads')}>Manage My Ads</button>
+                <button className="btn primary" type="button" onClick={() => navigate('/new')}>Post New Ad</button>
+              </div>
             </div>
           </div>
         )}
