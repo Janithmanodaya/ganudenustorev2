@@ -446,9 +446,10 @@ export default function App() {
             <Route path="/jobs/search" element={<JobSearchResultsPage />} />
             <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
             <Route path="/search" element={<SearchResultsPage />} />
-            <Route path="/policy" elemen={<<PolicyPage />} />
-           <<Route path="/payment/:id" elemen={<<PaymentPendingPage />} />
-           <<Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/policy" element={<PolicyPage />} />
+            <Route path="/payment/:id" element={<PaymentPendingPage />} />
+            <Route path="/seller/:username" element={<SellerProfilePage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </main>
