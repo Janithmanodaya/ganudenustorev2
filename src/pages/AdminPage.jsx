@@ -1176,43 +1176,4 @@ export default function AdminPage() {
       </div>
     </div>
   )
-}</div>
-                            <div><strong>Description</strong>:</div>
-                            <p>{detail.listing.description}</p>
-                            {detail.listing.resume_file_url && (
-                              <div className="text-muted">Resume File: {detail.listing.resume_file_url}</div>
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="h2">Structured JSON</div>
-                          <textarea className="textarea" value={editStructured} onChange={e => setEditStructured(e.target.value)} />
-                        </div>
-                      </div>
-
-                      <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn" onClick={saveEdits}>Save Edits</button>
-                        <button className="btn primary" onClick={approve}>Approve</button>
-                      </div>
-                      <div style={{ marginTop: 8 }}>
-                        <input className="input" placeholder="Reject reason (required)" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
-                        <button className="btn" onClick={reject} style={{ marginTop: 6 }}>Reject</button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-
-          {status && (
-            <div className="card" style={{ marginTop: 12 }}>
-              <div className="h2">Status</div>
-              <p>{status}</p>
-            </div>
-          )}
-        </main>
-      </div>
-    </div>
-  )
 }
