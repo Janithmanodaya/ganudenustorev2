@@ -71,19 +71,10 @@ export default function HomePage() {
     return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25)
   }, [filtersDef, modelQuery])
 
-  // Inline search form filters
-  const [searchCategory, setSearchCategory] = useState('')
-  const [searchLocation, setSearchLocation] = useState('')
-
   function onSearch(e) {
     e.preventDefault()
     const query = q.trim()
-    const params = new URLSearchParams()
-    if (query) params.set('q', query)
-    if (searchCategory) params.set('category', searchCategory)
-    if (searchLocation) params.set('location', searchLocation)
-    const url = params.toString() ? `/search?${params.toString()}` : '/search'
-    navigate(url)
+    navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search')
   }
 
   useEffect(() => {
@@ -153,22 +144,19 @@ export default function HomePage() {
 
   // Fetch global search suggestions (titles, locations, sub_category, model)
   // Home page must NOT show job suggestions; exclude Job via backend param.
-  // If a category is chosen in the search bar, use it to scope suggestions (still excluding Job unless explicitly chosen).
   useEffect(() => {
     const term = (q || '').trim()
     if (!term) { setSearchSuggestions([]); return }
     const ctrl = new AbortController()
     const t = setTimeout(async () => {
       try {
-        const base = `/api/listings/suggestions?q=${encodeURIComponent(term)}`
-        const param = searchCategory ? `&category=${encodeURIComponent(searchCategory)}` : `&exclude_category=Job`
-        const r = await fetch(base + param, { signal: ctrl.signal })
+        const r = await fetch(`/api/listings/suggestions?q=${encodeURIComponent(term)}&exclude_category=Job`, { signal: ctrl.signal })
         const data = await r.json()
         if (r.ok && Array.isArray(data.results)) setSearchSuggestions(data.results)
       } catch (_) {}
     }, 250)
     return () => { clearTimeout(t); ctrl.abort() }
-  }, [q, searchCategory])
+  }, [q])
 
   // Location suggestions fetching (debounced) for Home filters
   useEffect(() => {
@@ -359,54 +347,66 @@ export default function HomePage() {
             </div>
           )}
 
-          <form onSubmit={onSearch} className="searchbar" style={{ margin: '16px auto 0', maxWidth: 860 }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 360px' }}>
-                <input
-                  className="input"
-                  type="text"
-                  list="global-suggest"
-                  placeholder="Search anything (e.g., Toyota, House in Kandy)..."
-                  value={q}
-                  onChange={e => setQ(e.target.value)}
-                />
-                <datalist id="global-suggest">
-                  {Array.isArray(searchSuggestions) ? searchSuggestions.map(s => <option key={s} value={s} />) : null}
-                </datalist>
+          <form onSubmit={onSearch} className="searchbar" style={{ margin: '16px auto 0', maxWidth: 720, position: 'relative' }}>
+            <input
+              className="input"
+              type="text"
+              placeholder="Search anything (e.g., Toyota, House in Kandy)..."
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              onFocus={() => { /* show dropdown when focused and has suggestions */ }}
+            />
+            {/* Dynamic typed suggestions dropdown (titles, locations, sub_category, model) */}
+            {q.trim() && Array.isArray(searchSuggestions) && searchSuggestions.length > 0 && (
+              <div
+                className="card"
+                role="listbox"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: '100%',
+                  marginTop: 6,
+                  zIndex: 60,
+                  maxHeight: 300,
+                  overflowY: 'auto',
+                  padding: 6
+                }}
+              >
+                {searchSuggestions.slice(0, 12).map((sug, idx) => {
+                  const isObj = typeof sug === 'object' && sug !== null
+                  const label = isObj ? String(sug.value) : String(sug)
+                  const type = isObj ? String(sug.type || '') : ''
+                  const badge = type
+                    ? { title: 'Title', location: 'Location', sub_category: 'Sub-category', model: 'Model' }[type] || ''
+                    : ''
+                  return (
+                    <div
+                      key={`${label}-${idx}`}
+                      role="option"
+                      className="custom-select-option"
+                      onClick={() => setQ(label)}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <span>{label}</span>
+                      {badge && (
+                        <span className="pill" style={{ fontSize: 11 }}>
+                          {badge}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-              <div style={{ width: 180, flex: '1 1 160px' }}>
-                <CustomSelect
-                  value={searchCategory}
-                  onChange={v => setSearchCategory(v)}
-                  ariaLabel="Search category"
-                  placeholder="Category"
-                  options={[
-                    { value: '', label: 'Any' },
-                    { value: 'Vehicle', label: 'Vehicle' },
-                    { value: 'Property', label: 'Property' },
-                    { value: 'Electronic', label: 'Electronic' },
-                    { value: 'Mobile', label: 'Mobile' },
-                    { value: 'Home Garden', label: 'Home Garden' },
-                    // Intentionally omit Job for homepage suggestions UX; users can use Job Portal
-                  ]}
-                />
-              </div>
-              <div style={{ width: 220, flex: '1 1 180px' }}>
-                <input
-                  className="input"
-                  list="global-location-suggest"
-                  placeholder="Location"
-                  value={searchLocation}
-                  onChange={e => { setSearchLocation(e.target.value); setLocQuery(e.target.value) }}
-                />
-                <datalist id="global-location-suggest">
-                  {Array.from(new Set([...(locationOptionsCache || []), ...(locSuggestions || [])]))
-                    .slice(0, 50)
-                    .map(loc => <option key={loc} value={loc} />)}
-                </datalist>
-              </div>
-              <button className="btn primary" type="submit" style={{ flex: '0 0 auto' }}>Search</button>
-            </div>
+            )}
+            <button className="btn primary" type="submit">Search</button>
           </form>
 
           <div className="quick-cats" style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>

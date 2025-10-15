@@ -89,7 +89,10 @@ export default function JobSearchResultsPage() {
       try {
         const r = await fetch(`/api/listings/suggestions?q=${encodeURIComponent(term)}&category=Job`, { signal: ctrl.signal })
         const data = await r.json()
-        if (r.ok && Array.isArray(data.results)) setSearchSuggestions(data.results)
+        if (r.ok && Array.isArray(data.results)) {
+          const arr = data.results.map(x => (typeof x === 'string' ? x : String(x.value || ''))).filter(Boolean)
+          setSearchSuggestions(arr)
+        }
       } catch (_) {}
     }, 250)
     return () => { clearTimeout(t); ctrl.abort() }
