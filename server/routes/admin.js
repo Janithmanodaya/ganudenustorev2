@@ -402,11 +402,68 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
 
       function listingMatchesWanted(listingRow, wanted) {
         try {
-          const catOk = wanted.category ? String(listingRow.main_category || '') === String(wanted.category || '') : true;
-          const locOk = wanted.location ? String(listingRow.location || '').toLowerCase().includes(String(wanted.location || '').toLowerCase()) : true;
-          const p = listingRow.price != null ? Number(listingRow.price) : null;
-          const priceOk = wanted.price_max != null ? (p != null && p <= Number(wanted.price_max)) : true;
+          const cat = String(wanted.category || '').trim();
+          const catOk = cat ? String(listingRow.main_category || '') === cat : true;
 
+          // Locations: match if listing.location contains ANY wanted location (case-insensitive)
+          function parseArr(jsonText) {
+            try {
+              const arr = JSON.parse(String(jsonText || '[]'));
+              return Array.isArray(arr) ? arr.map(x => String(x).trim()).filter(Boolean) : [];
+            } catch (_) {
+              return [];
+            }
+          }
+          const locs = parseArr(wanted.locations_json);
+          const fallbackLoc = String(wanted.location || '').trim();
+          if (fallbackLoc) locs.push(fallbackLoc);
+          const listingLoc = String(listingRow.location || '').toLowerCase();
+          const locOk = locs.length ? locs.some(l => listingLoc.includes(String(l).toLowerCase())) : true;
+
+          // Price range (respect price_not_matter)
+          const p = listingRow.price != null ? Number(listingRow.price) : null;
+          const priceNotMatter = wanted.price_not_matter ? true : false;
+          const pMin = wanted.price_min != null ? Number(wanted.price_min) : null;
+          const pMax = wanted.price_max != null ? Number(wanted.price_max) : null;
+          const priceOk = priceNotMatter
+            ? true
+            : (p == null ? false
+               : ((pMin == null || p >= pMin) && (pMax == null || p <= pMax)));
+
+          // Models: for Vehicle/Mobile/Electronic only, partial match of model_name against any wanted model
+          let modelsOk = true;
+          if (['Vehicle', 'Mobile', 'Electronic'].includes(cat)) {
+            const models = parseArr(wanted.models_json);
+            if (models.length) {
+              let sj = {};
+              try { sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {}; } catch (_) { sj = {}; }
+              const gotModel = String(sj.model_name || sj.model || '').toLowerCase();
+              modelsOk = models.some(m => gotModel.includes(String(m).toLowerCase()));
+            }
+          }
+
+          // Year range: Vehicle only
+          let yearOk = true;
+          if (cat === 'Vehicle') {
+            const yearMin = wanted.year_min != null ? Number(wanted.year_min) : null;
+            const yearMax = wanted.year_max != null ? Number(wanted.year_max) : null;
+            let sj = {};
+            try { sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {}; } catch (_) { sj = {}; }
+            const rawY = sj.manufacture_year ?? sj.year ?? sj.model_year ?? null;
+            let y = null;
+            if (rawY != null) {
+              const num = parseInt(String(rawY).replace(/[^0-9]/g, ''), 10);
+              y = Number.isFinite(num) ? num : null;
+            }
+            if (yearMin != null || yearMax != null) {
+              if (y == null) yearOk = false;
+              else {
+                yearOk = (yearMin == null || y >= yearMin) && (yearMax == null || y <= yearMax);
+              }
+            }
+          }
+
+          // Optional filters_json for future extension
           let filtersOk = true;
           let filters = {};
           try { filters = wanted.filters_json ? JSON.parse(wanted.filters_json) : {}; } catch (_) { filters = {}; }
@@ -434,7 +491,8 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
               }
             }
           }
-          return catOk && locOk && priceOk && filtersOk;
+
+          return catOk && locOk && priceOk && modelsOk && yearOk && filtersOk;
         } catch (_) {
           return false;
         }
@@ -454,6 +512,18 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
             listing.id,
             JSON.stringify({ wanted_id: w.id })
           );
+          // Email buyer
+          try {
+            const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+            const html = `
+              <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+                <h2 style="margin:0 0 10px 0;">New match for your Wanted request</h2>
+                <p style="margin:0 0 10px 0;">Matched ad: <strong>${listing.title}</strong></p>
+                <p style="margin:10px 0 0 0;"><a href="${domain}/listing/${listing.id}" style="color:#0b5fff;text-decoration:none;">View ad</a></p>
+              </div>
+            `;
+            await sendEmail(String(w.user_email).toLowerCase().trim(), 'New match for your Wanted request', html);
+          } catch (_) {}
           buyerNotified++;
 
           // Notify seller
@@ -470,6 +540,18 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
               listing.id,
               JSON.stringify({ wanted_id: w.id })
             );
+            // Email seller
+            try {
+              const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+              const html = `
+                <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+                  <h2 style="margin:0 0 10px 0;">Immediate buyer request</h2>
+                  <p style="margin:0 0 10px 0;">A buyer posted: "<strong>${w.title}</strong>". Your ad "<strong>${listing.title}</strong>" may match.</p>
+                  <p style="margin:10px 0 0 0;"><a href="${domain}/listing/${listing.id}" style="color:#0b5fff;text-decoration:none;">View your ad</a></p>
+                </div>
+              `;
+              await sendEmail(owner, 'Immediate buyer request for your item', html);
+            } catch (_) {}
             sellerNotified++;
           }
         }
@@ -593,11 +675,69 @@ router.post('/pending/approve_many', requireAdmin, (req, res) => {
           const wantedRows = db.prepare(`SELECT * FROM wanted_requests WHERE status = 'open'`).all();
           function listingMatchesWanted(listingRow, wanted) {
             try {
-              const catOk = wanted.category ? String(listingRow.main_category || '') === String(wanted.category || '') : true;
-              const locOk = wanted.location ? String(listingRow.location || '').toLowerCase().includes(String(wanted.location || '').toLowerCase()) : true;
-              const p = listingRow.price != null ? Number(listingRow.price) : null;
-              const priceOk = wanted.price_max != null ? (p != null && p <= Number(wanted.price_max)) : true;
+              const cat = String(wanted.category || '').trim();
+              const catOk = cat ? String(listingRow.main_category || '') === cat : true;
 
+              function parseArr(jsonText) {
+                try {
+                  const arr = JSON.parse(String(jsonText || '[]'));
+                  return Array.isArray(arr) ? arr.map(x => String(x).trim()).filter(Boolean) : [];
+                } catch (_) {
+                  return [];
+                }
+              }
+
+              // Locations
+              const locs = parseArr(wanted.locations_json);
+              const fallbackLoc = String(wanted.location || '').trim();
+              if (fallbackLoc) locs.push(fallbackLoc);
+              const listingLoc = String(listingRow.location || '').toLowerCase();
+              const locOk = locs.length ? locs.some(l => listingLoc.includes(String(l).toLowerCase())) : true;
+
+              // Price range
+              const p = listingRow.price != null ? Number(listingRow.price) : null;
+              const priceNotMatter = wanted.price_not_matter ? true : false;
+              const pMin = wanted.price_min != null ? Number(wanted.price_min) : null;
+              const pMax = wanted.price_max != null ? Number(wanted.price_max) : null;
+              const priceOk = priceNotMatter
+                ? true
+                : (p == null ? false
+                   : ((pMin == null || p >= pMin) && (pMax == null || p <= pMax)));
+
+              // Models
+              let modelsOk = true;
+              if (['Vehicle', 'Mobile', 'Electronic'].includes(cat)) {
+                const models = parseArr(wanted.models_json);
+                if (models.length) {
+                  let sj = {};
+                  try { sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {}; } catch (_) { sj = {}; }
+                  const gotModel = String(sj.model_name || sj.model || '').toLowerCase();
+                  modelsOk = models.some(m => gotModel.includes(String(m).toLowerCase()));
+                }
+              }
+
+              // Year range
+              let yearOk = true;
+              if (cat === 'Vehicle') {
+                const yearMin = wanted.year_min != null ? Number(wanted.year_min) : null;
+                const yearMax = wanted.year_max != null ? Number(wanted.year_max) : null;
+                let sj = {};
+                try { sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {}; } catch (_) { sj = {}; }
+                const rawY = sj.manufacture_year ?? sj.year ?? sj.model_year ?? null;
+                let y = null;
+                if (rawY != null) {
+                  const num = parseInt(String(rawY).replace(/[^0-9]/g, ''), 10);
+                  y = Number.isFinite(num) ? num : null;
+                }
+                if (yearMin != null || yearMax != null) {
+                  if (y == null) yearOk = false;
+                  else {
+                    yearOk = (yearMin == null || y >= yearMin) && (yearMax == null || y <= yearMax);
+                  }
+                }
+              }
+
+              // Optional filters_json
               let filtersOk = true;
               let filters = {};
               try { filters = wanted.filters_json ? JSON.parse(wanted.filters_json) : {}; } catch (_) { filters = {}; }
@@ -625,7 +765,8 @@ router.post('/pending/approve_many', requireAdmin, (req, res) => {
                   }
                 }
               }
-              return catOk && locOk && priceOk && filtersOk;
+
+              return catOk && locOk && priceOk && modelsOk && yearOk && filtersOk;
             } catch (_) {
               return false;
             }

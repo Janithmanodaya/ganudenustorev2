@@ -16,16 +16,22 @@ export default function WantedBoardPage() {
   const [offerSelections, setOfferSelections] = useState({}); // wantedId -> listingId
   const [offerSending, setOfferSending] = useState({}); // wantedId -> boolean
 
-  // Form state
+  // Form state (dynamic)
   const [form, setForm] = useState({
     title: '',
     category: '',
-    location: '',
-    price_max: '',
-    description: '',
-    sub_category: '',
-    model: ''
+    description: ''
   });
+  const [locations, setLocations] = useState([]);
+  const [locInput, setLocInput] = useState('');
+  const [models, setModels] = useState([]);
+  const [modelInput, setModelInput] = useState('');
+  const [yearMin, setYearMin] = useState('');
+  const [yearMax, setYearMax] = useState('');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [priceNoMatter, setPriceNoMatter] = useState(false);
+
   const [postStatus, setPostStatus] = useState({ ok: false, message: '' });
 
   useEffect(() => {
@@ -44,8 +50,7 @@ export default function WantedBoardPage() {
       loadMyRequests();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userEmai_codel]new)</;
-]);
+  }, [userEmail]);
 
   async function loadRequests() {
     setLoading(true);
@@ -73,6 +78,25 @@ export default function WantedBoardPage() {
     }
   }
 
+  function addLocation() {
+    const v = String(locInput || '').trim();
+    if (!v) return;
+    setLocations(prev => (prev.includes(v) ? prev : [...prev, v]));
+    setLocInput('');
+  }
+  function removeLocation(v) {
+    setLocations(prev => prev.filter(x => x !== v));
+  }
+  function addModel() {
+    const v = String(modelInput || '').trim();
+    if (!v) return;
+    setModels(prev => (prev.includes(v) ? prev : [...prev, v]));
+    setModelInput('');
+  }
+  function removeModel(v) {
+    setModels(prev => prev.filter(x => x !== v));
+  }
+
   async function submitForm(e) {
     e.preventDefault();
     if (!userEmail) {
@@ -82,17 +106,17 @@ export default function WantedBoardPage() {
     setPostStatus({ ok: false, message: '' });
     setLoading(true);
     try {
-      const filters = {};
-      if (form.sub_category) filters.sub_category = form.sub_category;
-      if (form.model) filters.model = form.model;
-
       const payload = {
         title: form.title,
         description: form.description,
         category: form.category || '',
-        location: form.location || '',
-        price_max: form.price_max ? Number(form.price_max) : '',
-        filters
+        locations,
+        models: (form.category === 'Vehicle' || form.category === 'Mobile' || form.category === 'Electronic') ? models : [],
+        year_min: form.category === 'Vehicle' && yearMin ? Number(yearMin) : '',
+        year_max: form.category === 'Vehicle' && yearMax ? Number(yearMax) : '',
+        price_min: priceNoMatter ? '' : (priceMin ? Number(priceMin) : ''),
+        price_max: priceNoMatter ? '' : (priceMax ? Number(priceMax) : ''),
+        price_not_matter: !!priceNoMatter
       };
       const r = await fetch('/api/wanted', {
         method: 'POST',
@@ -104,7 +128,14 @@ export default function WantedBoardPage() {
         setPostStatus({ ok: false, message: data?.error || 'Failed to post request.' });
       } else {
         setPostStatus({ ok: true, message: 'Your Wanted request is live. We will notify you when matches appear.' });
-        setForm({ title: '', category: '', location: '', price_max: '', description: '', sub_category: '', model: '' });
+        setForm({ title: '', category: '', description: '' });
+        setLocations([]);
+        setModels([]);
+        setYearMin('');
+        setYearMax('');
+        setPriceMin('');
+        setPriceMax('');
+        setPriceNoMatter(false);
         await loadRequests();
       }
     } catch (_) {
@@ -174,6 +205,29 @@ export default function WantedBoardPage() {
 
   const canOffer = useMemo(() => userEmail && myListings.length > 0, [userEmail, myListings]);
 
+  function renderChips(items, onRemove) {
+    if (!Array.isArray(items) || !items.length) return null;
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+        {items.map((v, idx) => (
+          <span key={idx} className="pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {v}
+            <button type="button" className="back-btn" onClick={() => onRemove(v)} title="Remove" aria-label="Remove">×</button>
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  function parseArray(jsonText) {
+    try {
+      const arr = JSON.parse(String(jsonText || '[]'));
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   return (
     <div className="container">
       <div className="h1" style={{ marginTop: 0 }}>Wanted Board</div>
@@ -194,42 +248,62 @@ export default function WantedBoardPage() {
           {requests.filter(r => r.status === 'open').length === 0 && !loading && (
             <p className="text-muted">No open requests yet.</p>
           )}
-          {requests.filter(r => r.status === 'open').map(r => (
-            <div key={r.id} className="card" style={{ marginBottom: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <strong>{r.title}</strong>
-                {r.price_max != null && <span className="pill">Max Budget: LKR {Number(r.price_max).toLocaleString('en-US')}</span>}
-              </div>
-              <div className="text-muted" style={{ marginTop: 6 }}>
-                {r.category ? <span>Category: {r.category}</span> : <span>Category: Any</span>}
-                {r.location ? <span> • Location: {r.location}</span> : null}
-              </div>
-              {r.description && <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{r.description}</div>}
-
-              {canOffer && (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <select
-                      className="select"
-                      value={offerSelections[r.id] || ''}
-                      onChange={e => setOfferSelections(prev => ({ ...prev, [r.id]: Number(e.target.value) || '' }))}
-                      style={{ minWidth: 220 }}
-                    >
-                      <option value="">Select one of your ads</option>
-                      {myListings.map(l => (
-                        <option key={l.id} value={l.id}>
-                          {l.title} {typeof l.price === 'number' ? `• LKR ${Number(l.price).toLocaleString('en-US')}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <button className="btn" onClick={() => sendOffer(r.id)} disabled={!offerSelections[r.id] || offerSending[r.id]}>
-                      {offerSending[r.id] ? 'Sending...' : 'Offer this ad'}
-                    </button>
-                  </div>
+          {requests.filter(r => r.status === 'open').map(r => {
+            const locs = parseArray(r.locations_json);
+            const modelsArr = parseArray(r.models_json);
+            return (
+              <div key={r.id} className="card" style={{ marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>{r.title}</strong>
+                  {r.price_not_matter ? (
+                    <span className="pill">Price not a constraint</span>
+                  ) : (
+                    (r.price_min != null || r.price_max != null) && (
+                      <span className="pill">
+                        Budget: {r.price_min != null ? `LKR ${Number(r.price_min).toLocaleString('en-US')}` : 'Any'} - {r.price_max != null ? `LKR ${Number(r.price_max).toLocaleString('en-US')}` : 'Any'}
+                      </span>
+                    )
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+                <div className="text-muted" style={{ marginTop: 6 }}>
+                  {r.category ? <span>Category: {r.category}</span> : <span>Category: Any</span>}
+                  {(locs.length || r.location) ? <span> • Locations: {[...locs, r.location].filter(Boolean).join(', ')}</span> : null}
+                  {r.category === 'Vehicle' && (r.year_min || r.year_max) ? (
+                    <span> • Year: {r.year_min || 'Any'} - {r.year_max || 'Any'}</span>
+                  ) : null}
+                </div>
+                {modelsArr.length > 0 && (r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && (
+                  <div className="text-muted" style={{ marginTop: 6 }}>
+                    Models: {modelsArr.join(', ')}
+                  </div>
+                )}
+                {r.description && <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{r.description}</div>}
+
+                {canOffer && (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <select
+                        className="select"
+                        value={offerSelections[r.id] || ''}
+                        onChange={e => setOfferSelections(prev => ({ ...prev, [r.id]: Number(e.target.value) || '' }))}
+                        style={{ minWidth: 220 }}
+                      >
+                        <option value="">Select one of your ads</option>
+                        {myListings.map(l => (
+                          <option key={l.id} value={l.id}>
+                            {l.title} {typeof l.price === 'number' ? `• LKR ${Number(l.price).toLocaleString('en-US')}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <button className="btn" onClick={() => sendOffer(r.id)} disabled={!offerSelections[r.id] || offerSending[r.id]}>
+                        {offerSending[r.id] ? 'Sending...' : 'Offer this ad'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -257,23 +331,97 @@ export default function WantedBoardPage() {
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
 
-          <label className="label" style={{ marginTop: 10 }}>Location (optional)</label>
-          <input
-            className="input"
-            placeholder="Colombo, Gampaha, etc."
-            value={form.location}
-            onChange={e => setForm(prev => ({ ...prev, location: e.target.value }))}
-          />
+          <div className="card" style={{ marginTop: 10 }}>
+            <div className="h3" style={{ marginTop: 0 }}>Locations</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                className="input"
+                placeholder="Add a location (e.g., Colombo)"
+                value={locInput}
+                onChange={e => setLocInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLocation(); }}}
+                style={{ minWidth: 200 }}
+              />
+              <button className="btn" type="button" onClick={addLocation}>Add</button>
+            </div>
+            {renderChips(locations, removeLocation)}
+          </div>
 
-          <label className="label" style={{ marginTop: 10 }}>Max Budget (LKR, optional)</label>
-          <input
-            className="input"
-            type="number"
-            min="0"
-            placeholder="e.g., 150000"
-            value={form.price_max}
-            onChange={e => setForm(prev => ({ ...prev, price_max: e.target.value }))}
-          />
+          {(form.category === 'Vehicle' || form.category === 'Mobile' || form.category === 'Electronic') && (
+            <div className="card" style={{ marginTop: 10 }}>
+              <div className="h3" style={{ marginTop: 0 }}>Models (optional)</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  className="input"
+                  placeholder="Add model (e.g., Toyota Aqua)"
+                  value={modelInput}
+                  onChange={e => setModelInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addModel(); }}}
+                  style={{ minWidth: 200 }}
+                />
+                <button className="btn" type="button" onClick={addModel}>Add</button>
+              </div>
+              {renderChips(models, removeModel)}
+            </div>
+          )}
+
+          {form.category === 'Vehicle' && (
+            <div className="card" style={{ marginTop: 10 }}>
+              <div className="h3" style={{ marginTop: 0 }}>Year Range (optional)</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  className="input"
+                  type="number"
+                  min="1950"
+                  max="2100"
+                  placeholder="Min year"
+                  value={yearMin}
+                  onChange={e => setYearMin(e.target.value)}
+                  style={{ width: 140 }}
+                />
+                <input
+                  className="input"
+                  type="number"
+                  min="1950"
+                  max="2100"
+                  placeholder="Max year"
+                  value={yearMax}
+                  onChange={e => setYearMax(e.target.value)}
+                  style={{ width: 140 }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="card" style={{ marginTop: 10 }}>
+            <div className="h3" style={{ marginTop: 0 }}>Price Range</div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={priceNoMatter} onChange={e => setPriceNoMatter(e.target.checked)} />
+              Price not a constraint
+            </label>
+            {!priceNoMatter && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  placeholder="Min LKR"
+                  value={priceMin}
+                  onChange={e => setPriceMin(e.target.value)}
+                  style={{ width: 160 }}
+                />
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  placeholder="Max LKR"
+                  value={priceMax}
+                  onChange={e => setPriceMax(e.target.value)}
+                  style={{ width: 160 }}
+                />
+              </div>
+            )}
+          </div>
 
           <label className="label" style={{ marginTop: 10 }}>Description (optional)</label>
           <textarea
@@ -283,25 +431,6 @@ export default function WantedBoardPage() {
             value={form.description}
             onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
           />
-
-          {/* Simple filter helpers */}
-          <div className="card" style={{ marginTop: 10, background: 'rgba(108,127,247,0.08)', borderColor: '#6c7ff71a' }}>
-            <div className="h3" style={{ marginTop: 0 }}>Optional Matching Filters</div>
-            <label className="label">Sub-category (e.g., Bike, Car, Van)</label>
-            <input
-              className="input"
-              value={form.sub_category}
-              onChange={e => setForm(prev => ({ ...prev, sub_category: e.target.value }))}
-              placeholder="e.g., Car"
-            />
-            <label className="label" style={{ marginTop: 8 }}>Model (partial match)</label>
-            <input
-              className="input"
-              value={form.model}
-              onChange={e => setForm(prev => ({ ...prev, model: e.target.value }))}
-              placeholder="e.g., Toyota Aqua"
-            />
-          </div>
 
           {postStatus.message && (
             <div className="pill" style={{ marginTop: 10, background: postStatus.ok ? 'rgba(10,200,120,0.12)' : 'rgba(239,68,68,0.12)' }}>
@@ -324,25 +453,40 @@ export default function WantedBoardPage() {
               {myRequests.length === 0 && (
                 <p className="text-muted">You have not posted any requests yet.</p>
               )}
-              {myRequests.map(r => (
-                <div key={r.id} className="card" style={{ marginBottom: 10 }}>
-                  <strong>{r.title}</strong>
-                  <div className="text-muted" style={{ marginTop: 6 }}>
-                    {r.category ? <span>Category: {r.category}</span> : <span>Category: Any</span>}
-                    {r.location ? <span> • Location: {r.location}</span> : null}
-                    {r.price_max != null ? <span> • Max Budget: LKR {Number(r.price_max).toLocaleString('en-US')}</span> : null}
-                    <span> • Status: {r.status}</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    {r.status === 'open' && (
-                      <button className="btn" onClick={() => closeRequest(r.id)}>Close</button>
+              {myRequests.map(r => {
+                const locs = parseArray(r.locations_json);
+                const modelsArr = parseArray(r.models_json);
+                return (
+                  <div key={r.id} className="card" style={{ marginBottom: 10 }}>
+                    <strong>{r.title}</strong>
+                    <div className="text-muted" style={{ marginTop: 6 }}>
+                      {r.category ? <span>Category: {r.category}</span> : <span>Category: Any</span>}
+                      {(locs.length || r.location) ? <span> • Locations: {[...locs, r.location].filter(Boolean).join(', ')}</span> : null}
+                      {r.category === 'Vehicle' && (r.year_min || r.year_max) ? (
+                        <span> • Year: {r.year_min || 'Any'} - {r.year_max || 'Any'}</span>
+                      ) : null}
+                    </div>
+                    {modelsArr.length > 0 && (r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && (
+                      <div className="text-muted" style={{ marginTop: 6 }}>
+                        Models: {modelsArr.join(', ')}
+                      </div>
                     )}
-                    {r.status !== 'open' && (
-                      <button className="btn" onClick={() => alert('This request is closed.')}>Closed</button>
-                    )}
+                    <div className="text-muted" style={{ marginTop: 6 }}>
+                      {r.price_not_matter ? 'Price not a constraint' : (
+                        (r.price_min != null || r.price_max != null) ? `Budget: ${r.price_min != null ? `LKR ${Number(r.price_min).toLocaleString('en-US')}` : 'Any'} - ${r.price_max != null ? `LKR ${Number(r.price_max).toLocaleString('en-US')}` : 'Any'}` : 'Budget: Any'
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      {r.status === 'open' && (
+                        <button className="btn" onClick={() => closeRequest(r.id)}>Close</button>
+                      )}
+                      {r.status !== 'open' && (
+                        <button className="btn" onClick={() => alert('This request is closed.')}>Closed</button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>

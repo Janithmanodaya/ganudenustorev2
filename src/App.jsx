@@ -431,7 +431,8 @@ export default function App() {
                 >
                   <Link to="/" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.home" /></Link>
                   <Link to="/new" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.sell" /></Link>
-                  <Link to="/jobs" onClick={() => setMobileMenuOpen(false)><<LangText path="nav.job /></</Link>
+                  <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.jobs" /></Link>
+                  <Link to="/wanted" onClick={() => setMobileMenuOpen(false)}>Wanted</Link>
                   <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.myAds" /></Link>
                 </div>
               )}
