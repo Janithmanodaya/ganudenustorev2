@@ -1149,8 +1149,7 @@ router.get('/', (req, res) => {
 
     const { category, sortBy, order = 'DESC', status } = req.query;
     let query = "SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, og_image_path, facebook_post_url, is_urgent FROM listings WHERE status != 'Archived'";
-    const params =_code [new]</;
-];
+    const params = [];
 
     if (status) {
       query += ' AND status = ?';
