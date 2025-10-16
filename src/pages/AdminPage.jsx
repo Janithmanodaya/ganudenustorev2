@@ -53,6 +53,7 @@ export default function AdminPage() {
   const [expandedUserIds, setExpandedUserIds] = useState([])
   const [userSelect, setUserSelect] = useState('')
   const [userAdsFilters, setUserAdsFilters] = useState({}) // userId -> { q, category, location, priceMin, priceMax }
+  const [userEmailOptionsCache, setUserEmailOptionsCache] = useState([])
 
   // Reports management
   const [reports, setReports] = useState([])
@@ -234,7 +235,15 @@ export default function AdminPage() {
       const r = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}`, { headers: { 'X-Admin-Email': adminEmail } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load users')
-      setUsers(data.results || [])
+      const results = Array.isArray(data.results) ? data.results : []
+      setUsers(results)
+      // Merge found emails into a persistent cache so the dropdown doesn't shrink after filtering
+      const emails = Array.from(new Set(results.map(u => String(u.email || '').trim()).filter(Boolean)))
+      setUserEmailOptionsCache(prev => {
+        const set = new Set(prev)
+        emails.forEach(e => set.add(e))
+        return Array.from(set)
+      })
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
@@ -1005,10 +1014,7 @@ export default function AdminPage() {
                   onChange={v => { const s = String(v || ''); setUserSelect(s); setUserQuery(s); loadUsers(s); }}
                   ariaLabel="Find user by email"
                   placeholder={users.length ? 'Type or pick an email...' : 'No users loaded yet'}
-                  options={(() => {
-                    const emails = Array.from(new Set((users || []).map(u => String(u.email || '').trim()).filter(Boolean)))
-                    return emails.map(e => ({ value: e, label: e }))
-                  })()}
+                  options={userEmailOptionsCache.map(e => ({ value: e, label: e }))}
                   searchable={true}
                   allowCustom={true}
                 />
