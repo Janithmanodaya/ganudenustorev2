@@ -393,6 +393,177 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
     console.warn('[notify] Saved-search notification error:', e && e.message ? e.message : e);
   }
 
+  // Notify buyers and sellers for matching Wanted requests (reverse notifications)
+  try {
+    if (listing) {
+      const wantedRows = db.prepare(`SELECT * FROM wanted_requests WHERE status = 'open'`).all();
+      let buyerNotified = 0;
+      let sellerNotified = 0;
+
+      function listingMatchesWanted(listingRow, wanted) {
+        try {
+          const cat = String(wanted.category || '').trim();
+          const catOk = cat ? String(listingRow.main_category || '') === cat : true;
+
+          // Locations: match if listing.location contains ANY wanted location (case-insensitive)
+          function parseArr(jsonText) {
+            try {
+              const arr = JSON.parse(String(jsonText || '[]'));
+              return Array.isArray(arr) ? arr.map(x => String(x).trim()).filter(Boolean) : [];
+            } catch (_) {
+              return [];
+            }
+          }
+          const locs = parseArr(wanted.locations_json);
+          const fallbackLoc = String(wanted.location || '').trim();
+          if (fallbackLoc) locs.push(fallbackLoc);
+          const listingLoc = String(listingRow.location || '').toLowerCase();
+          const locOk = locs.length ? locs.some(l => listingLoc.includes(String(l).toLowerCase())) : true;
+
+          // Price range (respect price_not_matter)
+          const p = listingRow.price != null ? Number(listingRow.price) : null;
+          const priceNotMatter = wanted.price_not_matter ? true : false;
+          const pMin = wanted.price_min != null ? Number(wanted.price_min) : null;
+          const pMax = wanted.price_max != null ? Number(wanted.price_max) : null;
+          const priceOk = priceNotMatter
+            ? true
+            : (p == null ? false
+               : ((pMin == null || p >= pMin) && (pMax == null || p <= pMax)));
+
+          // Models: for Vehicle/Mobile/Electronic only, partial match of model_name against any wanted model
+          let modelsOk = true;
+          if (['Vehicle', 'Mobile', 'Electronic'].includes(cat)) {
+            const models = parseArr(wanted.models_json);
+            if (models.length) {
+              let sj = {};
+              try { sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {}; } catch (_) { sj = {}; }
+              const gotModel = String(sj.model_name || sj.model || '').toLowerCase();
+              modelsOk = models.some(m => gotModel.includes(String(m).toLowerCase()));
+            }
+          }
+
+          // Year range: Vehicle only
+          let yearOk = true;
+          if (cat === 'Vehicle') {
+            const yearMin = wanted.year_min != null ? Number(wanted.year_min) : null;
+            const yearMax = wanted.year_max != null ? Number(wanted.year_max) : null;
+            let sj = {};
+            try { sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {}; } catch (_) { sj = {}; }
+            const rawY = sj.manufacture_year ?? sj.year ?? sj.model_year ?? null;
+            let y = null;
+            if (rawY != null) {
+              const num = parseInt(String(rawY).replace(/[^0-9]/g, ''), 10);
+              y = Number.isFinite(num) ? num : null;
+            }
+            if (yearMin != null || yearMax != null) {
+              if (y == null) yearOk = false;
+              else {
+                yearOk = (yearMin == null || y >= yearMin) && (yearMax == null || y <= yearMax);
+              }
+            }
+          }
+
+          // Optional filters_json for future extension
+          let filtersOk = true;
+          let filters = {};
+          try { filters = wanted.filters_json ? JSON.parse(wanted.filters_json) : {}; } catch (_) { filters = {}; }
+          if (filters && Object.keys(filters).length) {
+            const sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {};
+            for (const [k, v] of Object.entries(filters)) {
+              if (!v) continue;
+              const key = k === 'model' ? 'model_name' : k;
+              const got = String(sj[key] || '').toLowerCase();
+
+              if (Array.isArray(v)) {
+                const wants = v.map(x => String(x).toLowerCase()).filter(Boolean);
+                if (key === 'model_name' || key === 'sub_category') {
+                  if (!wants.some(w => got.includes(w))) { filtersOk = false; break; }
+                } else {
+                  if (!wants.some(w => got === w)) { filtersOk = false; break; }
+                }
+              } else {
+                const want = String(v).toLowerCase();
+                if (key === 'model_name' || key === 'sub_category') {
+                  if (!got.includes(want)) { filtersOk = false; break; }
+                } else {
+                  if (got !== want) { filtersOk = false; break; }
+                }
+              }
+            }
+          }
+
+          return catOk && locOk && priceOk && modelsOk && yearOk && filtersOk;
+        } catch (_) {
+          return false;
+        }
+      }
+
+      for (const w of wantedRows) {
+        if (listingMatchesWanted(listing, w)) {
+          // Notify buyer
+          db.prepare(`
+            INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+            VALUES (?, ?, ?, ?, 'wanted_match_buyer', ?, ?)
+          `).run(
+            'New ad matches your Wanted request',
+            `Match: "${listing.title}". View the ad for details.`,
+            String(w.user_email).toLowerCase().trim(),
+            new Date().toISOString(),
+            listing.id,
+            JSON.stringify({ wanted_id: w.id })
+          );
+          // Email buyer
+          try {
+            const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+            const html = `
+              <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+                <h2 style="margin:0 0 10px 0;">New match for your Wanted request</h2>
+                <p style="margin:0 0 10px 0;">Matched ad: <strong>${listing.title}</strong></p>
+                <p style="margin:10px 0 0 0;"><a href="${domain}/listing/${listing.id}" style="color:#0b5fff;text-decoration:none;">View ad</a></p>
+              </div>
+            `;
+            await sendEmail(String(w.user_email).toLowerCase().trim(), 'New match for your Wanted request', html);
+          } catch (_) {}
+          buyerNotified++;
+
+          // Notify seller
+          const owner = String(listing.owner_email || '').toLowerCase().trim();
+          if (owner) {
+            db.prepare(`
+              INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+              VALUES (?, ?, ?, ?, 'wanted_match_seller', ?, ?)
+            `).run(
+              'Immediate buyer request for your item',
+              `A buyer posted: "${w.title}". Your ad may match.`,
+              owner,
+              new Date().toISOString(),
+              listing.id,
+              JSON.stringify({ wanted_id: w.id })
+            );
+            // Email seller
+            try {
+              const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+              const html = `
+                <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+                  <h2 style="margin:0 0 10px 0;">Immediate buyer request</h2>
+                  <p style="margin:0 0 10px 0;">A buyer posted: "<strong>${w.title}</strong>". Your ad "<strong>${listing.title}</strong>" may match.</p>
+                  <p style="margin:10px 0 0 0;"><a href="${domain}/listing/${listing.id}" style="color:#0b5fff;text-decoration:none;">View your ad</a></p>
+                </div>
+              `;
+              await sendEmail(owner, 'Immediate buyer request for your item', html);
+            } catch (_) {}
+            sellerNotified++;
+          }
+        }
+      }
+      if (buyerNotified || sellerNotified) {
+        console.log(\`[notify] Wanted reverse alerts created (buyers: \${buyerNotified}, sellers: \${sellerNotified}) for listing #\${listing.id}\`);
+      }
+    }
+  } catch (e) {
+    console.warn('[notify] Wanted notification error:', e && e.message ? e.message : e);
+  }
+
   // If we have a Facebook post URL, notify the listing owner and optionally email them
   try {
     if (fbPostUrl && listing?.owner_email) {
@@ -488,7 +659,7 @@ router.post('/pending/approve_many', requireAdmin, (req, res) => {
     audit.run(req.admin.id, id, new Date().toISOString());
 
     try {
-      const listing = db.prepare(`SELECT id, title, owner_email FROM listings WHERE id = ?`).get(id);
+      const listing = db.prepare(`SELECT id, title, owner_email, main_category, location, price, structured_json FROM listings WHERE id = ?`).get(id);
       if (listing?.owner_email) {
         delPending.run(id);
         insApproved.run(
@@ -498,6 +669,143 @@ router.post('/pending/approve_many', requireAdmin, (req, res) => {
           new Date().toISOString(),
           id
         );
+
+        // Reverse notifications for Wanted requests
+        try {
+          const wantedRows = db.prepare(`SELECT * FROM wanted_requests WHERE status = 'open'`).all();
+          function listingMatchesWanted(listingRow, wanted) {
+            try {
+              const cat = String(wanted.category || '').trim();
+              const catOk = cat ? String(listingRow.main_category || '') === cat : true;
+
+              function parseArr(jsonText) {
+                try {
+                  const arr = JSON.parse(String(jsonText || '[]'));
+                  return Array.isArray(arr) ? arr.map(x => String(x).trim()).filter(Boolean) : [];
+                } catch (_) {
+                  return [];
+                }
+              }
+
+              // Locations
+              const locs = parseArr(wanted.locations_json);
+              const fallbackLoc = String(wanted.location || '').trim();
+              if (fallbackLoc) locs.push(fallbackLoc);
+              const listingLoc = String(listingRow.location || '').toLowerCase();
+              const locOk = locs.length ? locs.some(l => listingLoc.includes(String(l).toLowerCase())) : true;
+
+              // Price range
+              const p = listingRow.price != null ? Number(listingRow.price) : null;
+              const priceNotMatter = wanted.price_not_matter ? true : false;
+              const pMin = wanted.price_min != null ? Number(wanted.price_min) : null;
+              const pMax = wanted.price_max != null ? Number(wanted.price_max) : null;
+              const priceOk = priceNotMatter
+                ? true
+                : (p == null ? false
+                   : ((pMin == null || p >= pMin) && (pMax == null || p <= pMax)));
+
+              // Models
+              let modelsOk = true;
+              if (['Vehicle', 'Mobile', 'Electronic'].includes(cat)) {
+                const models = parseArr(wanted.models_json);
+                if (models.length) {
+                  let sj = {};
+                  try { sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {}; } catch (_) { sj = {}; }
+                  const gotModel = String(sj.model_name || sj.model || '').toLowerCase();
+                  modelsOk = models.some(m => gotModel.includes(String(m).toLowerCase()));
+                }
+              }
+
+              // Year range
+              let yearOk = true;
+              if (cat === 'Vehicle') {
+                const yearMin = wanted.year_min != null ? Number(wanted.year_min) : null;
+                const yearMax = wanted.year_max != null ? Number(wanted.year_max) : null;
+                let sj = {};
+                try { sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {}; } catch (_) { sj = {}; }
+                const rawY = sj.manufacture_year ?? sj.year ?? sj.model_year ?? null;
+                let y = null;
+                if (rawY != null) {
+                  const num = parseInt(String(rawY).replace(/[^0-9]/g, ''), 10);
+                  y = Number.isFinite(num) ? num : null;
+                }
+                if (yearMin != null || yearMax != null) {
+                  if (y == null) yearOk = false;
+                  else {
+                    yearOk = (yearMin == null || y >= yearMin) && (yearMax == null || y <= yearMax);
+                  }
+                }
+              }
+
+              // Optional filters_json
+              let filtersOk = true;
+              let filters = {};
+              try { filters = wanted.filters_json ? JSON.parse(wanted.filters_json) : {}; } catch (_) { filters = {}; }
+              if (filters && Object.keys(filters).length) {
+                const sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {};
+                for (const [k, v] of Object.entries(filters)) {
+                  if (!v) continue;
+                  const key = k === 'model' ? 'model_name' : k;
+                  const got = String(sj[key] || '').toLowerCase();
+
+                  if (Array.isArray(v)) {
+                    const wants = v.map(x => String(x).toLowerCase()).filter(Boolean);
+                    if (key === 'model_name' || key === 'sub_category') {
+                      if (!wants.some(w => got.includes(w))) { filtersOk = false; break; }
+                    } else {
+                      if (!wants.some(w => got === w)) { filtersOk = false; break; }
+                    }
+                  } else {
+                    const want = String(v).toLowerCase();
+                    if (key === 'model_name' || key === 'sub_category') {
+                      if (!got.includes(want)) { filtersOk = false; break; }
+                    } else {
+                      if (got !== want) { filtersOk = false; break; }
+                    }
+                  }
+                }
+              }
+
+              return catOk && locOk && priceOk && modelsOk && yearOk && filtersOk;
+            } catch (_) {
+              return false;
+            }
+          }
+
+          for (const w of wantedRows) {
+            if (listingMatchesWanted(listing, w)) {
+              // Notify buyer
+              db.prepare(`
+                INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+                VALUES (?, ?, ?, ?, 'wanted_match_buyer', ?, ?)
+              `).run(
+                'New ad matches your Wanted request',
+                `Match: "${listing.title}". View the ad for details.`,
+                String(w.user_email).toLowerCase().trim(),
+                new Date().toISOString(),
+                listing.id,
+                JSON.stringify({ wanted_id: w.id })
+              );
+
+              // Notify seller
+              const owner = String(listing.owner_email || '').toLowerCase().trim();
+              if (owner) {
+                db.prepare(`
+                  INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+                  VALUES (?, ?, ?, ?, 'wanted_match_seller', ?, ?)
+                `).run(
+                  'Immediate buyer request for your item',
+                  `A buyer posted: "${w.title}". Your ad may match.`,
+                  owner,
+                  new Date().toISOString(),
+                  listing.id,
+                  JSON.stringify({ wanted_id: w.id })
+                );
+              }
+            }
+          }
+        } catch (_) {}
+
         notified++;
       }
     } catch (_) {}
@@ -1050,6 +1358,96 @@ router.delete('/notifications/:id', requireAdmin, (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Failed to delete notification' });
+  }
+});
+
+// --- Admin listing management ---
+
+// Get all listings for a specific user (by user id)
+router.get('/users/:id/listings', requireAdmin, (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isFinite(userId)) return res.status(400).json({ error: 'Invalid user id' });
+  try {
+    const user = db.prepare('SELECT email FROM users WHERE id = ?').get(userId);
+    if (!user?.email) return res.status(404).json({ error: 'User not found' });
+    const rows = db.prepare(`
+      SELECT id, main_category, title, location, price, status, thumbnail_path, created_at, is_urgent
+      FROM listings
+      WHERE LOWER(owner_email) = LOWER(?)
+      ORDER BY created_at DESC
+      LIMIT 300
+    `).all(String(user.email).toLowerCase().trim());
+    function filePathToUrl(p) {
+      if (!p) return null;
+      const filename = String(p).split(/[\\/]/).pop();
+      return filename ? '/uploads/' + filename : null;
+    }
+    const results = rows.map(r => ({
+      ...r,
+      thumbnail_url: filePathToUrl(r.thumbnail_path),
+      urgent: !!r.is_urgent,
+      is_urgent: !!r.is_urgent
+    }));
+    res.json({ results, user: { id: userId, email: user.email } });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load user listings' });
+  }
+});
+
+// Set or clear urgent flag for a listing
+router.post('/listings/:id/urgent', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const urgent = !!req.body?.urgent;
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid listing id' });
+  try {
+    db.prepare('UPDATE listings SET is_urgent = ? WHERE id = ?').run(urgent ? 1 : 0, id);
+    db.prepare('INSERT INTO admin_actions (admin_id, listing_id, action, ts) VALUES (?, ?, ?, ?)').run(
+      req.admin.id,
+      id,
+      urgent ? 'urgent_on' : 'urgent_off',
+      new Date().toISOString()
+    );
+    res.json({ ok: true, urgent });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update urgent flag' });
+  }
+});
+
+// Delete a listing (admin override; removes images and related rows)
+router.delete('/listings/:id', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid listing id' });
+  try {
+    const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+
+    // Delete associated images first
+    const images = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ?').all(id);
+    for (const img of images) {
+      if (img?.path) { try { fs.unlinkSync(img.path); } catch (_) {} }
+      if (img?.medium_path) { try { fs.unlinkSync(img.medium_path); } catch (_) {} }
+    }
+    // Delete generated variants
+    if (listing.thumbnail_path) { try { fs.unlinkSync(listing.thumbnail_path); } catch (_) {} }
+    if (listing.medium_path) { try { fs.unlinkSync(listing.medium_path); } catch (_) {} }
+    if (listing.og_image_path) { try { fs.unlinkSync(listing.og_image_path); } catch (_) {} }
+
+    // Remove DB rows in correct order
+    db.prepare('DELETE FROM listing_images WHERE listing_id = ?').run(id);
+    db.prepare('DELETE FROM reports WHERE listing_id = ?').run(id);
+    db.prepare('DELETE FROM notifications WHERE listing_id = ?').run(id);
+    db.prepare('DELETE FROM listings WHERE id = ?').run(id);
+
+    db.prepare('INSERT INTO admin_actions (admin_id, listing_id, action, ts) VALUES (?, ?, ?, ?)').run(
+      req.admin.id,
+      id,
+      'delete_listing',
+      new Date().toISOString()
+    );
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete listing' });
   }
 });
 

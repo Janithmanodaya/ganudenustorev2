@@ -22,6 +22,7 @@ const PolicyPage = React.lazy(() => import('./pages/PolicyPage.jsx'))
 const TermsPage = React.lazy(() => import('./pages/TermsPage.jsx'))
 const PaymentPendingPage = React.lazy(() => import('./pages/PaymentPendingPage.jsx'))
 const SellerProfilePage = React.lazy(() => import('./pages/SellerProfilePage.jsx'))
+const WantedBoardPage = React.lazy(() => import('./pages/WantedBoardPage.jsx'))
 
 export default function App() {
   const navigate = useNavigate()
@@ -324,6 +325,7 @@ export default function App() {
             <Link to="/"><LangText path="nav.home" /></Link>
             <Link to="/new"><LangText path="nav.sell" /></Link>
             <Link to="/jobs"><LangText path="nav.jobs" /></Link>
+            <Link to="/wanted">Wanted</Link>
             <Link to="/my-ads"><LangText path="nav.myAds" /></Link>
             <Link to="/account"><LangText path="nav.account" /></Link>
             {userEmail ? (
@@ -430,6 +432,7 @@ export default function App() {
                   <Link to="/" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.home" /></Link>
                   <Link to="/new" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.sell" /></Link>
                   <Link to="/jobs" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.jobs" /></Link>
+                  <Link to="/wanted" onClick={() => setMobileMenuOpen(false)}>Wanted</Link>
                   <Link to="/my-ads" onClick={() => setMobileMenuOpen(false)}><LangText path="nav.myAds" /></Link>
                 </div>
               )}
@@ -486,6 +489,7 @@ export default function App() {
             <Route path="/jobs" element={<JobPortalPage />} />
             <Route path="/jobs/search" element={<JobSearchResultsPage />} />
             <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
+            <Route path="/wanted" element={<WantedBoardPage />} />
             <Route path="/search" element={<SearchResultsPage />} />
             <Route path="/policy" element={<PolicyPage />} />
             <Route path="/terms" element={<TermsPage />} />

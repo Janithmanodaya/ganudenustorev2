@@ -49,6 +49,8 @@ export default function AdminPage() {
   const [users, setUsers] = useState([])
   const [userQuery, setUserQuery] = useState('')
   const [suspendDays, setSuspendDays] = useState(7)
+  const [userAds, setUserAds] = useState({})
+  const [expandedUserIds, setExpandedUserIds] = useState([])
 
   // Reports management
   const [reports, setReports] = useState([])
@@ -279,6 +281,61 @@ export default function AdminPage() {
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to unsuspend user')
       loadUsers(userQuery)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  // Admin: load a user's ads
+  async function loadUserAds(userId) {
+    try {
+      const r = await fetch(`/api/admin/users/${userId}/listings`, { headers: { 'X-Admin-Email': adminEmail } })
+      const data = await safeJson(r)
+      if (!r.ok) throw new Error(data.error || 'Failed to load user ads')
+      setUserAds(prev => ({ ...prev, [userId]: Array.isArray(data.results) ? data.results : [] }))
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  function toggleExpandUser(userId) {
+    setExpandedUserIds(prev => {
+      const has = prev.includes(userId)
+      const next = has ? prev.filter(id => id !== userId) : [...prev, userId]
+      if (!has) {
+        // load ads on first expand
+        loadUserAds(userId)
+      }
+      return next
+    })
+  }
+
+  async function adminDeleteListing(listingId, userId) {
+    const yes = window.confirm('Delete this listing?')
+    if (!yes) return
+    try {
+      const r = await fetch(`/api/admin/listings/${listingId}`, { method: 'DELETE', headers: { 'X-Admin-Email': adminEmail } })
+      const d = await safeJson(r)
+      if (!r.ok) throw new Error(d.error || 'Failed to delete listing')
+      setStatus('Listing deleted.')
+      // refresh user's ads
+      loadUserAds(userId)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function adminSetUrgent(listingId, urgent, userId) {
+    try {
+      const r = await fetch(`/api/admin/listings/${listingId}/urgent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+        body: JSON.stringify({ urgent: !!urgent })
+      })
+      const d = await safeJson(r)
+      if (!r.ok) throw new Error(d.error || 'Failed to update urgent')
+      setStatus(urgent ? 'Marked as urgent.' : 'Urgent removed.')
+      loadUserAds(userId)
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
@@ -950,12 +1007,51 @@ export default function AdminPage() {
                       {u.suspended_until && (new Date(u.suspended_until) > new Date()) ? (
                         <button className="btn" onClick={() => unsuspendUser(u.id)}>Unsuspend</button>
                       ) : (
-                        <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend 7 days</button>
+                        <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend {suspendDays} days</button>
                       )}
                       {/* Verify controls */}
                       {!u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/verify`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } }); const d = await safeJson(r); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Verify</button>}
                       {u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/unverify`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } }); const d = await safeJson(r); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Unverify</button>}
+                      {/* View user's ads */}
+                      <button className="btn" onClick={() => toggleExpandUser(u.id)}>
+                        {expandedUserIds.includes(u.id) ? 'Hide Ads' : 'View Ads'}
+                      </button>
                     </div>
+
+                    {/* User's ads list */}
+                    {expandedUserIds.includes(u.id) && (
+                      <div className="card" style={{ marginTop: 8 }}>
+                        <div className="h2" style={{ marginTop: 0 }}>Ads by user</div>
+                        {!userAds[u.id] && <p className="text-muted">Loading ads...</p>}
+                        {userAds[u.id] && userAds[u.id].length === 0 && <p className="text-muted">No ads found.</p>}
+                        {Array.isArray(userAds[u.id]) && userAds[u.id].map(ad => (
+                          <div key={ad.id} className="card" style={{ marginBottom: 8, display: 'flex', gap: 12 }}>
+                            {ad.thumbnail_url && (
+                              <img src={ad.thumbnail_url} alt={ad.title} style={{ width: 100, height: 75, objectFit: 'cover', borderRadius: 6 }} />
+                            )}
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ad.title}</strong>
+                                {(ad.is_urgent || ad.urgent) && (
+                                  <span className="pill" style={{ background: 'rgba(239,68,68,0.15)', color: '#fecaca' }}>Urgent</span>
+                                )}
+                              </div>
+                              <div className="text-muted">#{ad.id} • {ad.main_category} • {ad.location || '—'} • {ad.price != null ? `Rs. ${Number(ad.price).toLocaleString('en-US')}` : 'N/A'} • {ad.status}</div>
+                              <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                                <button className="btn" onClick={() => adminDeleteListing(ad.id, u.id)}>Delete</button>
+                                <button
+                                  className="btn"
+                                  onClick={() => adminSetUrgent(ad.id, !(ad.is_urgent || ad.urgent), u.id)}
+                                >
+                                  {(ad.is_urgent || ad.urgent) ? 'Remove Urgent' : 'Mark Urgent'}
+                                </button>
+                                <button className="btn" onClick={() => navigate(`/listing/${ad.id}`)}>Open</button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
