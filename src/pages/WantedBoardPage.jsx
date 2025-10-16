@@ -164,6 +164,50 @@ export default function WantedBoardPage() {
     });
   }
 
+  // Renders chips for currently selected dynamic filters with remove controls
+  function renderSelectedFiltersChips() {
+    const entries = Object.entries(selectedFilters || {});
+    if (!entries.length) return null;
+    return (
+      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {entries.map(([k, arr]) => {
+          const values = Array.isArray(arr) ? arr : [];
+          if (!values.length) return null;
+          return (
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <strong>{k}</strong>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {values.map((v, idx) => (
+                  <span key={idx} className="pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {v}
+                    <button
+                      type="button"
+                      className="back-btn"
+                      onClick={() => removeFilterValue(k, v)}
+                      title="Remove"
+                      aria-label="Remove"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => removeFilterKey(k)}
+                title="Clear this filter"
+                aria-label="Clear this filter"
+              >
+                Clear {k}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   async function submitForm(e) {
     e.preventDefault();
     if (!userEmail) {
