@@ -480,6 +480,8 @@ export default function App() {
             <Route path="/verify" element={<VerifyListingPage />} />
             <Route path="/verify-employee" element={<VerifyEmployeePage />} />
             <Route path="/janithmanodya" element={<AdminPage />} />
+            {/* Alias to support common misspelling */}
+            <Route path="/janithmanodaya" element={<AdminPage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/my-ads" element={<MyAdsPage />} />
