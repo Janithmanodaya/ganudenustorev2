@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import CustomSelect from '../components/CustomSelect.jsx';
 
 const CATEGORIES = ['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden', 'Other'];
 
@@ -24,8 +25,10 @@ export default function WantedBoardPage() {
   });
   const [locations, setLocations] = useState([]);
   const [locInput, setLocInput] = useState('');
+  const [locSuggestedValue, setLocSuggestedValue] = useState('');
   const [models, setModels] = useState([]);
   const [modelInput, setModelInput] = useState('');
+  const [modelSuggestedValue, setModelSuggestedValue] = useState('');
   const [yearMin, setYearMin] = useState('');
   const [yearMax, setYearMax] = useState('');
   const [priceMin, setPriceMin] = useState('');
@@ -86,6 +89,8 @@ export default function WantedBoardPage() {
       setFilterKey('');
       setFilterSuggestedValue('');
       setFilterCustomValue('');
+      setModelSuggestedValue('');
+      setLocSuggestedValue('');
     }
     loadFilters();
   }, [form.category]);
@@ -117,19 +122,21 @@ export default function WantedBoardPage() {
   }
 
   function addLocation() {
-    const v = String(locInput || '').trim();
+    const v = String(locInput || locSuggestedValue || '').trim();
     if (!v) return;
     setLocations(prev => (prev.includes(v) ? prev : [...prev, v]));
     setLocInput('');
+    setLocSuggestedValue('');
   }
   function removeLocation(v) {
     setLocations(prev => prev.filter(x => x !== v));
   }
   function addModel() {
-    const v = String(modelInput || '').trim();
+    const v = String(modelInput || modelSuggestedValue || '').trim();
     if (!v) return;
     setModels(prev => (prev.includes(v) ? prev : [...prev, v]));
     setModelInput('');
+    setModelSuggestedValue('');
   }
   function removeModel(v) {
     setModels(prev => prev.filter(x => x !== v));
@@ -162,6 +169,50 @@ export default function WantedBoardPage() {
       delete next[key];
       return next;
     });
+  }
+
+  // Renders chips for currently selected dynamic filters with remove controls
+  function renderSelectedFiltersChips() {
+    const entries = Object.entries(selectedFilters || {});
+    if (!entries.length) return null;
+    return (
+      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {entries.map(([k, arr]) => {
+          const values = Array.isArray(arr) ? arr : [];
+          if (!values.length) return null;
+          return (
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <strong>{k}</strong>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {values.map((v, idx) => (
+                  <span key={idx} className="pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {v}
+                    <button
+                      type="button"
+                      className="back-btn"
+                      onClick={() => removeFilterValue(k, v)}
+                      title="Remove"
+                      aria-label="Remove"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => removeFilterKey(k)}
+                title="Clear this filter"
+                aria-label="Clear this filter"
+              >
+                Clear {k}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    );
   }
 
   async function submitForm(e) {
@@ -430,13 +481,24 @@ export default function WantedBoardPage() {
           <div className="card" style={{ marginTop: 10 }}>
             <div className="h3" style={{ marginTop: 0 }}>Locations</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 240, flex: '0 0 240px' }}>
+                <CustomSelect
+                  value={locSuggestedValue}
+                  onChange={v => setLocSuggestedValue(v)}
+                  ariaLabel="Suggested locations"
+                  placeholder="Suggested locations"
+                  options={(filtersMeta.valuesByKey?.['location'] || []).map(v => ({ value: v, label: v }))}
+                  searchable={true}
+                  allowCustom={true}
+                />
+              </div>
               <input
                 className="input"
-                placeholder="Add a location (e.g., Colombo)"
+                placeholder="Or type a location (e.g., Colombo)"
                 value={locInput}
                 onChange={e => setLocInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLocation(); }}}
-                style={{ minWidth: 200 }}
+                style={{ minWidth: 220 }}
               />
               <button className="btn" type="button" onClick={addLocation}>Add</button>
             </div>
@@ -447,13 +509,24 @@ export default function WantedBoardPage() {
             <div className="card" style={{ marginTop: 10 }}>
               <div className="h3" style={{ marginTop: 0 }}>Models (optional)</div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 240, flex: '0 0 240px' }}>
+                  <CustomSelect
+                    value={modelSuggestedValue}
+                    onChange={v => setModelSuggestedValue(v)}
+                    ariaLabel="Suggested models"
+                    placeholder="Suggested models"
+                    options={(filtersMeta.valuesByKey?.['model'] || []).map(v => ({ value: v, label: v }))}
+                    searchable={true}
+                    allowCustom={true}
+                  />
+                </div>
                 <input
                   className="input"
-                  placeholder="Add model (e.g., Toyota Aqua)"
+                  placeholder="Or type model (e.g., Toyota Aqua)"
                   value={modelInput}
                   onChange={e => setModelInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addModel(); }}}
-                  style={{ minWidth: 200 }}
+                  style={{ minWidth: 220 }}
                 />
                 <button className="btn" type="button" onClick={addModel}>Add</button>
               </div>
@@ -490,10 +563,10 @@ export default function WantedBoardPage() {
           )}
 
           <div className="card" style={{ marginTop: 10 }}>
-            <div className="h3" style={{ marginTop: 0 }}>Price Range</div>
+            <div className="h3" style={{ marginTop: 0 }}>{form.category === 'Job' ? 'Salary Range' : 'Price Range'}</div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={priceNoMatter} onChange={e => setPriceNoMatter(e.target.checked)} />
-              Price not a constraint
+              {form.category === 'Job' ? 'Salary not a constraint' : 'Price not a constraint'}
             </label>
             {!priceNoMatter && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
@@ -501,7 +574,7 @@ export default function WantedBoardPage() {
                   className="input"
                   type="number"
                   min="0"
-                  placeholder="Min LKR"
+                  placeholder={form.category === 'Job' ? 'Min Salary LKR' : 'Min LKR'}
                   value={priceMin}
                   onChange={e => setPriceMin(e.target.value)}
                   style={{ width: 160 }}
@@ -510,7 +583,7 @@ export default function WantedBoardPage() {
                   className="input"
                   type="number"
                   min="0"
-                  placeholder="Max LKR"
+                  placeholder={form.category === 'Job' ? 'Max Salary LKR' : 'Max LKR'}
                   value={priceMax}
                   onChange={e => setPriceMax(e.target.value)}
                   style={{ width: 160 }}
@@ -539,17 +612,17 @@ export default function WantedBoardPage() {
                   </select>
                   {filterKey && (
                     <>
-                      <select
-                        className="select"
-                        value={filterSuggestedValue}
-                        onChange={e => setFilterSuggestedValue(e.target.value)}
-                        style={{ minWidth: 200 }}
-                      >
-                        <option value="">Suggested values</option>
-                        {(filtersMeta.valuesByKey?.[filterKey] || []).map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
+                      <div style={{ minWidth: 220, flex: '0 0 220px' }}>
+                        <CustomSelect
+                          value={filterSuggestedValue}
+                          onChange={v => setFilterSuggestedValue(v)}
+                          ariaLabel="Suggested values"
+                          placeholder="Suggested values"
+                          options={(filtersMeta.valuesByKey?.[filterKey] || []).map(v => ({ value: v, label: v }))}
+                          searchable={true}
+                          allowCustom={true}
+                        />
+                      </div>
                       <input
                         className="input"
                         placeholder="Or type a custom value"
