@@ -32,6 +32,13 @@ export default function WantedBoardPage() {
   const [priceMax, setPriceMax] = useState('');
   const [priceNoMatter, setPriceNoMatter] = useState(false);
 
+  // Dynamic filters derived from existing listings by category
+  const [filtersMeta, setFiltersMeta] = useState({ keys: [], valuesByKey: {} });
+  const [filterKey, setFilterKey] = useState('');
+  const [filterSuggestedValue, setFilterSuggestedValue] = useState('');
+  const [filterCustomValue, setFilterCustomValue] = useState('');
+  const [selectedFilters, setSelectedFilters] = useState({}); // key -> [values]
+
   const [postStatus, setPostStatus] = useState({ ok: false, message: '' });
 
   useEffect(() => {
@@ -51,6 +58,37 @@ export default function WantedBoardPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail]);
+
+  // Load dynamic filters for the selected category
+  useEffect(() => {
+    async function loadFilters() {
+      if (!form.category) {
+        setFiltersMeta({ keys: [], valuesByKey: {} });
+        setSelectedFilters({});
+        setFilterKey('');
+        setFilterSuggestedValue('');
+        setFilterCustomValue('');
+        return;
+      }
+      try {
+        const r = await fetch(`/api/listings/filters?category=${encodeURIComponent(form.category)}`);
+        const data = await r.json();
+        if (r.ok && Array.isArray(data.keys) && data.valuesByKey) {
+          setFiltersMeta({ keys: data.keys, valuesByKey: data.valuesByKey });
+        } else {
+          setFiltersMeta({ keys: [], valuesByKey: {} });
+        }
+      } catch (_) {
+        setFiltersMeta({ keys: [], valuesByKey: {} });
+      }
+      // reset selections when category changes
+      setSelectedFilters({});
+      setFilterKey('');
+      setFilterSuggestedValue('');
+      setFilterCustomValue('');
+    }
+    loadFilters();
+  }, [form.category]);
 
   async function loadRequests() {
     setLoading(true);
@@ -97,6 +135,35 @@ export default function WantedBoardPage() {
     setModels(prev => prev.filter(x => x !== v));
   }
 
+  function addFilterValue() {
+    const key = String(filterKey || '').trim();
+    const val = String(filterCustomValue || filterSuggestedValue || '').trim();
+    if (!key || !val) return;
+    setSelectedFilters(prev => {
+      const arr = prev[key] || [];
+      if (arr.includes(val)) return prev;
+      return { ...prev, [key]: [...arr, val] };
+    });
+    setFilterSuggestedValue('');
+    setFilterCustomValue('');
+  }
+  function removeFilterValue(key, val) {
+    setSelectedFilters(prev => {
+      const arr = (prev[key] || []).filter(x => x !== val);
+      const next = { ...prev };
+      if (arr.length === 0) delete next[key];
+      else next[key] = arr;
+      return next;
+    });
+  }
+  function removeFilterKey(key) {
+    setSelectedFilters(prev => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
   async function submitForm(e) {
     e.preventDefault();
     if (!userEmail) {
@@ -106,6 +173,14 @@ export default function WantedBoardPage() {
     setPostStatus({ ok: false, message: '' });
     setLoading(true);
     try {
+      // Build filters payload (exclude keys that already have dedicated inputs or base fields)
+      const filtersPayload = {};
+      for (const [k, arr] of Object.entries(selectedFilters)) {
+        if (!Array.isArray(arr) || arr.length === 0) continue;
+        if (['location', 'pricing_type', 'price', 'phone', 'model'].includes(k)) continue;
+        filtersPayload[k] = arr;
+      }
+
       const payload = {
         title: form.title,
         description: form.description,
@@ -116,7 +191,8 @@ export default function WantedBoardPage() {
         year_max: form.category === 'Vehicle' && yearMax ? Number(yearMax) : '',
         price_min: priceNoMatter ? '' : (priceMin ? Number(priceMin) : ''),
         price_max: priceNoMatter ? '' : (priceMax ? Number(priceMax) : ''),
-        price_not_matter: !!priceNoMatter
+        price_not_matter: !!priceNoMatter,
+        filters: filtersPayload
       };
       const r = await fetch('/api/wanted', {
         method: 'POST',
@@ -228,6 +304,17 @@ export default function WantedBoardPage() {
     }
   }
 
+  function parseFilters(jsonText) {
+    try {
+      const obj = JSON.parse(String(jsonText || '{}'));
+      return obj && typeof obj === 'object' ? obj : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  const filteredKeysForUI = (filtersMeta.keys || []).filter(k => !['location', 'pricing_type', 'price', 'phone', 'model'].includes(k));
+
   return (
     <div className="container">
       <div className="h1" style={{ marginTop: 0 }}>Wanted Board</div>
@@ -251,6 +338,8 @@ export default function WantedBoardPage() {
           {requests.filter(r => r.status === 'open').map(r => {
             const locs = parseArray(r.locations_json);
             const modelsArr = parseArray(r.models_json);
+            const filtersObj = parseFilters(r.filters_json);
+            const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model'].includes(String(k)));
             return (
               <div key={r.id} className="card" style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -275,6 +364,13 @@ export default function WantedBoardPage() {
                 {modelsArr.length > 0 && (r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && (
                   <div className="text-muted" style={{ marginTop: 6 }}>
                     Models: {modelsArr.join(', ')}
+                  </div>
+                )}
+                {filterEntries.length > 0 && (
+                  <div className="text-muted" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {filterEntries.map(([k, v]) => (
+                      <span key={k} className="pill">{k}: {Array.isArray(v) ? v.join(', ') : String(v)}</span>
+                    ))}
                   </div>
                 )}
                 {r.description && <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{r.description}</div>}
@@ -423,6 +519,53 @@ export default function WantedBoardPage() {
             )}
           </div>
 
+          <div className="card" style={{ marginTop: 10 }}>
+            <div className="h3" style={{ marginTop: 0 }}>Additional Filters (optional)</div>
+            {!form.category && <p className="text-muted">Select a category to see filters.</p>}
+            {form.category && filteredKeysForUI.length === 0 && (
+              <p className="text-muted">No dynamic filters available for {form.category} yet.</p>
+            )}
+            {form.category && filteredKeysForUI.length > 0 && (
+              <>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select
+                    className="select"
+                    value={filterKey}
+                    onChange={e => { setFilterKey(e.target.value); setFilterSuggestedValue(''); setFilterCustomValue(''); }}
+                    style={{ minWidth: 200 }}
+                  >
+                    <option value="">Select a filter key</option>
+                    {filteredKeysForUI.map(k => <option key={k} value={k}>{k}</option>)}
+                  </select>
+                  {filterKey && (
+                    <>
+                      <select
+                        className="select"
+                        value={filterSuggestedValue}
+                        onChange={e => setFilterSuggestedValue(e.target.value)}
+                        style={{ minWidth: 200 }}
+                      >
+                        <option value="">Suggested values</option>
+                        {(filtersMeta.valuesByKey?.[filterKey] || []).map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                      <input
+                        className="input"
+                        placeholder="Or type a custom value"
+                        value={filterCustomValue}
+                        onChange={e => setFilterCustomValue(e.target.value)}
+                        style={{ minWidth: 200 }}
+                      />
+                      <button className="btn" type="button" onClick={addFilterValue}>Add</button>
+                    </>
+                  )}
+                </div>
+                {renderSelectedFiltersChips()}
+              </>
+            )}
+          </div>
+
           <label className="label" style={{ marginTop: 10 }}>Description (optional)</label>
           <textarea
             className="textarea"
@@ -456,6 +599,8 @@ export default function WantedBoardPage() {
               {myRequests.map(r => {
                 const locs = parseArray(r.locations_json);
                 const modelsArr = parseArray(r.models_json);
+                const filtersObj = parseFilters(r.filters_json);
+                const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model'].includes(String(k)));
                 return (
                   <div key={r.id} className="card" style={{ marginBottom: 10 }}>
                     <strong>{r.title}</strong>
@@ -469,6 +614,13 @@ export default function WantedBoardPage() {
                     {modelsArr.length > 0 && (r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && (
                       <div className="text-muted" style={{ marginTop: 6 }}>
                         Models: {modelsArr.join(', ')}
+                      </div>
+                    )}
+                    {filterEntries.length > 0 && (
+                      <div className="text-muted" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {filterEntries.map(([k, v]) => (
+                          <span key={k} className="pill">{k}: {Array.isArray(v) ? v.join(', ') : String(v)}</span>
+                        ))}
                       </div>
                     )}
                     <div className="text-muted" style={{ marginTop: 6 }}>
