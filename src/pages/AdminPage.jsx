@@ -1189,22 +1189,7 @@ export default function AdminPage() {
                                           allowCustom={true}
                                         />
                                       </div>
-                                      <input
-                                        className="input"
-                                        type="number"
-                                        placeholder="Min price"
-                                        value={(userAdsFilters[u.id]?.priceMin || '')}
-                                        onChange={e => updateUserAdsFilter(u.id, { priceMin: e.target.value })}
-                                        style={{ width: 140 }}
-                                      />
-                                      <input
-                                        className="input"
-                                        type="number"
-                                        placeholder="Max price"
-                                        value={(userAdsFilters[u.id]?.priceMax || '')}
-                                        onChange={e => updateUserAdsFilter(u.id, { priceMax: e.target.value })}
-                                        style={{ width: 140 }}
-                                      />
+                                      
                                     </>
                                   )
                                 })()}
