@@ -303,24 +303,12 @@ export default function AdminPage() {
   async function loadUserAds(user) {
     try {
       const userId = (typeof user === 'object' && user !== null) ? user.id : user
-      const userEmail = (typeof user === 'object' && user !== null) ? (user.email || '') : ''
       const r = await fetch(`/api/admin/users/${userId}/listings`, { headers: { 'X-Admin-Email': adminEmail } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load user ads')
       const rows = Array.isArray(data.results) ? data.results : []
-      // Prefer matching by known fields; if none match, fall back to all rows to avoid hiding valid results.
-      // Trust backend endpoint `/api/admin/users/:id/listings` to return listings for that user.
-      // Avoid over-filtering client-side which was hiding valid results.
-      setUserAds(prev => ({ ...prev, [userId]: rows_codeilFields.includes(String(userEmail || '').trim().toLowerCase()) : false
-
-        const idFields = [ad.user_id, ad.owner_id]
-          .map(x => (x == null ? null : String(x)))
-          .filter(Boolean)
-        const byId = idFields.includes(String(userId))
-
-        return byEmail || byId
-      })
-      setUserAds(prev => ({ ...prev, [userId]: filtered }))
+      // Trust the backend to return listings for the requested user; display them directly.
+      setUserAds(prev => ({ ...prev, [userId]: rows }))
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
