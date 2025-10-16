@@ -213,22 +213,38 @@ router.get('/pending/:id', requireAdmin, (req, res) => {
 router.post('/pending/:id/update', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   const { structured_json, seo_title, meta_description, seo_keywords } = req.body || {};
-  if (typeof structured_json !== 'string' || typeof seo_title !== 'string' || typeof meta_description !== 'string' || typeof seo_keywords !== 'string') {
-    return res.status(400).json({ error: 'Invalid payload.' });
+
+  // Load current listing to allow partial updates from the admin UI
+  const current = db.prepare('SELECT seo_title, seo_description, seo_keywords, structured_json as sj, seo_json FROM listings WHERE id = ?').get(id);
+  if (!current) return res.status(404).json({ error: 'Listing not found.' });
+
+  // If structured_json is provided, validate it; otherwise keep existing
+  let nextStructured = typeof structured_json === 'string' ? structured_json : (current.sj || '');
+  if (typeof nextStructured === 'string' && nextStructured.trim() !== '') {
+    try { JSON.parse(nextStructured); } catch (_) {
+      return res.status(400).json({ error: 'structured_json must be valid JSON.' });
+    }
+  } else {
+    // Ensure it's a string
+    nextStructured = String(nextStructured || '');
   }
-  // Validate structured_json is valid JSON
-  try { JSON.parse(structured_json); } catch (_) {
-    return res.status(400).json({ error: 'structured_json must be valid JSON.' });
-  }
-  const st = seo_title.slice(0, 60);
-  const sd = meta_description.slice(0, 160);
-  const sk = seo_keywords;
+
+  // Allow SEO fields to be optional; fallback to existing values
+  const stRaw = typeof seo_title === 'string' ? seo_title : (current.seo_title || '');
+  const sdRaw = typeof meta_description === 'string' ? meta_description : (current.seo_description || '');
+  const skRaw = typeof seo_keywords === 'string' ? seo_keywords : (current.seo_keywords || '');
+
+  const st = String(stRaw).slice(0, 60).trim();
+  const sd = String(sdRaw).slice(0, 160).trim();
+  const sk = String(skRaw).trim();
+
+  const nextSeoJson = JSON.stringify({ seo_title: st, meta_description: sd, seo_keywords: sk }, null, 2);
 
   db.prepare(`
     UPDATE listings
     SET structured_json = ?, seo_title = ?, seo_description = ?, seo_keywords = ?, seo_json = ?
     WHERE id = ?
-  `).run(structured_json.trim(), st.trim(), sd.trim(), sk.trim(), JSON.stringify({ seo_title: st, meta_description: sd, seo_keywords: sk }, null, 2), id);
+  `).run(String(nextStructured).trim(), st, sd, sk, nextSeoJson, id);
 
   db.prepare(`
     INSERT INTO admin_actions (admin_id, listing_id, action, ts)
