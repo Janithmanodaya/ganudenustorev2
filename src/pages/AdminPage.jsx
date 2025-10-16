@@ -407,13 +407,23 @@ export default function AdminPage() {
   async function loadReports(filter = 'pending') {
     try {
       const r = await fetch(`/api/admin/reports?status=${encodeURIComponent(filter)}`, { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load reports')
-      setReports(data.results || [])
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
-  }
+      let data = {}
+      try {
+        data = await safeJson(r)
+      } catch (_) {
+        data = {}
+      }
+      if (!r.ok) {
+        // Avoid blocking the dashboard if reports endpoint fails
+        return
+      }
+      const results = Array.isArray(data.results) ? data.results : []
+      setReports(results)
+    } catch (_) {
+      // Silent on errors
+    }_code
+ new </}
+ }
 
   async function resolveReport(id) {
     try {
