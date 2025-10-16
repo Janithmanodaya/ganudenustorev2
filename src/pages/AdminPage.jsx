@@ -51,6 +51,8 @@ export default function AdminPage() {
   const [suspendDays, setSuspendDays] = useState(7)
   const [userAds, setUserAds] = useState({})
   const [expandedUserIds, setExpandedUserIds] = useState([])
+  const [userSelect, setUserSelect] = useState('')
+  const [userAdsFilters, setUserAdsFilters] = useState({}) // userId -> { q, category, location, priceMin, priceMax }
 
   // Reports management
   const [reports, setReports] = useState([])
@@ -286,13 +288,22 @@ export default function AdminPage() {
     }
   }
 
-  // Admin: load a user's ads
-  async function loadUserAds(userId) {
+  // Admin: load a user's ads; ensure only the user's own ads are shown
+  async function loadUserAds(user) {
     try {
+      const userId = (typeof user === 'object' && user !== null) ? user.id : user
+      const userEmail = (typeof user === 'object' && user !== null) ? (user.email || '') : ''
       const r = await fetch(`/api/admin/users/${userId}/listings`, { headers: { 'X-Admin-Email': adminEmail } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load user ads')
-      setUserAds(prev => ({ ...prev, [userId]: Array.isArray(data.results) ? data.results : [] }))
+      const rows = Array.isArray(data.results) ? data.results : []
+      // Filter defensively to this user's own ads by email or numeric id if available
+      const filtered = rows.filter(ad => {
+        const byEmail = userEmail && String(ad.owner_email || ad.email || '').trim().toLowerCase() === String(userEmail).trim().toLowerCase()
+        const byId = Number(ad.user_id ?? ad.owner_id ?? -1) === Number(userId)
+        return byEmail || byId
+      })
+      setUserAds(prev => ({ ...prev, [userId]: filtered }))
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
@@ -303,10 +314,33 @@ export default function AdminPage() {
       const has = prev.includes(userId)
       const next = has ? prev.filter(id => id !== userId) : [...prev, userId]
       if (!has) {
-        // load ads on first expand
-        loadUserAds(userId)
+        const userObj = users.find(x => x.id === userId) || { id: userId }
+        loadUserAds(userObj)
       }
       return next
+    })
+  }
+
+  function updateUserAdsFilter(userId, patch) {
+    setUserAdsFilters(prev => ({ ...prev, [userId]: { ...(prev[userId] || {}), ...patch } }))
+  }
+
+  function getFilteredUserAds(userId) {
+    const ads = Array.isArray(userAds[userId]) ? userAds[userId] : []
+    const f = userAdsFilters[userId] || {}
+    const q = String(f.q || '').toLowerCase().trim()
+    const cat = String(f.category || '')
+    const loc = String(f.location || '')
+    const pmin = f.priceMin != null && f.priceMin !== '' ? Number(f.priceMin) : null
+    const pmax = f.priceMax != null && f.priceMax !== '' ? Number(f.priceMax) : null
+    return ads.filter(ad => {
+      const textOk = q ? [ad.title, ad.location, ad.main_category, ad.description, ad.seo_description].filter(Boolean).join(' ').toLowerCase().includes(q) : true
+      const catOk = cat ? (String(ad.main_category || '') === cat) : true
+      const locOk = loc ? String(ad.location || '').toLowerCase().includes(loc.toLowerCase()) : true
+      const price = ad.price != null ? Number(ad.price) : null
+      const minOk = pmin != null ? (price != null && price >= pmin) : true
+      const maxOk = pmax != null ? (price != null && price <= pmax) : true
+      return textOk && catOk && locOk && minOk && maxOk
     })
   }
 
@@ -319,7 +353,7 @@ export default function AdminPage() {
       if (!r.ok) throw new Error(d.error || 'Failed to delete listing')
       setStatus('Listing deleted.')
       // refresh user's ads
-      loadUserAds(userId)
+      loadUserAds({ id: userId })
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
@@ -335,7 +369,7 @@ export default function AdminPage() {
       const d = await safeJson(r)
       if (!r.ok) throw new Error(d.error || 'Failed to update urgent')
       setStatus(urgent ? 'Marked as urgent.' : 'Urgent removed.')
-      loadUserAds(userId)
+      loadUserAds({ id: userId })
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
@@ -964,13 +998,26 @@ export default function AdminPage() {
           <>
             <div className="h2" style={{ marginTop: 8 }}>User Management</div>
             <div className="grid two">
-              <input className="input" placeholder="Search by email or username..." value={userQuery} onChange={e => setUserQuery(e.target.value)} />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" onClick={() => loadUsers(userQuery)}>Search</button>
-                <button className="btn" onClick={() => { setUserQuery(''); loadUsers(''); }}>Reset</button>
-              </div>
-            </div>
-            <div className="grid two" style={{ marginTop: 8 }}>
+             <<div>
+               <tdiv className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Find us</> div>
+               <.CustomSelect
+                  value={userSelect}
+                  onChange={v => { const s = String(v || ''); setUserSelect(s); setUserQuery(s); loadUsers(s); }}
+                  ariaLabel="Find user by email"
+                  placeholder={users.length ? 'Type or pick an email...' : 'No users loaded yet'}
+                  options={(() => {
+                    const emails = Array.from(new Set((users || []).map(u => String(u.email || '').trim()).filter(Boolean)))
+                    return emails.map(e => ({ value: e, label: e }))
+                  })()}
+                  searchable={true}
+                  allowCustom={true}
+                />
+               < small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                  Tip: start typing to filter. You can also enter a custom email.
+              </  small>
+            </  div>
+             < div>
+                           <div className="grid two" style={{ marginTop: 8 }}>
               <div>
                 <label className="text-muted">Suspend days</label>
                 <input
@@ -1022,9 +1069,75 @@ export default function AdminPage() {
                     {expandedUserIds.includes(u.id) && (
                       <div className="card" style={{ marginTop: 8 }}>
                         <div className="h2" style={{ marginTop: 0 }}>Ads by user</div>
+
+                        {/* Filters within user's ads */}
+                        {Array.isArray(userAds[u.id]) && userAds[u.id].length > 0 && (
+                          <div style={{ marginBottom: 8 }}>
+                            <div className="grid two">
+                              <div>
+                                <input
+                                  className="input"
+                                  placeholder="Search within ads..."
+                                  value={(userAdsFilters[u.id]?.q || '')}
+                                  onChange={e => updateUserAdsFilter(u.id, { q: e.target.value })}
+                                />
+                              </div>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                {(() => {
+                                  const ads = Array.isArray(userAds[u.id]) ? userAds[u.id] : []
+                                  const cats = Array.from(new Set(ads.map(a => String(a.main_category || '').trim()).filter(Boolean)))
+                                  const locs = Array.from(new Set(ads.map(a => String(a.location || '').trim()).filter(Boolean)))
+                                  return (
+                                    <>
+                                      <div style={{ minWidth: 200, flex: '0 0 200px' }}>
+                                        <CustomSelect
+                                          value={(userAdsFilters[u.id]?.category || '')}
+                                          onChange={v => updateUserAdsFilter(u.id, { category: String(v || '') })}
+                                          ariaLabel="Category"
+                                          placeholder="Category"
+                                          options={[{ value: '', label: 'Any' }, ...cats.map(c => ({ value: c, label: c }))]}
+                                          searchable={true}
+                                          allowCustom={true}
+                                        />
+                                      </div>
+                                      <div style={{ minWidth: 200, flex: '0 0 200px' }}>
+                                        <CustomSelect
+                                          value={(userAdsFilters[u.id]?.location || '')}
+                                          onChange={v => updateUserAdsFilter(u.id, { location: String(v || '') })}
+                                          ariaLabel="Location"
+                                          placeholder="Location"
+                                          options={[{ value: '', label: 'Any' }, ...locs.map(l => ({ value: l, label: l }))]}
+                                          searchable={true}
+                                          allowCustom={true}
+                                        />
+                                      </div>
+                                      <input
+                                        className="input"
+                                        type="number"
+                                        placeholder="Min price"
+                                        value={(userAdsFilters[u.id]?.priceMin || '')}
+                                        onChange={e => updateUserAdsFilter(u.id, { priceMin: e.target.value })}
+                                        style={{ width: 140 }}
+                                      />
+                                      <input
+                                        className="input"
+                                        type="number"
+                                        placeholder="Max price"
+                                        value={(userAdsFilters[u.id]?.priceMax || '')}
+                                        onChange={e => updateUserAdsFilter(u.id, { priceMax: e.target.value })}
+                                        style={{ width: 140 }}
+                                      />
+                                    </>
+                                  )
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {!userAds[u.id] && <p className="text-muted">Loading ads...</p>}
-                        {userAds[u.id] && userAds[u.id].length === 0 && <p className="text-muted">No ads found.</p>}
-                        {Array.isArray(userAds[u.id]) && userAds[u.id].map(ad => (
+                        {userAds[u.id] && getFilteredUserAds(u.id).length === 0 && <p className="text-muted">No ads found.</p>}
+                        {Array.isArray(userAds[u.id]) && getFilteredUserAds(u.id).map(ad => (
                           <div key={ad.id} className="card" style={{ marginBottom: 8, display: 'flex', gap: 12 }}>
                             {ad.thumbnail_url && (
                               <img src={ad.thumbnail_url} alt={ad.title} style={{ width: 100, height: 75, objectFit: 'cover', borderRadius: 6 }} />
