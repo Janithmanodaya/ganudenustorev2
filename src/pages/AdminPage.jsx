@@ -259,8 +259,16 @@ export default function AdminPage() {
   async function loadUsers(q = '') {
     try {
       const r = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}`, { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load users')
+      let data = {}
+      try {
+        data = await safeJson(r)
+      } catch (_) {
+        data = {}
+      }
+      if (!r.ok) {
+        // Do not surface global status errors for users; keep dashboard responsive
+        return
+      }
       const results = Array.isArray(data.results) ? data.results : []
       setUsers(results)
       // Merge found emails into a persistent cache so the dropdown doesn't shrink after filtering
@@ -270,11 +278,7 @@ export default function AdminPage() {
         emails.forEach(e => set.add(e))
         return Array.from(set)
       })
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
-  }
-
+   
   async function banUser(id) {
     try {
       const r = await fetch(`/api/admin/users/${id}/ban`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
