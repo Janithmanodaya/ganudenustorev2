@@ -309,10 +309,9 @@ export default function AdminPage() {
       if (!r.ok) throw new Error(data.error || 'Failed to load user ads')
       const rows = Array.isArray(data.results) ? data.results : []
       // Prefer matching by known fields; if none match, fall back to all rows to avoid hiding valid results.
-      const filtered = rows.filter(ad => {
-        const emailFields = [ad.owner_email, ad.email, ad.user_email, ad.contact_email]
-          .map(x => String(x || '').trim().toLowerCase())
-        const byEmail = userEmail ? emailFields.includes(String(userEmail || '').trim().toLowerCase()) : false
+      // Trust backend endpoint `/api/admin/users/:id/listings` to return listings for that user.
+      // Avoid over-filtering client-side which was hiding valid results.
+      setUserAds(prev => ({ ...prev, [userId]: rows_codeilFields.includes(String(userEmail || '').trim().toLowerCase()) : false
 
         const idFields = [ad.user_id, ad.owner_id]
           .map(x => (x == null ? null : String(x)))
