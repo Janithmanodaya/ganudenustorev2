@@ -306,10 +306,10 @@ export default function AdminPage() {
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load user ads')
       const rows = Array.isArray(data.results) ? data.results : []
-      // Filter defensively to this user's own ads by email or numeric id if available
+      // Prefer matching by known fields; if none match, fall back to all rows to avoid hiding valid results.
       const filtered = rows.filter(ad => {
-        const byEmail = userEmail && String(ad.owner_email || ad.email || '').trim().toLowerCase() === String(userEmail).trim().toLowerCase()
-        const byId = Number(ad.user_id ?? ad.owner_id ?? -1) === Number(userId)
+        const emailFields = [ad.owner_email, ad.email, ad.user_email, ad.contact_email].map(x => String(x || '').trim().toLowerCase())
+        const idFields = [ad.user_id, ad.owner_id, ad.usererId)
         return byEmail || byId
       })
       setUserAds(prev => ({ ...prev, [userId]: filtered }))
