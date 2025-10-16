@@ -15,11 +15,13 @@ export default function AdminPage() {
 
   // Helper: safely parse JSON; if HTML or other content returned (e.g., backend down), show a friendly error.
   async function safeJson(r) {
-    const ct = String(r.headers?.get?.('content-type') || '')
-    if (!ct.toLowerCase().includes('application/json')) {
+    const headers = r && r.headers
+    const ctRaw = headers && typeof headers.get === 'function' ? headers.get('content-type') : ''
+    const ct = String(ctRaw || '')
+    if (ct.toLowerCase().indexOf('application/json') === -1) {
       // Read a small snippet to include in error (optional)
       let text = ''
-      try { text = await r.text() } catch (_) {}
+      try { text = await r.text() } catch (err) {}
       const isHtml = text.startsWith('<!DOCTYPE') || text.includes('<html')
       const msg = isHtml
         ? 'Backend is not responding. Please make sure the server is running.'
