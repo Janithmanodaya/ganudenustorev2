@@ -310,8 +310,15 @@ export default function AdminPage() {
       const rows = Array.isArray(data.results) ? data.results : []
       // Prefer matching by known fields; if none match, fall back to all rows to avoid hiding valid results.
       const filtered = rows.filter(ad => {
-        const emailFields = [ad.owner_email, ad.email, ad.user_email, ad.contact_email].map(x => String(x || '').trim().toLowerCase())
-        const idFields = [ad.user_id, ad.owner_id, ad.usererId)
+        const emailFields = [ad.owner_email, ad.email, ad.user_email, ad.contact_email]
+          .map(x => String(x || '').trim().toLowerCase())
+        const byEmail = userEmail ? emailFields.includes(String(userEmail || '').trim().toLowerCase()) : false
+
+        const idFields = [ad.user_id, ad.owner_id]
+          .map(x => (x == null ? null : String(x)))
+          .filter(Boolean)
+        const byId = idFields.includes(String(userId))
+
         return byEmail || byId
       })
       setUserAds(prev => ({ ...prev, [userId]: filtered }))
