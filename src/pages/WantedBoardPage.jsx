@@ -534,10 +534,10 @@ export default function WantedBoardPage() {
           )}
 
           <div className="card" style={{ marginTop: 10 }}>
-            <div className="h3" style={{ marginTop: 0 }}>Price Range</div>
+            <div className="h3" style={{ marginTop: 0 }}>{form.category === 'Job' ? 'Salary Range' : 'Price Range'}</div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={priceNoMatter} onChange={e => setPriceNoMatter(e.target.checked)} />
-              Price not a constraint
+              {form.category === 'Job' ? 'Salary not a constraint' : 'Price not a constraint'}
             </label>
             {!priceNoMatter && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
@@ -545,7 +545,7 @@ export default function WantedBoardPage() {
                   className="input"
                   type="number"
                   min="0"
-                  placeholder="Min LKR"
+                  placeholder={form.category === 'Job' ? 'Min Salary LKR' : 'Min LKR'}
                   value={priceMin}
                   onChange={e => setPriceMin(e.target.value)}
                   style={{ width: 160 }}
@@ -554,7 +554,7 @@ export default function WantedBoardPage() {
                   className="input"
                   type="number"
                   min="0"
-                  placeholder="Max LKR"
+                  placeholder={form.category === 'Job' ? 'Max Salary LKR' : 'Max LKR'}
                   value={priceMax}
                   onChange={e => setPriceMax(e.target.value)}
                   style={{ width: 160 }}
