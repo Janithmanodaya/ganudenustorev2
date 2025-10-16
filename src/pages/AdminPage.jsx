@@ -636,10 +636,28 @@ export default function AdminPage() {
             headers: { 'X-User-Email': email, 'Cache-Control': 'no-store' },
             cache: 'no-store'
           })
+
+          // If backend responds with non-OK, fall back to local admin flag without overwriting it.
+          if (!r.ok) {
+            if (user && user.is_admin && user.email) {
+              setAllowed(true)
+              setAdminEmail(user.email)
+            } else {
+              setAllowed(false)
+            }
+            return
+          }
+
           const data = await r.json().catch(() => ({}))
-          const isAdmin = !!data.is_admin
-          const nextUser = { ...(user || {}), is_admin: isAdmin, email }
-          try { localStorage.setItem('user', JSON.stringify(nextUser)) } catch (_) {}
+          const hasFlag = Object.prototype.hasOwnProperty.call(data, 'is_admin')
+          const isAdmin = hasFlag ? !!data.is_admin : (user && user.is_admin ? true : false)
+
+          // Only update localStorage when we have a definitive admin flag from backend
+          if (hasFlag) {
+            const nextUser = { ...(user || {}), is_admin: isAdmin, email }
+            try { localStorage.setItem('user', JSON.stringify(nextUser)) } catch (_) {}
+          }
+
           if (isAdmin) {
             setAllowed(true)
             setAdminEmail(email)
@@ -647,7 +665,7 @@ export default function AdminPage() {
             setAllowed(false)
           }
         } catch (_) {
-          // Fallback to local check
+          // Network failure: fallback to local check
           if (user && user.is_admin && user.email) {
             setAllowed(true)
             setAdminEmail(user.email)
