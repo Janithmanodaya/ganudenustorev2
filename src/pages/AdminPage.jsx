@@ -15,20 +15,44 @@ export default function AdminPage() {
 
   // Helper: safely parse JSON; if HTML or other content returned (e.g., backend down), show a friendly error.
   async function safeJson(r) {
-    const headers = r && r.headers
+    if (!r) throw new Error('No response')
+    const headers = r.headers
     const ctRaw = headers && typeof headers.get === 'function' ? headers.get('content-type') : ''
-    const ct = String(ctRaw || '')
-    if (ct.toLowerCase().indexOf('application/json') === -1) {
-      // Read a small snippet to include in error (optional)
-      let text = ''
-      try { text = await r.text() } catch (err) {}
-      const isHtml = text.startsWith('<!DOCTYPE') || text.includes('<html')
-      const msg = isHtml
-        ? 'Backend is not responding. Please make sure the server is running.'
-        : 'Unexpected response. Please try again.'
-      throw new Error(msg)
+    const ct = String(ctRaw || '').toLowerCase()
+
+    // If server says JSON, try to parse; otherwise fall back gracefully.
+    if (ct.includes('application/json')) {
+      try {
+        return await r.json()
+      } catch (_) {
+        // Treat invalid JSON as empty object to avoid noisy errors
+        return {}
+      }
     }
-    return r.json()
+
+    // Fallbacks for empty/HTML/plain-text responses (e.g., 204 No Content, HTML error pages, or simple OK text)
+    let text = ''
+    try { text = await r.text() } catch (_) {}
+
+    const trimmed = String(text || '').trim()
+    if (!trimmed || r.status === 204) {
+      // Empty body: treat as success with no payload
+      return {}
+    }
+
+    // Try to parse JSON even without the content-type header
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try { return JSON.parse(trimmed) } catch (_) {}
+    }
+
+    // Detect HTML error pages coming from a dev server or reverse proxy
+    const isHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.includes('<html')
+    if (isHtml) {
+      throw new Error('Backend is not responding. Please make sure the server is running.')
+    }
+
+    // Plain text response: return as a simple object to avoid generic errors
+    return { message: trimmed }
   }
 
   // Approval queue state
