@@ -393,6 +393,95 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
     console.warn('[notify] Saved-search notification error:', e && e.message ? e.message : e);
   }
 
+  // Notify buyers and sellers for matching Wanted requests (reverse notifications)
+  try {
+    if (listing) {
+      const wantedRows = db.prepare(`SELECT * FROM wanted_requests WHERE status = 'open'`).all();
+      let buyerNotified = 0;
+      let sellerNotified = 0;
+
+      function listingMatchesWanted(listingRow, wanted) {
+        try {
+          const catOk = wanted.category ? String(listingRow.main_category || '') === String(wanted.category || '') : true;
+          const locOk = wanted.location ? String(listingRow.location || '').toLowerCase().includes(String(wanted.location || '').toLowerCase()) : true;
+          const p = listingRow.price != null ? Number(listingRow.price) : null;
+          const priceOk = wanted.price_max != null ? (p != null && p <= Number(wanted.price_max)) : true;
+
+          let filtersOk = true;
+          let filters = {};
+          try { filters = wanted.filters_json ? JSON.parse(wanted.filters_json) : {}; } catch (_) { filters = {}; }
+          if (filters && Object.keys(filters).length) {
+            const sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {};
+            for (const [k, v] of Object.entries(filters)) {
+              if (!v) continue;
+              const key = k === 'model' ? 'model_name' : k;
+              const got = String(sj[key] || '').toLowerCase();
+
+              if (Array.isArray(v)) {
+                const wants = v.map(x => String(x).toLowerCase()).filter(Boolean);
+                if (key === 'model_name' || key === 'sub_category') {
+                  if (!wants.some(w => got.includes(w))) { filtersOk = false; break; }
+                } else {
+                  if (!wants.some(w => got === w)) { filtersOk = false; break; }
+                }
+              } else {
+                const want = String(v).toLowerCase();
+                if (key === 'model_name' || key === 'sub_category') {
+                  if (!got.includes(want)) { filtersOk = false; break; }
+                } else {
+                  if (got !== want) { filtersOk = false; break; }
+                }
+              }
+            }
+          }
+          return catOk && locOk && priceOk && filtersOk;
+        } catch (_) {
+          return false;
+        }
+      }
+
+      for (const w of wantedRows) {
+        if (listingMatchesWanted(listing, w)) {
+          // Notify buyer
+          db.prepare(`
+            INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+            VALUES (?, ?, ?, ?, 'wanted_match_buyer', ?, ?)
+          `).run(
+            'New ad matches your Wanted request',
+            `Match: "${listing.title}". View the ad for details.`,
+            String(w.user_email).toLowerCase().trim(),
+            new Date().toISOString(),
+            listing.id,
+            JSON.stringify({ wanted_id: w.id })
+          );
+          buyerNotified++;
+
+          // Notify seller
+          const owner = String(listing.owner_email || '').toLowerCase().trim();
+          if (owner) {
+            db.prepare(`
+              INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+              VALUES (?, ?, ?, ?, 'wanted_match_seller', ?, ?)
+            `).run(
+              'Immediate buyer request for your item',
+              `A buyer posted: "${w.title}". Your ad may match.`,
+              owner,
+              new Date().toISOString(),
+              listing.id,
+              JSON.stringify({ wanted_id: w.id })
+            );
+            sellerNotified++;
+          }
+        }
+      }
+      if (buyerNotified || sellerNotified) {
+        console.log(\`[notify] Wanted reverse alerts created (buyers: \${buyerNotified}, sellers: \${sellerNotified}) for listing #\${listing.id}\`);
+      }
+    }
+  } catch (e) {
+    console.warn('[notify] Wanted notification error:', e && e.message ? e.message : e);
+  }
+
   // If we have a Facebook post URL, notify the listing owner and optionally email them
   try {
     if (fbPostUrl && listing?.owner_email) {
@@ -488,7 +577,7 @@ router.post('/pending/approve_many', requireAdmin, (req, res) => {
     audit.run(req.admin.id, id, new Date().toISOString());
 
     try {
-      const listing = db.prepare(`SELECT id, title, owner_email FROM listings WHERE id = ?`).get(id);
+      const listing = db.prepare(`SELECT id, title, owner_email, main_category, location, price, structured_json FROM listings WHERE id = ?`).get(id);
       if (listing?.owner_email) {
         delPending.run(id);
         insApproved.run(
@@ -498,6 +587,84 @@ router.post('/pending/approve_many', requireAdmin, (req, res) => {
           new Date().toISOString(),
           id
         );
+
+        // Reverse notifications for Wanted requests
+        try {
+          const wantedRows = db.prepare(`SELECT * FROM wanted_requests WHERE status = 'open'`).all();
+          function listingMatchesWanted(listingRow, wanted) {
+            try {
+              const catOk = wanted.category ? String(listingRow.main_category || '') === String(wanted.category || '') : true;
+              const locOk = wanted.location ? String(listingRow.location || '').toLowerCase().includes(String(wanted.location || '').toLowerCase()) : true;
+              const p = listingRow.price != null ? Number(listingRow.price) : null;
+              const priceOk = wanted.price_max != null ? (p != null && p <= Number(wanted.price_max)) : true;
+
+              let filtersOk = true;
+              let filters = {};
+              try { filters = wanted.filters_json ? JSON.parse(wanted.filters_json) : {}; } catch (_) { filters = {}; }
+              if (filters && Object.keys(filters).length) {
+                const sj = listingRow.structured_json ? JSON.parse(listingRow.structured_json) : {};
+                for (const [k, v] of Object.entries(filters)) {
+                  if (!v) continue;
+                  const key = k === 'model' ? 'model_name' : k;
+                  const got = String(sj[key] || '').toLowerCase();
+
+                  if (Array.isArray(v)) {
+                    const wants = v.map(x => String(x).toLowerCase()).filter(Boolean);
+                    if (key === 'model_name' || key === 'sub_category') {
+                      if (!wants.some(w => got.includes(w))) { filtersOk = false; break; }
+                    } else {
+                      if (!wants.some(w => got === w)) { filtersOk = false; break; }
+                    }
+                  } else {
+                    const want = String(v).toLowerCase();
+                    if (key === 'model_name' || key === 'sub_category') {
+                      if (!got.includes(want)) { filtersOk = false; break; }
+                    } else {
+                      if (got !== want) { filtersOk = false; break; }
+                    }
+                  }
+                }
+              }
+              return catOk && locOk && priceOk && filtersOk;
+            } catch (_) {
+              return false;
+            }
+          }
+
+          for (const w of wantedRows) {
+            if (listingMatchesWanted(listing, w)) {
+              // Notify buyer
+              db.prepare(`
+                INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+                VALUES (?, ?, ?, ?, 'wanted_match_buyer', ?, ?)
+              `).run(
+                'New ad matches your Wanted request',
+                `Match: "${listing.title}". View the ad for details.`,
+                String(w.user_email).toLowerCase().trim(),
+                new Date().toISOString(),
+                listing.id,
+                JSON.stringify({ wanted_id: w.id })
+              );
+
+              // Notify seller
+              const owner = String(listing.owner_email || '').toLowerCase().trim();
+              if (owner) {
+                db.prepare(`
+                  INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+                  VALUES (?, ?, ?, ?, 'wanted_match_seller', ?, ?)
+                `).run(
+                  'Immediate buyer request for your item',
+                  `A buyer posted: "${w.title}". Your ad may match.`,
+                  owner,
+                  new Date().toISOString(),
+                  listing.id,
+                  JSON.stringify({ wanted_id: w.id })
+                );
+              }
+            }
+          }
+        } catch (_) {}
+
         notified++;
       }
     } catch (_) {}

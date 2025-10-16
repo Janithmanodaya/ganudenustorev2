@@ -24,6 +24,7 @@ import jobsRouter from './routes/jobs.js';
 import notificationsRouter from './routes/notifications.js';
 import chatsRouter from './routes/chats.js';
 import usersRouter from './routes/users.js';
+import wantedRouter from './routes/wanted.js';
 import { sendEmail } from './lib/utils.js';
 
 let helmet = null;
@@ -307,6 +308,15 @@ const usersLimiter = rateLimit({
   legacyHeaders: false
 });
 app.use('/api/users', usersLimiter, usersRouter);
+
+// Wanted requests (reverse notifications)
+const wantedLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use('/api/wanted', wantedLimiter, wantedRouter);
 
 // Chats endpoints (separate limiter)
 const chatsLimiter = rateLimit({
