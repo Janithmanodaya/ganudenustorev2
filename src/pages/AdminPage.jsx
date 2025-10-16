@@ -998,9 +998,9 @@ export default function AdminPage() {
           <>
             <div className="h2" style={{ marginTop: 8 }}>User Management</div>
             <div className="grid two">
-             <<div>
-               <tdiv className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Find us</> div>
-               <.CustomSelect
+              <div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Find user</div>
+                <CustomSelect
                   value={userSelect}
                   onChange={v => { const s = String(v || ''); setUserSelect(s); setUserQuery(s); loadUsers(s); }}
                   ariaLabel="Find user by email"
@@ -1012,12 +1012,19 @@ export default function AdminPage() {
                   searchable={true}
                   allowCustom={true}
                 />
-               < small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
                   Tip: start typing to filter. You can also enter a custom email.
-              </  small>
-            </  div>
-             < div>
-                           <div className="grid two" style={{ marginTop: 8 }}>
+                </small>
+              </div>
+              <div>
+                <input className="input" placeholder="Or search by email or username..." value={userQuery} onChange={e => setUserQuery(e.target.value)} />
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  <button className="btn" onClick={() => loadUsers(userQuery)}>Search</button>
+                  <button className="btn" onClick={() => { setUserQuery(''); setUserSelect(''); loadUsers(''); }}>Reset</button>
+                </div>
+              </div>
+            </div>
+            <div className="grid two" style={{ marginTop: 8 }}>
               <div>
                 <label className="text-muted">Suspend days</label>
                 <input
