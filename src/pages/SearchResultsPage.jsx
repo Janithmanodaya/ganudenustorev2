@@ -418,13 +418,31 @@ export default function SearchResultsPage() {
                     style={{ cursor: 'pointer' }}
                   >
                     {hero && (
-                      <img
-                        src={hero}
-                        alt={r.title}
-                        loading="lazy"
-                        sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        style={{ width: '100%', height: 160, borderRadius: 8, marginBottom: 8, objectFit: 'cover' }}
-                      />
+                      <div style={{ position: 'relative', marginBottom: 8 }}>
+                        <img
+                          src={hero}
+                          alt={r.title}
+                          loading="lazy"
+                          sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          style={{ width: '100%', height: 160, borderRadius: 8, objectFit: 'cover' }}
+                        />
+                        {(r.is_urgent || r.urgent) && (
+                          <span
+                            className="pill"
+                            style={{
+                              position: 'absolute',
+                              top: 8,
+                              right: 8,
+                              background: 'rgba(239,68,68,0.15)',
+                              border: '1px solid rgba(239,68,68,0.35)',
+                              color: '#fecaca',
+                              fontSize: 12
+                            }}
+                          >
+                            Urgent
+                          </span>
+                        )}
+                      </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                       <div className="h2" style={{ margin: '6px 0' }}>{r.title}</div>

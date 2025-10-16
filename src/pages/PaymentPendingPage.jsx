@@ -6,6 +6,8 @@ export default function PaymentPendingPage() {
   const navigate = useNavigate()
   const [info, setInfo] = useState(null)
   const [status, setStatus] = useState(null)
+  const [note, setNote] = useState('') // seller note to admin
+  const [noteStatus, setNoteStatus] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -44,6 +46,26 @@ export default function PaymentPendingPage() {
     const msg = `Payment done for listing #${id} (${title}). Remark: ${remark}. Please approve.`
     const url = `https://wa.me/${wa.replace(/\D+/g, '')}?text=${encodeURIComponent(msg)}`
     window.open(url, '_blank')
+  }
+
+  async function submitNote() {
+    const text = note.trim()
+    if (!text) { setNoteStatus('Please enter a note.'); return }
+    try {
+      setNoteStatus('Sending...')
+      const r = await fetch('/api/listings/payment-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listing_id: Number(id), note: text })
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data.error || 'Failed to send note')
+      setNote('')
+      setNoteStatus('Note sent to admin.')
+      setTimeout(() => setNoteStatus(null), 2500)
+    } catch (e) {
+      setNoteStatus(`Error: ${e.message}`)
+    }
   }
 
   function renderPaymentBlock() {
@@ -109,6 +131,22 @@ export default function PaymentPendingPage() {
                 <button className="btn" onClick={() => navigate('/my-ads')}>Go to My Ads</button>
               </div>
               {!wa && <div className="text-muted" style={{ marginTop: 6 }}>WhatsApp number not configured.</div>}
+            </div>
+
+            {/* Seller note to admin */}
+            <div className="card" style={{ marginTop: 12 }}>
+              <div className="h2" style={{ marginTop: 0 }}>Note to Admin (optional)</div>
+              <p className="text-muted">If you need to tell the admin anything about your payment or ad, write a short note here.</p>
+              <textarea
+                className="textarea"
+                placeholder="Your note to admin..."
+                value={note}
+                onChange={e => setNote(e.target.value)}
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn primary" type="button" onClick={submitNote}>Send Note</button>
+                {noteStatus && <span className="text-muted" style={{ alignSelf: 'center' }}>{noteStatus}</span>}
+              </div>
             </div>
           </>
         )}
