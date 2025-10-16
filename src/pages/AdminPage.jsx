@@ -473,19 +473,43 @@ export default function AdminPage() {
     }
   }
 
-  // On mount, require logged-in admin
+  // On mount, require logged-in admin (refresh status to avoid stale localStorage)
   useEffect(() => {
-    try {
-      const user = JSON.parse(localStorage.getItem('user') || 'null')
-      if (user && user.is_admin && user.email) {
-        setAllowed(true)
-        setAdminEmail(user.email)
-      } else {
+    async function init() {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || 'null')
+        const email = user?.email || ''
+        if (!email) {
+          setAllowed(false)
+          return
+        }
+        // Refresh admin status from backend in case localStorage is stale
+        try {
+          const r = await fetch('/api/auth/status', { headers: { 'X-User-Email': email } })
+          const data = await r.json().catch(() => ({}))
+          const isAdmin = !!data.is_admin
+          const nextUser = { ...(user || {}), is_admin: isAdmin, email }
+          try { localStorage.setItem('user', JSON.stringify(nextUser)) } catch (_) {}
+          if (isAdmin) {
+            setAllowed(true)
+            setAdminEmail(email)
+          } else {
+            setAllowed(false)
+          }
+        } catch (_) {
+          // Fallback to local check
+          if (user && user.is_admin && user.email) {
+            setAllowed(true)
+            setAdminEmail(user.email)
+          } else {
+            setAllowed(false)
+          }
+        }
+      } catch (_) {
         setAllowed(false)
       }
-    } catch (_) {
-      setAllowed(false)
     }
+    init()
   }, [])
 
   useEffect(() => {
