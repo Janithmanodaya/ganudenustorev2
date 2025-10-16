@@ -28,7 +28,10 @@ export default function WantedBoardPage() {
   const [models, setModels] = useState([]);
   const [modelInput, setModelInput] = useState('');
   const [modelSuggestedValue, setModelSuggestedValue] = useState('');
-  const [yearMin, setYearMin]ceMax] = useState('');
+  const [yearMin, setYearMin] = useState('');
+  const [yearMax, setYearMax] = useState('');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
   const [priceNoMatter, setPriceNoMatter] = useState(false);
 
   // Dynamic filters derived from existing listings by category
@@ -135,7 +138,7 @@ export default function WantedBoardPage() {
     setModelSuggestedValue('');
   }
   function removeModel(v) {
-    setModels(prev
+    setModels(prev => prev.filter(x => x !== v));
   }
 
   function addFilterValue() {
