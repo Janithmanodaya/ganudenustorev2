@@ -33,6 +33,21 @@ export default function AuthPage() {
     canonical: 'https://ganudenu.store/auth'
   })
 
+  // Helper to safely parse JSON and handle backend-down cases
+  async function safeJson(r) {
+    const ct = String(r.headers?.get?.('content-type') || '')
+    if (!ct.toLowerCase().includes('application/json')) {
+      let text = ''
+      try { text = await r.text() } catch (_) {}
+      const isHtml = text.startsWith('<!DOCTYPE') || text.includes('<html')
+      const msg = isHtml
+        ? 'Backend is not responding. Please make sure the server is running.'
+        : 'Unexpected response. Please try again.'
+      throw new Error(msg)
+    }
+    return r.json()
+  }
+
   async function submit(e) {
     e.preventDefault()
 
@@ -68,7 +83,14 @@ export default function AuthPage() {
         if (forgotStep === 'request') {
           // Pre-check: only send OTP if the user exists
           const check = await fetch(`/api/auth/user-exists?email=${encodeURIComponent(email)}`)
-          const checkData = await check.json().catch(() => ({}))
+          let checkData = {}
+          try {
+            checkData = await safeJson(check)
+          } catch (err) {
+            setResult({ ok: false, message: err.message || 'Network error. Please try again.' })
+            setSubmitting(false)
+            return
+          }
           if (!check.ok || !checkData.exists) {
             setResult({ ok: false, message: 'No account found for this email. Please register first.' })
             setSubmitting(false)
@@ -88,12 +110,14 @@ export default function AuthPage() {
         body: JSON.stringify(body)
       })
 
-      // Try to parse JSON safely
+      // Parse JSON with backend-down guard
       let data = {}
       try {
-        data = await r.json()
-      } catch {
-        data = {}
+        data = await safeJson(r)
+      } catch (err) {
+        setResult({ ok: false, message: err.message || 'Network error. Please try again.' })
+        setSubmitting(false)
+        return
       }
 
       if (!r.ok) {

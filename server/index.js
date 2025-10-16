@@ -44,6 +44,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5174;
 
+// Trust the first proxy (e.g., Vite dev proxy or reverse proxy) so express-rate-limit
+// correctly reads client IP from X-Forwarded-For when present.
+app.set('trust proxy', 1);
+
 // Security headers (if helmet available)
 if (helmet) {
   app.use(helmet({
@@ -131,6 +135,16 @@ try {
   const hasSuspendedUntil = cols.some(c => c.name === 'suspended_until');
   if (!hasSuspendedUntil) {
     db.prepare(`ALTER TABLE users ADD COLUMN suspended_until TEXT`).run();
+  }
+  // Add public UID and verification status if missing (used by auth and admin)
+  const hasUserUID = cols.some(c => c.name === 'user_uid');
+  if (!hasUserUID) {
+    db.prepare(`ALTER TABLE users ADD COLUMN user_uid TEXT`).run();
+    db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_uid_unique ON users(user_uid)`).run();
+  }
+  const hasIsVerified = cols.some(c => c.name === 'is_verified');
+  if (!hasIsVerified) {
+    db.prepare(`ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0`).run();
   }
 } catch (_) {}
 
