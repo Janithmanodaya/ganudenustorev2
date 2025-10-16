@@ -485,7 +485,10 @@ export default function AdminPage() {
         }
         // Refresh admin status from backend in case localStorage is stale
         try {
-          const r = await fetch('/api/auth/status', { headers: { 'X-User-Email': email } })
+          const r = await fetch(`/api/auth/status?t=${Date.now()}`, {
+            headers: { 'X-User-Email': email, 'Cache-Control': 'no-store' },
+            cache: 'no-store'
+          })
           const data = await r.json().catch(() => ({}))
           const isAdmin = !!data.is_admin
           const nextUser = { ...(user || {}), is_admin: isAdmin, email }
