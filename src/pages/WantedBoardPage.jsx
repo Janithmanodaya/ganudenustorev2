@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import CustomSelect from '../components/CustomSelect.jsx';
 
 const CATEGORIES = ['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden', 'Other'];
 
@@ -480,17 +481,17 @@ export default function WantedBoardPage() {
           <div className="card" style={{ marginTop: 10 }}>
             <div className="h3" style={{ marginTop: 0 }}>Locations</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <select
-                className="select"
-                value={locSuggestedValue}
-                onChange={e => setLocSuggestedValue(e.target.value)}
-                style={{ minWidth: 220 }}
-              >
-                <option value="">Suggested locations</option>
-                {(filtersMeta.valuesByKey?.['location'] || []).map(v => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
+              <div style={{ minWidth: 240, flex: '0 0 240px' }}>
+                <CustomSelect
+                  value={locSuggestedValue}
+                  onChange={v => setLocSuggestedValue(v)}
+                  ariaLabel="Suggested locations"
+                  placeholder="Suggested locations"
+                  options={(filtersMeta.valuesByKey?.['location'] || []).map(v => ({ value: v, label: v }))}
+                  searchable={true}
+                  allowCustom={true}
+                />
+              </div>
               <input
                 className="input"
                 placeholder="Or type a location (e.g., Colombo)"
@@ -508,17 +509,17 @@ export default function WantedBoardPage() {
             <div className="card" style={{ marginTop: 10 }}>
               <div className="h3" style={{ marginTop: 0 }}>Models (optional)</div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <select
-                  className="select"
-                  value={modelSuggestedValue}
-                  onChange={e => setModelSuggestedValue(e.target.value)}
-                  style={{ minWidth: 220 }}
-                >
-                  <option value="">Suggested models</option>
-                  {(filtersMeta.valuesByKey?.['model'] || []).map(v => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
-                </select>
+                <div style={{ minWidth: 240, flex: '0 0 240px' }}>
+                  <CustomSelect
+                    value={modelSuggestedValue}
+                    onChange={v => setModelSuggestedValue(v)}
+                    ariaLabel="Suggested models"
+                    placeholder="Suggested models"
+                    options={(filtersMeta.valuesByKey?.['model'] || []).map(v => ({ value: v, label: v }))}
+                    searchable={true}
+                    allowCustom={true}
+                  />
+                </div>
                 <input
                   className="input"
                   placeholder="Or type model (e.g., Toyota Aqua)"
@@ -611,17 +612,17 @@ export default function WantedBoardPage() {
                   </select>
                   {filterKey && (
                     <>
-                      <select
-                        className="select"
-                        value={filterSuggestedValue}
-                        onChange={e => setFilterSuggestedValue(e.target.value)}
-                        style={{ minWidth: 200 }}
-                      >
-                        <option value="">Suggested values</option>
-                        {(filtersMeta.valuesByKey?.[filterKey] || []).map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
+                      <div style={{ minWidth: 220, flex: '0 0 220px' }}>
+                        <CustomSelect
+                          value={filterSuggestedValue}
+                          onChange={v => setFilterSuggestedValue(v)}
+                          ariaLabel="Suggested values"
+                          placeholder="Suggested values"
+                          options={(filtersMeta.valuesByKey?.[filterKey] || []).map(v => ({ value: v, label: v }))}
+                          searchable={true}
+                          allowCustom={true}
+                        />
+                      </div>
                       <input
                         className="input"
                         placeholder="Or type a custom value"
