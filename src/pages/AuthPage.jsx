@@ -223,7 +223,7 @@ export default function AuthPage() {
             <input className="input" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} disabled={submitting} />
           )}
 
-          {(mode === 'register' && registerStep === 'verify') || (mode === 'forgot' && forgotStep === 'reset') ? (
+          {(mode === 'register' && registerStep === 'verify') || (mode === 'forgot' && forgotStep === 'reset') || (mode === 'login' && loginStep === 'otp') ? (
             <input className="input" placeholder="OTP" value={otp} onChange={e => setOtp(e.target.value)} disabled={submitting} />
           ) : null}
 
@@ -247,7 +247,7 @@ export default function AuthPage() {
             <button className="btn primary" type="submit" disabled={submitting || (mode === 'register' && registerStep === 'request' && !agreePolicy)}>
               {submitting ? 'Please wait…' : (
                 <>
-                  {mode === 'login' && 'Login'}
+                  {mode === 'login' && (loginStep === 'otp' ? 'Verify OTP' : 'Login')}
                   {mode === 'register' && (registerStep === 'request' ? 'Send OTP' : 'Verify & Register')}
                   {mode === 'forgot' && (forgotStep === 'request' ? 'Send OTP' : 'Reset Password')}
                 </>

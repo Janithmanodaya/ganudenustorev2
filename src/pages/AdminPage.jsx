@@ -35,6 +35,7 @@ export default function AdminPage() {
   const [detail, setDetail] = useState(null)
   const [editStructured, setEditStructured] = useState('')
   const [rejectReason, setRejectReason] = useState('')
+  const [urgentFlag, setUrgentFlag] = useState(false)
 
   // Banners
   const [banners, setBanners] = useState([])
@@ -472,19 +473,46 @@ export default function AdminPage() {
     }
   }
 
-  // On mount, require logged-in admin
+  // On mount, require logged-in admin (refresh status to avoid stale localStorage)
   useEffect(() => {
-    try {
-      const user = JSON.parse(localStorage.getItem('user') || 'null')
-      if (user && user.is_admin && user.email) {
-        setAllowed(true)
-        setAdminEmail(user.email)
-      } else {
+    async function init() {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || 'null')
+        const email = user?.email || ''
+        if (!email) {
+          setAllowed(false)
+          return
+        }
+        // Refresh admin status from backend in case localStorage is stale
+        try {
+          const r = await fetch(`/api/auth/status?t=${Date.now()}`, {
+            headers: { 'X-User-Email': email, 'Cache-Control': 'no-store' },
+            cache: 'no-store'
+          })
+          const data = await r.json().catch(() => ({}))
+          const isAdmin = !!data.is_admin
+          const nextUser = { ...(user || {}), is_admin: isAdmin, email }
+          try { localStorage.setItem('user', JSON.stringify(nextUser)) } catch (_) {}
+          if (isAdmin) {
+            setAllowed(true)
+            setAdminEmail(email)
+          } else {
+            setAllowed(false)
+          }
+        } catch (_) {
+          // Fallback to local check
+          if (user && user.is_admin && user.email) {
+            setAllowed(true)
+            setAdminEmail(user.email)
+          } else {
+            setAllowed(false)
+          }
+        }
+      } catch (_) {
         setAllowed(false)
       }
-    } catch (_) {
-      setAllowed(false)
     }
+    init()
   }, [])
 
   useEffect(() => {
@@ -1205,6 +1233,43 @@ export default function AdminPage() {
                     <div style={{ marginTop: 8 }}>
                       <button className="btn" onClick={saveEdits}>Save Edits</button>
                       <button className="btn primary" onClick={approve} style={{ marginLeft: 8 }}>Approve</button>
+                    </div>
+                    {/* Urgent toggle for this ad */}
+                    <div className="card" style={{ marginTop: 8 }}>
+                      <div className="h2" style={{ marginTop: 0 }}>Urgent status</div>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={!!urgentFlag}
+                          onChange={e => setUrgentFlag(!!e.target.checked)}
+                        />
+                        <span className="text-muted">Mark this ad as Urgent</span>
+                      </label>
+                      <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                        <button
+                          className="btn"
+                          onClick={async () => {
+                            try {
+                              const r = await fetch(`/api/admin/listings/${encodeURIComponent(selectedId)}/urgent`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+                                body: JSON.stringify({ urgent: !!urgentFlag })
+                              })
+                              const d = await safeJson(r)
+                              if (!r.ok) throw new Error(d.error || 'Failed to update urgent')
+                              setStatus(urgentFlag ? 'Marked as urgent.' : 'Urgent removed.')
+                            } catch (e) {
+                              setStatus(`Error: ${e.message}`)
+                            }
+                          }}
+                        >
+                          Save Urgent
+                        </button>
+                        <span className="pill" style={{ marginLeft: 'auto' }}>{urgentFlag ? 'Urgent: ON' : 'Urgent: OFF'}</span>
+                      </div>
+                      <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                        Urgent ads show a small “Urgent” badge on listing cards for higher visibility.
+                      </small>
                     </div>
                     <div style={{ marginTop: 8 }}>
                       <input className="input" placeholder="Reject reason (required)" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />

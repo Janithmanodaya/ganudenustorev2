@@ -871,6 +871,22 @@ export default function HomePage() {
                             sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             style={{ width: '100%', borderRadius: 8, objectFit: 'cover', height: 180 }}
                           />
+                          {(item.is_urgent || item.urgent) && (
+                            <span
+                              className="pill"
+                              style={{
+                                position: 'absolute',
+                                top: 8,
+                                right: 8,
+                                background: 'rgba(239,68,68,0.15)',
+                                border: '1px solid rgba(239,68,68,0.35)',
+                                color: '#fecaca',
+                                fontSize: 12
+                              }}
+                            >
+                              Urgent
+                            </span>
+                          )}
                           {imgs.length > 1 && (
                             <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
                               <button
