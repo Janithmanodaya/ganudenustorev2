@@ -24,12 +24,11 @@ export default function WantedBoardPage() {
   });
   const [locations, setLocations] = useState([]);
   const [locInput, setLocInput] = useState('');
+  const [locSuggestedValue, setLocSuggestedValue] = useState('');
   const [models, setModels] = useState([]);
   const [modelInput, setModelInput] = useState('');
-  const [yearMin, setYearMin] = useState('');
-  const [yearMax, setYearMax] = useState('');
-  const [priceMin, setPriceMin] = useState('');
-  const [priceMax, setPriceMax] = useState('');
+  const [modelSuggestedValue, setModelSuggestedValue] = useState('');
+  const [yearMin, setYearMin]ceMax] = useState('');
   const [priceNoMatter, setPriceNoMatter] = useState(false);
 
   // Dynamic filters derived from existing listings by category
@@ -86,6 +85,8 @@ export default function WantedBoardPage() {
       setFilterKey('');
       setFilterSuggestedValue('');
       setFilterCustomValue('');
+      setModelSuggestedValue('');
+      setLocSuggestedValue('');
     }
     loadFilters();
   }, [form.category]);
@@ -117,22 +118,24 @@ export default function WantedBoardPage() {
   }
 
   function addLocation() {
-    const v = String(locInput || '').trim();
+    const v = String(locInput || locSuggestedValue || '').trim();
     if (!v) return;
     setLocations(prev => (prev.includes(v) ? prev : [...prev, v]));
     setLocInput('');
+    setLocSuggestedValue('');
   }
   function removeLocation(v) {
     setLocations(prev => prev.filter(x => x !== v));
   }
   function addModel() {
-    const v = String(modelInput || '').trim();
+    const v = String(modelInput || modelSuggestedValue || '').trim();
     if (!v) return;
     setModels(prev => (prev.includes(v) ? prev : [...prev, v]));
     setModelInput('');
+    setModelSuggestedValue('');
   }
   function removeModel(v) {
-    setModels(prev => prev.filter(x => x !== v));
+    setModels(prev
   }
 
   function addFilterValue() {
@@ -474,13 +477,24 @@ export default function WantedBoardPage() {
           <div className="card" style={{ marginTop: 10 }}>
             <div className="h3" style={{ marginTop: 0 }}>Locations</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                className="select"
+                value={locSuggestedValue}
+                onChange={e => setLocSuggestedValue(e.target.value)}
+                style={{ minWidth: 220 }}
+              >
+                <option value="">Suggested locations</option>
+                {(filtersMeta.valuesByKey?.['location'] || []).map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
               <input
                 className="input"
-                placeholder="Add a location (e.g., Colombo)"
+                placeholder="Or type a location (e.g., Colombo)"
                 value={locInput}
                 onChange={e => setLocInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLocation(); }}}
-                style={{ minWidth: 200 }}
+                style={{ minWidth: 220 }}
               />
               <button className="btn" type="button" onClick={addLocation}>Add</button>
             </div>
@@ -491,13 +505,24 @@ export default function WantedBoardPage() {
             <div className="card" style={{ marginTop: 10 }}>
               <div className="h3" style={{ marginTop: 0 }}>Models (optional)</div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <select
+                  className="select"
+                  value={modelSuggestedValue}
+                  onChange={e => setModelSuggestedValue(e.target.value)}
+                  style={{ minWidth: 220 }}
+                >
+                  <option value="">Suggested models</option>
+                  {(filtersMeta.valuesByKey?.['model'] || []).map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
                 <input
                   className="input"
-                  placeholder="Add model (e.g., Toyota Aqua)"
+                  placeholder="Or type model (e.g., Toyota Aqua)"
                   value={modelInput}
                   onChange={e => setModelInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addModel(); }}}
-                  style={{ minWidth: 200 }}
+                  style={{ minWidth: 220 }}
                 />
                 <button className="btn" type="button" onClick={addModel}>Add</button>
               </div>
