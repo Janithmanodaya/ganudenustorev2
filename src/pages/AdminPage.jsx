@@ -15,20 +15,44 @@ export default function AdminPage() {
 
   // Helper: safely parse JSON; if HTML or other content returned (e.g., backend down), show a friendly error.
   async function safeJson(r) {
-    const headers = r && r.headers
+    if (!r) throw new Error('No response')
+    const headers = r.headers
     const ctRaw = headers && typeof headers.get === 'function' ? headers.get('content-type') : ''
-    const ct = String(ctRaw || '')
-    if (ct.toLowerCase().indexOf('application/json') === -1) {
-      // Read a small snippet to include in error (optional)
-      let text = ''
-      try { text = await r.text() } catch (err) {}
-      const isHtml = text.startsWith('<!DOCTYPE') || text.includes('<html')
-      const msg = isHtml
-        ? 'Backend is not responding. Please make sure the server is running.'
-        : 'Unexpected response. Please try again.'
-      throw new Error(msg)
+    const ct = String(ctRaw || '').toLowerCase()
+
+    // If server says JSON, try to parse; otherwise fall back gracefully.
+    if (ct.includes('application/json')) {
+      try {
+        return await r.json()
+      } catch (_) {
+        // Treat invalid JSON as empty object to avoid noisy errors
+        return {}
+      }
     }
-    return r.json()
+
+    // Fallbacks for empty/HTML/plain-text responses (e.g., 204 No Content, HTML error pages, or simple OK text)
+    let text = ''
+    try { text = await r.text() } catch (_) {}
+
+    const trimmed = String(text || '').trim()
+    if (!trimmed || r.status === 204) {
+      // Empty body: treat as success with no payload
+      return {}
+    }
+
+    // Try to parse JSON even without the content-type header
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try { return JSON.parse(trimmed) } catch (_) {}
+    }
+
+    // Detect HTML error pages coming from a dev server or reverse proxy
+    const isHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.includes('<html')
+    if (isHtml) {
+      throw new Error('Backend is not responding. Please make sure the server is running.')
+    }
+
+    // Plain text response: return as a simple object to avoid generic errors
+    return { message: trimmed }
   }
 
   // Approval queue state
@@ -235,8 +259,16 @@ export default function AdminPage() {
   async function loadUsers(q = '') {
     try {
       const r = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}`, { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load users')
+      let data = {}
+      try {
+        data = await safeJson(r)
+      } catch (_) {
+        data = {}
+      }
+      if (!r.ok) {
+        // Do not surface global status errors for users; keep dashboard responsive
+        return
+      }
       const results = Array.isArray(data.results) ? data.results : []
       setUsers(results)
       // Merge found emails into a persistent cache so the dropdown doesn't shrink after filtering
@@ -246,8 +278,8 @@ export default function AdminPage() {
         emails.forEach(e => set.add(e))
         return Array.from(set)
       })
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
+    } catch (_) {
+      // Silent failure to avoid blocking the dashboard
     }
   }
 
@@ -303,18 +335,12 @@ export default function AdminPage() {
   async function loadUserAds(user) {
     try {
       const userId = (typeof user === 'object' && user !== null) ? user.id : user
-      const userEmail = (typeof user === 'object' && user !== null) ? (user.email || '') : ''
       const r = await fetch(`/api/admin/users/${userId}/listings`, { headers: { 'X-Admin-Email': adminEmail } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load user ads')
       const rows = Array.isArray(data.results) ? data.results : []
-      // Prefer matching by known fields; if none match, fall back to all rows to avoid hiding valid results.
-      const filtered = rows.filter(ad => {
-        const emailFields = [ad.owner_email, ad.email, ad.user_email, ad.contact_email].map(x => String(x || '').trim().toLowerCase())
-        const idFields = [ad.user_id, ad.owner_id, ad.usererId)
-        return byEmail || byId
-      })
-      setUserAds(prev => ({ ...prev, [userId]: filtered }))
+      // Trust the backend to return listings for the requested user; display them directly.
+      setUserAds(prev => ({ ...prev, [userId]: rows }))
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
@@ -389,11 +415,20 @@ export default function AdminPage() {
   async function loadReports(filter = 'pending') {
     try {
       const r = await fetch(`/api/admin/reports?status=${encodeURIComponent(filter)}`, { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load reports')
-      setReports(data.results || [])
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
+      let data = {}
+      try {
+        data = await safeJson(r)
+      } catch (_) {
+        data = {}
+      }
+      if (!r.ok) {
+        // Avoid blocking the dashboard if reports endpoint fails
+        return
+      }
+      const results = Array.isArray(data.results) ? data.results : []
+      setReports(results)
+    } catch (_) {
+      // Silent on errors
     }
   }
 
@@ -483,11 +518,21 @@ export default function AdminPage() {
   async function loadAdminNotifications() {
     try {
       const r = await fetch('/api/admin/notifications', { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load notifications')
-      setNotificationsAdmin(data.results || [])
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
+      let data = {}
+      try {
+        data = await safeJson(r)
+      } catch (_) {
+        // If backend returns HTML/plain text, ignore and keep current notifications
+        data = {}
+      }
+      if (!r.ok) {
+        // Silent fail to avoid breaking the whole dashboard status
+        return
+      }
+      const results = Array.isArray(data.results) ? data.results : []
+      setNotificationsAdmin(results)
+    } catch (_) {
+      // Silent on errors — don't spam the Status card
     }
   }
 
@@ -591,10 +636,28 @@ export default function AdminPage() {
             headers: { 'X-User-Email': email, 'Cache-Control': 'no-store' },
             cache: 'no-store'
           })
+
+          // If backend responds with non-OK, fall back to local admin flag without overwriting it.
+          if (!r.ok) {
+            if (user && user.is_admin && user.email) {
+              setAllowed(true)
+              setAdminEmail(user.email)
+            } else {
+              setAllowed(false)
+            }
+            return
+          }
+
           const data = await r.json().catch(() => ({}))
-          const isAdmin = !!data.is_admin
-          const nextUser = { ...(user || {}), is_admin: isAdmin, email }
-          try { localStorage.setItem('user', JSON.stringify(nextUser)) } catch (_) {}
+          const hasFlag = Object.prototype.hasOwnProperty.call(data, 'is_admin')
+          const isAdmin = hasFlag ? !!data.is_admin : (user && user.is_admin ? true : false)
+
+          // Only update localStorage when we have a definitive admin flag from backend
+          if (hasFlag) {
+            const nextUser = { ...(user || {}), is_admin: isAdmin, email }
+            try { localStorage.setItem('user', JSON.stringify(nextUser)) } catch (_) {}
+          }
+
           if (isAdmin) {
             setAllowed(true)
             setAdminEmail(email)
@@ -602,7 +665,7 @@ export default function AdminPage() {
             setAllowed(false)
           }
         } catch (_) {
-          // Fallback to local check
+          // Network failure: fallback to local check
           if (user && user.is_admin && user.email) {
             setAllowed(true)
             setAdminEmail(user.email)
@@ -1126,22 +1189,7 @@ export default function AdminPage() {
                                           allowCustom={true}
                                         />
                                       </div>
-                                      <input
-                                        className="input"
-                                        type="number"
-                                        placeholder="Min price"
-                                        value={(userAdsFilters[u.id]?.priceMin || '')}
-                                        onChange={e => updateUserAdsFilter(u.id, { priceMin: e.target.value })}
-                                        style={{ width: 140 }}
-                                      />
-                                      <input
-                                        className="input"
-                                        type="number"
-                                        placeholder="Max price"
-                                        value={(userAdsFilters[u.id]?.priceMax || '')}
-                                        onChange={e => updateUserAdsFilter(u.id, { priceMax: e.target.value })}
-                                        style={{ width: 140 }}
-                                      />
+                                      
                                     </>
                                   )
                                 })()}
