@@ -634,7 +634,7 @@ export default function AdminPage() {
           try {
             const d = await safeJson(r)
             setUnreadCount(Number(d.unread_count) || 0)
-          } catch {
+          } catch (e) {
             // ignore when backend down
           }
         })
@@ -654,7 +654,7 @@ export default function AdminPage() {
           try {
             const d = await safeJson(r)
             setUnreadCount(Number(d.unread_count) || 0)
-          } catch {
+          } catch (e) {
             // ignore transient errors
           }
         })
