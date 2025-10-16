@@ -501,11 +501,21 @@ export default function AdminPage() {
   async function loadAdminNotifications() {
     try {
       const r = await fetch('/api/admin/notifications', { headers: { 'X-Admin-Email': adminEmail } })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load notifications')
-      setNotificationsAdmin(data.results || [])
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
+      let data = {}
+      try {
+        data = await safeJson(r)
+      } catch (_) {
+        // If backend returns HTML/plain text, ignore and keep current notifications
+        data = {}
+      }
+      if (!r.ok) {
+        // Silent fail to avoid breaking the whole dashboard status
+        return
+      }
+      const results = Array.isArray(data.results) ? data.results : []
+      setNotificationsAdmin(results)
+    } catch (_) {
+      // Silent on errors — don't spam the Status card
     }
   }
 
