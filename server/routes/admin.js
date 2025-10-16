@@ -1053,4 +1053,94 @@ router.delete('/notifications/:id', requireAdmin, (req, res) => {
   }
 });
 
+// --- Admin listing management ---
+
+// Get all listings for a specific user (by user id)
+router.get('/users/:id/listings', requireAdmin, (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isFinite(userId)) return res.status(400).json({ error: 'Invalid user id' });
+  try {
+    const user = db.prepare('SELECT email FROM users WHERE id = ?').get(userId);
+    if (!user?.email) return res.status(404).json({ error: 'User not found' });
+    const rows = db.prepare(`
+      SELECT id, main_category, title, location, price, status, thumbnail_path, created_at, is_urgent
+      FROM listings
+      WHERE LOWER(owner_email) = LOWER(?)
+      ORDER BY created_at DESC
+      LIMIT 300
+    `).all(String(user.email).toLowerCase().trim());
+    function filePathToUrl(p) {
+      if (!p) return null;
+      const filename = String(p).split(/[\\/]/).pop();
+      return filename ? '/uploads/' + filename : null;
+    }
+    const results = rows.map(r => ({
+      ...r,
+      thumbnail_url: filePathToUrl(r.thumbnail_path),
+      urgent: !!r.is_urgent,
+      is_urgent: !!r.is_urgent
+    }));
+    res.json({ results, user: { id: userId, email: user.email } });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load user listings' });
+  }
+});
+
+// Set or clear urgent flag for a listing
+router.post('/listings/:id/urgent', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const urgent = !!req.body?.urgent;
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid listing id' });
+  try {
+    db.prepare('UPDATE listings SET is_urgent = ? WHERE id = ?').run(urgent ? 1 : 0, id);
+    db.prepare('INSERT INTO admin_actions (admin_id, listing_id, action, ts) VALUES (?, ?, ?, ?)').run(
+      req.admin.id,
+      id,
+      urgent ? 'urgent_on' : 'urgent_off',
+      new Date().toISOString()
+    );
+    res.json({ ok: true, urgent });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update urgent flag' });
+  }
+});
+
+// Delete a listing (admin override; removes images and related rows)
+router.delete('/listings/:id', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid listing id' });
+  try {
+    const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+
+    // Delete associated images first
+    const images = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ?').all(id);
+    for (const img of images) {
+      if (img?.path) { try { fs.unlinkSync(img.path); } catch (_) {} }
+      if (img?.medium_path) { try { fs.unlinkSync(img.medium_path); } catch (_) {} }
+    }
+    // Delete generated variants
+    if (listing.thumbnail_path) { try { fs.unlinkSync(listing.thumbnail_path); } catch (_) {} }
+    if (listing.medium_path) { try { fs.unlinkSync(listing.medium_path); } catch (_) {} }
+    if (listing.og_image_path) { try { fs.unlinkSync(listing.og_image_path); } catch (_) {} }
+
+    // Remove DB rows in correct order
+    db.prepare('DELETE FROM listing_images WHERE listing_id = ?').run(id);
+    db.prepare('DELETE FROM reports WHERE listing_id = ?').run(id);
+    db.prepare('DELETE FROM notifications WHERE listing_id = ?').run(id);
+    db.prepare('DELETE FROM listings WHERE id = ?').run(id);
+
+    db.prepare('INSERT INTO admin_actions (admin_id, listing_id, action, ts) VALUES (?, ?, ?, ?)').run(
+      req.admin.id,
+      id,
+      'delete_listing',
+      new Date().toISOString()
+    );
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete listing' });
+  }
+});
+
 export default router;

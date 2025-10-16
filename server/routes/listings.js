@@ -184,6 +184,7 @@ ensureColumn('listings', 'remark_number', 'TEXT');
 ensureColumn('listings', 'views', 'INTEGER DEFAULT 0');
 ensureColumn('listings', 'og_image_path', 'TEXT');
 ensureColumn('listings', 'facebook_post_url', 'TEXT');
+ensureColumn('listings', 'is_urgent', 'INTEGER DEFAULT 0');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
 ensureColumn('listing_images', 'medium_path', 'TEXT');
 
@@ -1147,8 +1148,9 @@ router.get('/', (req, res) => {
     }
 
     const { category, sortBy, order = 'DESC', status } = req.query;
-    let query = "SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, og_image_path, facebook_post_url FROM listings WHERE status != 'Archived'";
-    const params = [];
+    let query = "SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, og_image_path, facebook_post_url, is_urgent FROM listings WHERE status != 'Archived'";
+    const params =_code [new]</;
+];
 
     if (status) {
       query += ' AND status = ?';
@@ -1184,7 +1186,7 @@ router.get('/', (req, res) => {
       const imgs = listImagesStmt.all(r.id);
       const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.medium_path || x.path)).filter(Boolean) : [];
       const og_image_url = filePathToUrl(r.og_image_path);
-      return { ...r, thumbnail_url, small_images, og_image_url };
+      return { ...r, thumbnail_url, small_images, og_image_url, urgent: !!r.is_urgent, is_urgent: !!r.is_urgent };
     });
     const payload = { results };
     cacheSet(cacheKey, payload, 15000);
@@ -1214,7 +1216,7 @@ router.get('/search', (req, res) => {
     const offset = (pg - 1) * lim;
 
     let query = `
-      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, is_urgent
       FROM listings
       WHERE status = 'Approved'
     `;
@@ -1546,7 +1548,7 @@ router.get('/my', (req, res) => {
     if (!email) return res.status(401).json({ error: 'Missing user email' });
 
     const rows = db.prepare(`
-      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views, is_urgent
       FROM listings
       WHERE owner_email = ?
       ORDER BY created_at DESC
@@ -1563,7 +1565,7 @@ router.get('/my', (req, res) => {
       }
       const imgs = listImagesStmt.all(r.id);
       const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.path)).filter(Boolean) : [];
-      return { ...r, thumbnail_url, small_images };
+      return { ...r, thumbnail_url, small_images, urgent: !!r.is_urgent, is_urgent: !!r.is_urgent };
     });
 
     res.json({ results });
