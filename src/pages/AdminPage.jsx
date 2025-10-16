@@ -278,7 +278,11 @@ export default function AdminPage() {
         emails.forEach(e => set.add(e))
         return Array.from(set)
       })
-   
+    } catch (_) {
+      // Silent failure to avoid blocking the dashboard
+    }
+  }
+
   async function banUser(id) {
     try {
       const r = await fetch(`/api/admin/users/${id}/ban`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
@@ -425,9 +429,8 @@ export default function AdminPage() {
       setReports(results)
     } catch (_) {
       // Silent on errors
-    }_code
- new </}
- }
+    }
+  }
 
   async function resolveReport(id) {
     try {
