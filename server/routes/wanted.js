@@ -334,7 +334,7 @@ router.get('/', (req, res) => {
     `;
     const params = [];
     if (category) { sql += ' AND category = ?'; params.push(String(category)); }
-    if (location) { sql += ' AND (LOWER(location) LIKE ? OR LOWER(COALESCE(locations_json,'')) LIKE ?)'; params.push('%' + String(location).toLowerCase() + '%', '%' + String(location).toLowerCase() + '%'); }
+    if (location) { sql += ' AND (LOWER(location) LIKE ? OR LOWER(COALESCE(locations_json,\'\')) LIKE ?)'; params.push('%' + String(location).toLowerCase() + '%', '%' + String(location).toLowerCase() + '%'); }
     if (q) {
       const term = '%' + String(q).toLowerCase() + '%';
       sql += ' AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ?)';
