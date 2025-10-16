@@ -557,7 +557,7 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
         }
       }
       if (buyerNotified || sellerNotified) {
-        console.log(\`[notify] Wanted reverse alerts created (buyers: \${buyerNotified}, sellers: \${sellerNotified}) for listing #\${listing.id}\`);
+        console.log(`[notify] Wanted reverse alerts created (buyers: ${buyerNotified}, sellers: ${sellerNotified}) for listing #${listing.id}`);
       }
     }
   } catch (e) {
