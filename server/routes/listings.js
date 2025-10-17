@@ -751,9 +751,25 @@ Do not confuse employment_type with general 'type' fields for other categories.`
       seoObj = {};
     }
 
-    // Parse optional wanted tag ids from request (max 3)
-    let wantedTagIds ='INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, owner_email, created_at) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    // Parse optional wanted tag ids from request (max 3) and sanitize to an array of unique numeric IDs
+    let wantedTagIds = [];
+    try {
+      const raw = String(req.body?.wanted_tags_json || '').trim();
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          const nums = arr.map(n => Number(n)).filter(n => Number.isFinite(n));
+          const uniq = [];
+          for (const n of nums) { if (!uniq.includes(n)) uniq.push(n); }
+          wantedTagIds = uniq.slice(0, 3);
+        }
+      }
+    } catch (_) {}
+
+    const ts = new Date().toISOString();
+    const draftRes = db.prepare(
+      'INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, owner_email, created_at, wanted_tags_json) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       selectedCategory,
       title,
@@ -763,7 +779,8 @@ Do not confuse employment_type with general 'type' fields for other categories.`
       seoObj.seo_description || '',
       Array.isArray(seoObj.seo_keywords) ? seoObj.seo_keywords.join(', ') : '',
       ownerEmail,
-      ts
+      ts,
+      JSON.stringify(wantedTagIds)
     );
     const draftId = draftRes.lastInsertRowid;
 
@@ -979,8 +996,25 @@ router.post('/submit', async (req, res) => {
       );
     }
 
-    // Create a pending notification for the owner
+    // Create tag links for explicit Wanted request tags saved on the draft
     try {
+      let wantedIds = [];
+      try {
+        const raw = String(draft.wanted_tags_json || '').trim();
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            const nums = arr.map(n => Number(n)).filter(n => Number.isFinite(n));
+            const uniq = [];
+            for (const n of nums) { if (!uniq.includes(n)) uniq.push(n); }
+            wantedIds = uniq.slice(0, 3);
+          }
+        }
+      } catch (_) {}
+      if (wantedIds.length) {
+        const ins = db.prepare('INSERT OR IGNORE INTO listing_wanted_tags (listing_id, wanted_id, created_at) VALUES (?, ?, ?)');
+        const nowIso = new Date().toISOString();
+        forry {
       if (ownerEmail) {
         db.prepare(`
           INSERT INTO notifications (title, message, target_email, created_at, type, listing_id)
