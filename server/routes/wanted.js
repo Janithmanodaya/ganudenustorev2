@@ -30,6 +30,7 @@ try {
   }
   ensureCol('locations_json', 'TEXT');         // JSON array of locations (strings)
   ensureCol('models_json', 'TEXT');            // JSON array of models (strings)
+  ensureCol('job_types_json', 'TEXT');         // JSON array of job types (strings)
   ensureCol('year_min', 'INTEGER');            // Vehicle only
   ensureCol('year_max', 'INTEGER');            // Vehicle only
   ensureCol('price_min', 'REAL');              // Lower bound for price
@@ -177,6 +178,7 @@ router.post('/', requireUser, async (req, res) => {
       category = '',
       locations = [],
       models = [],
+      job_types = [],
       year_min = null,
       year_max = null,
       price_min = null,
@@ -194,6 +196,7 @@ router.post('/', requireUser, async (req, res) => {
     const firstLoc = locs[0] || '';
 
     const mdl = Array.isArray(models) ? models.map(s => String(s).trim()).filter(Boolean) : [];
+    const jobs = Array.isArray(job_types) ? job_types.map(s => String(s).trim()).filter(Boolean) : [];
     const yMin = year_min != null && year_min !== '' ? Number(year_min) : null;
     const yMax = year_max != null && year_max !== '' ? Number(year_max) : null;
     const pMin = price_min != null && price_min !== '' ? Number(price_min) : null;
@@ -212,8 +215,8 @@ router.post('/', requireUser, async (req, res) => {
     const ins = db.prepare(`
       INSERT INTO wanted_requests
         (user_email, title, description, category, location, price_max, filters_json, status, created_at,
-         locations_json, models_json, year_min, year_max, price_min, price_not_matter)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?)
+         locations_json, models_json, job_types_json, year_min, year_max, price_min, price_not_matter)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const result = ins.run(
       email,
@@ -226,6 +229,7 @@ router.post('/', requireUser, async (req, res) => {
       ts,
       JSON.stringify(locs),
       JSON.stringify(mdl),
+      JSON.stringify(jobs),
       yMin,
       yMax,
       pMin,
@@ -287,33 +291,33 @@ router.post('/', requireUser, async (req, res) => {
       }
     } catch (_) {}
 
-    // Notify buyer: in-app + email summary
-    db.prepare(`
-      INSERT INTO notifications (title, message, target_email, created_at, type, meta_json)
-      VALUES (?, ?, ?, ?, 'wanted_posted', ?)
-    `).run(
-      'Your Wanted request was posted',
-      sellerNotified > 0
-        ? `We found ${sellerNotified} potential matches. Sellers have been notified.`
-        : 'We will notify you when new matching ads are listed.',
-      email,
-      new Date().toISOString(),
-      JSON.stringify({ wanted_id: id, matches_count: sellerNotified })
-    );
-    try {
-      const listHtml = matchedListings.map(m => {
-        const link = `${DOMAIN}/listing/${m.id}`;
-        return `<li><a href="${link}" style="color:#0b5fff;text-decoration:none;">${m.title}</a></li>`;
-      }).join('');
-      const html = `
-        <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
-          <h2 style="margin:0 0 10px 0;">Your Wanted request was posted</h2>
-          <p style="margin:0 0 10px 0;">${sellerNotified > 0 ? `We found ${sellerNotified} potential matches.` : 'We will notify you when matches appear.'}</p>
-          ${sellerNotified > 0 ? `<ul style="margin:0 0 10px 0;">${listHtml}</ul>` : ''}
-        </div>
-      `;
-      await sendEmail(email, 'Your Wanted request was posted', html);
-    } catch (_) {}
+    // Notify buyer: only when immediate matches are found
+    if (sellerNotified > 0) {
+      db.prepare(`
+        INSERT INTO notifications (title, message, target_email, created_at, type, meta_json)
+        VALUES (?, ?, ?, ?, 'wanted_posted', ?)
+      `).run(
+        'Your Wanted request was posted',
+        `We found ${sellerNotified} potential matches. Sellers have been notified.`,
+        email,
+        new Date().toISOString(),
+        JSON.stringify({ wanted_id: id, matches_count: sellerNotified })
+      );
+      try {
+        const listHtml = matchedListings.map(m => {
+          const link = `${DOMAIN}/listing/${m.id}`;
+          return `<li><a href="${link}" style="color:#0b5fff;text-decoration:none;">${m.title}</a></li>`;
+        }).join('');
+        const html = `
+          <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+            <h2 style="margin:0 0 10px 0;">Your Wanted request was posted</h2>
+            <p style="margin:0 0 10px 0;">We found ${sellerNotified} potential matches.</p>
+            ${sellerNotified > 0 ? `<ul style="margin:0 0 10px 0;">${listHtml}</ul>` : ''}
+          </div>
+        `;
+        await sendEmail(email, 'Your Wanted request was posted', html);
+      } catch (_) {}
+    }
 
     res.json({ ok: true, id });
   } catch (e) {
@@ -328,13 +332,13 @@ router.get('/', (req, res) => {
     const lim = Math.max(1, Math.min(200, parseInt(String(limit), 10) || 50));
     let sql = `
       SELECT id, user_email, title, description, category, location, price_min, price_max, price_not_matter,
-             filters_json, locations_json, models_json, year_min, year_max, status, created_at
+             filters_json, locations_json, models_json, job_types_json, year_min, year_max, status, created_at
       FROM wanted_requests
       WHERE status = 'open'
     `;
     const params = [];
     if (category) { sql += ' AND category = ?'; params.push(String(category)); }
-    if (location) { sql += ' AND (LOWER(location) LIKE ? OR LOWER(COALESCE(locations_json,\'\')) LIKE ?)'; params.push('%' + String(location).toLowerCase() + '%', '%' + String(location).toLowerCase() + '%'); }
+    if (location) { sql += ' AND (LOWER(location) LIKE ? OR LOWER(COALESCE(locations_json,'') ) LIKE ?)'; params.push('%' + String(location).toLowerCase() + '%', '%' + String(location).toLowerCase() + '%'); }
     if (q) {
       const term = '%' + String(q).toLowerCase() + '%';
       sql += ' AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ?)';
@@ -355,7 +359,7 @@ router.get('/my', requireUser, (req, res) => {
     const email = req.user.email;
     const rows = db.prepare(`
       SELECT id, user_email, title, description, category, location, price_min, price_max, price_not_matter,
-             filters_json, locations_json, models_json, year_min, year_max, status, created_at
+             filters_json, locations_json, models_json, job_types_json, year_min, year_max, status, created_at
       FROM wanted_requests
       WHERE LOWER(user_email) = LOWER(?)
       ORDER BY id DESC
