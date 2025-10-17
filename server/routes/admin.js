@@ -873,9 +873,30 @@ router.post('/pending/approve_many', requireAdmin, (req, res) => {
                   id,
                   JSON.stringify({ wanted_id: wid })
                 );
-              } catch (_)
-});
+              } catch (_) {}
+              // Email the buyer (best-effort, non-blocking)
+              try {
+                const html = `
+                  <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+                    <h2 style="margin:0 0 10px 0;">A new ad was posted for your request</h2>
+                    <p style="margin:0 0 10px 0;">Seller tagged your request: <strong>${wanted.title}</strong></p>
+                    <p style="margin:0 0 10px 0;">Ad: <strong>${listing.title}</strong></p>
+                    <p style="margin:10px 0 0 0;"><a href="${(process.env.PUBLIC_DOMAIN || 'https://ganudenu.store')}/listing/${listing.id}" style="color:#0b5fff;text-decoration:none;">View ad</a></p>
+                  </div>
+                `;
+                // Fire and forget
+                sendEmail(String(wanted.user_email).toLowerCase().trim(), 'A new ad was posted for your request', html).catch(() => {});
+              } catch (_) {}
+            }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
 
+  res.json({ ok: true });
+});
+    
 // Flag listing
 router.post('/flag', requireAdmin, (req, res) => {
   const { listing_id, reason } = req.body || {};
