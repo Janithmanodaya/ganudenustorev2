@@ -998,23 +998,21 @@ router.post('/submit', async (req, res) => {
 
     // Create tag links for explicit Wanted request tags saved on the draft
     try {
-      const rawJson = String(draft.wanted_tags_json || '').trim();
       let wantedIds = [];
-      if (rawJson) {
-        try {
-          const arr = JSON.parse(rawJson);
+      try {
+        const raw = String(draft.wanted_tags_json || '').trim();
+        if (raw) {
+          const arr = JSON.parse(raw);
           if (Array.isArray(arr)) {
             const nums = arr.map(n => Number(n)).filter(n => Number.isFinite(n));
             const uniq = [];
-            for (let i = 0;  <! nums.length; i++) {
-              const n = nums[i];
-              if (!uniq.includes(n)) uniq.push(n);
-            }
+            for (const n of nums) { if (!uniq.includes(n)) uniq.push(n); }
             wantedIds = uniq.slice(0, 3);
           }
-        } catch (_) {
-          wantedIds = [];
-s (listing_id, wanted_id, created_at) VALUES (?, ?, ?)');
+        }
+      } catch (_) {}
+      if (wantedIds.length) {
+        const ins = db.prepare('INSERT OR IGNORE INTO listing_wanted_tags (listing_id, wanted_id, created_at) VALUES (?, ?, ?)');
         const nowIso = new Date().toISOString();
         forry {
       if (ownerEmail) {
