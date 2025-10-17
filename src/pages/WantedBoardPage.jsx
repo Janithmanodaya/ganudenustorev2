@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import CustomSelect from '../components/CustomSelect.jsx';
+import { useNavigate } from 'react-router-dom';
 
 const CATEGORIES = ['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden', 'Other'];
 
 export default function WantedBoardPage() {
+  const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState('');
   const [tab, setTab] = useState('browse'); // 'browse' | 'post' | 'mine'
   const [loading, setLoading] = useState(false);
@@ -16,6 +18,24 @@ export default function WantedBoardPage() {
   const [myListings, setMyListings] = useState([]);
   const [offerSelections, setOfferSelections] = useState({}); // wantedId -> listingId
   const [offerSending, setOfferSending] = useState({}); // wantedId -> boolean
+
+  // Browse filters (home page style)
+  const [showFilters, setShowFilters] = useState(false);
+  const [localFilter, setLocalFilter] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterLocation, setFilterLocation] = useState('');
+  const [filterPriceMin, setFilterPriceMin] = useState('');
+  const [filterPriceMax, setFilterPriceMax] = useState('');
+  const [browseFiltersDef, setBrowseFiltersDef] = useState({ keys: [], valuesByKey: {} });
+  const [browseFilters, setBrowseFilters] = useState({});
+  const [subCategoryQuery, setSubCategoryQuery] = useState('');
+  const [modelQuery, setModelQuery] = useState('');
+  const subCategorySelected = Array.isArray(browseFilters.sub_category) ? browseFilters.sub_category : [];
+  const modelSelected = Array.isArray(browseFilters.model) ? browseFilters.model : [];
+  const jobTypeSelected = Array.isArray(browseFilters.job_type) ? browseFilters.job_type : [];
+  const [locQuery, setLocQuery] = useState('');
+  const [locSuggestions, setLocSuggestions] = useState([]);
+  const [locationOptionsCache, setLocationOptionsCache] = useState([]);
 
   // Form state (dynamic)
   const [form, setForm] = useState({
@@ -38,7 +58,7 @@ export default function WantedBoardPage() {
   const [priceMax, setPriceMax] = useState('');
   const [priceNoMatter, setPriceNoMatter] = useState(false);
 
-  // Dynamic filters derived from existing listings by category
+  // Dynamic filters derived from existing listings by category (for post form)
   const [filtersMeta, setFiltersMeta] = useState({ keys: [], valuesByKey: {} });
   const [filterKey, setFilterKey] = useState('');
   const [filterSuggestedValue, setFilterSuggestedValue] = useState('');
@@ -65,7 +85,7 @@ export default function WantedBoardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail]);
 
-  // Load dynamic filters for the selected category
+  // Load dynamic filters for the selected category in POST form
   useEffect(() => {
     async function loadFilters() {
       if (!form.category) {
@@ -98,6 +118,73 @@ export default function WantedBoardPage() {
     }
     loadFilters();
   }, [form.category]);
+
+  // Load dynamic filters for BROWSE (home page style)
+  useEffect(() => {
+    async function loadBrowseFilters() {
+      if (!filterCategory) {
+        setBrowseFiltersDef({ keys: [], valuesByKey: {} });
+        setBrowseFilters({});
+        setSubCategoryQuery('');
+        setModelQuery('');
+        return;
+      }
+      try {
+        const r = await fetch(`/api/listings/filters?category=${encodeURIComponent(filterCategory)}`);
+        const data = await r.json();
+        if (r.ok && Array.isArray(data.keys) && data.valuesByKey) {
+          setBrowseFiltersDef({ keys: data.keys, valuesByKey: data.valuesByKey });
+        } else {
+          setBrowseFiltersDef({ keys: [], valuesByKey: {} });
+        }
+      } catch (_) {
+        setBrowseFiltersDef({ keys: [], valuesByKey: {} });
+      }
+    }
+    loadBrowseFilters();
+  }, [filterCategory]);
+
+  // Location suggestions for browse (debounced)
+  useEffect(() => {
+    const term = (locQuery || '').trim();
+    if (!term) { setLocSuggestions([]); return; }
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/listings/locations?q=${encodeURIComponent(term)}`, { signal: ctrl.signal });
+        const data = await r.json();
+        if (r.ok) setLocSuggestions(Array.isArray(data.results) ? data.results : []);
+      } catch (_) {}
+    }, 250);
+    return () => { ctrl.abort(); clearTimeout(timer); };
+  }, [locQuery]);
+
+  // Keep a stable cache of locations for browse so options don't shrink
+  useEffect(() => {
+    const vals = (browseFiltersDef?.valuesByKey?.['location'] || []).map(v => String(v).trim()).filter(Boolean);
+    if (vals.length) {
+      setLocationOptionsCache(Array.from(new Set(vals)));
+      return;
+    }
+    const fromRequests = Array.from(new Set(
+      (requests || []).flatMap(r => {
+        const arr = (() => { try { return JSON.parse(String(r.locations_json || '[]')) || []; } catch (_) { return []; } })();
+        return [...arr, r.location].map(v => String(v || '').trim()).filter(Boolean);
+      })
+    ));
+    if (fromRequests.length) {
+      setLocationOptionsCache(prev => {
+        const merged = [...prev];
+        for (const v of fromRequests) if (!merged.includes(v)) merged.push(v);
+        return merged;
+      });
+    }
+  }, [browseFiltersDef, requests]);
+
+  // Keep locQuery loosely synced with current filterLocation
+  useEffect(() => {
+    setLocQuery(String(filterLocation || '').trim());
+  }, [filterLocation]);
 
   async function loadRequests() {
     setLoading(true);
@@ -229,139 +316,7 @@ export default function WantedBoardPage() {
     );
   }
 
-  async function submitForm(e) {
-    e.preventDefault();
-    if (!userEmail) {
-      setPostStatus({ ok: false, message: 'Please login to post a Wanted request.' });
-      return;
-    }
-    setPostStatus({ ok: false, message: '' });
-    setLoading(true);
-    try {
-      // Build filters payload (exclude keys that already have dedicated inputs or base fields)
-      const filtersPayload = {};
-      for (const [k, arr] of Object.entries(selectedFilters)) {
-        if (!Array.isArray(arr) || arr.length === 0) continue;
-        if (['location', 'pricing_type', 'price', 'phone', 'model', 'job_type'].includes(k)) continue;
-        filtersPayload[k] = arr;
-      }
-
-      const payload = {
-        title: form.title,
-        description: form.description,
-        category: form.category || '',
-        locations,
-        models: (form.category === 'Vehicle' || form.category === 'Mobile' || form.category === 'Electronic') ? models : [],
-        job_types: form.category === 'Job' ? jobTypes : [],
-        year_min: form.category === 'Vehicle' && yearMin ? Number(yearMin) : '',
-        year_max: form.category === 'Vehicle' && yearMax ? Number(yearMax) : '',
-        price_min: priceNoMatter ? '' : (priceMin ? Number(priceMin) : ''),
-        price_max: priceNoMatter ? '' : (priceMax ? Number(priceMax) : ''),
-        price_not_matter: !!priceNoMatter,
-        filters: filtersPayload
-      };
-      const r = await fetch('/api/wanted', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Email': userEmail },
-        body: JSON.stringify(payload)
-      });
-      const data = await r.json();
-      if (!r.ok) {
-        setPostStatus({ ok: false, message: data?.error || 'Failed to post request.' });
-      } else {
-        setPostStatus({ ok: true, message: 'Your Wanted request is live. We will notify you when matches appear.' });
-        setForm({ title: '', category: '', description: '' });
-        setLocations([]);
-        setModels([]);
-        setJobTypes([]);
-        setYearMin('');
-        setYearMax('');
-        setPriceMin('');
-        setPriceMax('');
-        setPriceNoMatter(false);
-        await loadRequests();
-      }
-    } catch (_) {
-      setPostStatus({ ok: false, message: 'Failed to post request.' });
-    } finally {
-      setLoading(false);
-      setTab('browse');
-    }
-  }
-
-  async function loadMyRequests() {
-    try {
-      const r = await fetch('/api/wanted/my', { headers: { 'X-User-Email': userEmail } });
-      const data = await r.json();
-      const rows = Array.isArray(data.results) ? data.results : [];
-      setMyRequests(rows);
-    } catch (_) {
-      setMyRequests([]);
-    }
-  }
-
-  async function closeRequest(id) {
-    if (!userEmail) return;
-    try {
-      const r = await fetch(`/api/wanted/${id}/close`, {
-        method: 'POST',
-        headers: { 'X-User-Email': userEmail }
-      });
-      const data = await r.json();
-      if (r.ok) {
-        setMyRequests(prev => prev.map(x => x.id === id ? { ...x, status: 'closed' } : x));
-        setRequests(prev => prev.map(x => x.id === id ? { ...x, status: 'closed' } : x));
-      } else {
-        alert(data?.error || 'Failed to close request.');
-      }
-    } catch (_) {
-      alert('Failed to close request.');
-    }
-  }
-
-  async function sendOffer(wantedId) {
-    if (!userEmail) return;
-    const listingId = offerSelections[wantedId];
-    if (!listingId) {
-      alert('Select one of your ads to offer for this request.');
-      return;
-    }
-    setOfferSending(prev => ({ ...prev, [wantedId]: true }));
-    try {
-      const r = await fetch('/api/wanted/respond', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Email': userEmail },
-        body: JSON.stringify({ wanted_id: wantedId, listing_id: listingId })
-      });
-      const data = await r.json();
-      if (!r.ok) {
-        alert(data?.error || 'Failed to send offer.');
-      } else {
-        alert('Offer sent to buyer. We notified them about your ad.');
-      }
-    } catch (_) {
-      alert('Failed to send offer.');
-    } finally {
-      setOfferSending(prev => ({ ...prev, [wantedId]: false }));
-    }
-  }
-
-  const canOffer = useMemo(() => userEmail && myListings.length > 0, [userEmail, myListings]);
-
-  function renderChips(items, onRemove) {
-    if (!Array.isArray(items) || !items.length) return null;
-    return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-        {items.map((v, idx) => (
-          <span key={idx} className="pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            {v}
-            <button type="button" className="back-btn" onClick={() => onRemove(v)} title="Remove" aria-label="Remove">×</button>
-          </span>
-        ))}
-      </div>
-    );
-  }
-
+  // Helpers for browse
   function parseArray(jsonText) {
     try {
       const arr = JSON.parse(String(jsonText || '[]'));
@@ -370,7 +325,6 @@ export default function WantedBoardPage() {
       return [];
     }
   }
-
   function parseFilters(jsonText) {
     try {
       const obj = JSON.parse(String(jsonText || '{}'));
@@ -379,6 +333,139 @@ export default function WantedBoardPage() {
       return {};
     }
   }
+
+  // Suggestions derived from browseFiltersDef values
+  const subCategoryOptions = useMemo(() => {
+    const arr = (browseFiltersDef.valuesByKey['sub_category'] || []).map(v => String(v));
+    const q = (subCategoryQuery || '').toLowerCase().trim();
+    if (!q) return arr.slice(0, 25);
+    return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25);
+  }, [browseFiltersDef, subCategoryQuery]);
+  const modelOptions = useMemo(() => {
+    const arr = (browseFiltersDef.valuesByKey['model'] || []).map(v => String(v));
+    const q = (modelQuery || '').toLowerCase().trim();
+    if (!q) return arr.slice(0, 25);
+    return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25);
+  }, [browseFiltersDef, modelQuery]);
+
+  function updateBrowseFilter(key, value) {
+    setBrowseFilters(prev => ({ ...prev, [key]: value }));
+  }
+
+  function resetBrowseFilters() {
+    try {
+      setFilterCategory('');
+      setFilterLocation('');
+      setFilterPriceMin('');
+      setFilterPriceMax('');
+      setBrowseFilters({});
+      setShowFilters(false);
+      setLocationOptionsCache([]);
+      setLocalFilter('');
+    } catch (_) {}
+  }
+
+  const hasActiveBrowseFilters = useMemo(() => {
+    return !!(filterCategory || filterLocation || filterPriceMin || filterPriceMax || localFilter || Object.keys(browseFilters).length);
+  }, [filterCategory, filterLocation, filterPriceMin, filterPriceMax, localFilter, browseFilters]);
+
+  const filteredRequests = useMemo(() => {
+    const t = (localFilter || '').toLowerCase().trim();
+    return (requests || []).filter(r => {
+      if (r.status !== 'open') return false;
+      const locs = parseArray(r.locations_json);
+      const modelsArr = parseArray(r.models_json);
+      const filtersObj = parseFilters(r.filters_json);
+      const jobTypesArr = parseArray(r.job_types_json);
+
+      const textParts = [
+        r.title || '',
+        r.category || '',
+        r.description || '',
+        String(r.location || ''),
+        locs.join(' '),
+        modelsArr.join(' '),
+        jobTypesArr.join(' '),
+        Object.values(filtersObj || {}).map(v => Array.isArray(v) ? v.join(' ') : String(v)).join(' ')
+      ];
+      const textMatch = t ? textParts.join(' ').toLowerCase().includes(t) : true;
+
+      const categoryOk = filterCategory ? (r.category || '') === filterCategory : true;
+
+      const locationOk = filterLocation
+        ? (() => {
+            const target = String(filterLocation).toLowerCase();
+            const inSingle = String(r.location || '').toLowerCase().includes(target);
+            const inArray = locs.some(v => String(v || '').toLowerCase().includes(target));
+            return inSingle || inArray;
+          })()
+        : true;
+
+      // Price range overlap logic (budget semantics)
+      const priceOk = (() => {
+        if (!filterPriceMin && !filterPriceMax) return true;
+        if (r.price_not_matter) return true;
+        const pmn = typeof r.price_min === 'number' ? r.price_min : null;
+        const pmx = typeof r.price_max === 'number' ? r.price_max : null;
+        let minOk = true, maxOk = true;
+        if (filterPriceMin) {
+          const fmin = Number(filterPriceMin);
+          minOk = (pmx == null) || (pmx >= fmin);
+        }
+        if (filterPriceMax) {
+          const fmax = Number(filterPriceMax);
+          maxOk = (pmn == null) || (pmn <= fmax);
+        }
+        return minOk && maxOk;
+      })();
+
+      // Structured filters AND logic
+      let structuredOk = true;
+      if (Object.keys(browseFilters).length) {
+        for (const [k, v] of Object.entries(browseFilters)) {
+          const key = String(k);
+          const val = v;
+          if (key === 'sub_category') {
+            const arr = Array.isArray(val) ? val : [val];
+            const targetArr = Array.isArray(filtersObj.sub_category) ? filtersObj.sub_category.map(x => String(x).toLowerCase()) : [];
+            for (const x of arr) {
+              if (!targetArr.includes(String(x).toLowerCase())) { structuredOk = false; break; }
+            }
+            if (!structuredOk) break;
+          } else if (key === 'model') {
+            const arr = Array.isArray(val) ? val : [val];
+            const targetArr = modelsArr.map(x => String(x).toLowerCase());
+            for (const x of arr) {
+              if (!targetArr.includes(String(x).toLowerCase())) { structuredOk = false; break; }
+            }
+            if (!structuredOk) break;
+          } else if (key === 'job_type') {
+            const arr = Array.isArray(val) ? val : [val];
+            const targetArr = jobTypesArr.map(x => String(x).toLowerCase());
+            for (const x of arr) {
+              if (!targetArr.includes(String(x).toLowerCase())) { structuredOk = false; break; }
+            }
+            if (!structuredOk) break;
+          } else {
+            const target = filtersObj[key];
+            if (Array.isArray(val)) {
+              const targetArr = Array.isArray(target) ? target.map(x => String(x).toLowerCase()) : [];
+              for (const x of val) {
+                if (!targetArr.includes(String(x).toLowerCase())) { structuredOk = false; break; }
+              }
+              if (!structuredOk) break;
+            } else {
+              const targetStr = String(target || '').toLowerCase();
+              const valStr = String(val || '').toLowerCase();
+              if (valStr && targetStr !== valStr) { structuredOk = false; break; }
+            }
+          }
+        }
+      }
+
+      return textMatch && categoryOk && locationOk && priceOk && structuredOk;
+    });
+  }, [requests, localFilter, filterCategory, filterLocation, filterPriceMin, filterPriceMax, browseFilters]);
 
   const filteredKeysForUI = (filtersMeta.keys || []).filter(k => !['location', 'pricing_type', 'price', 'phone', 'model', 'job_type'].includes(k));
 
@@ -398,11 +485,254 @@ export default function WantedBoardPage() {
 
       {tab === 'browse' && (
         <div style={{ marginTop: 16 }}>
-          {loading && <div className="pill">Loading...</div>}
-          {requests.filter(r => r.status === 'open').length === 0 && !loading && (
-            <p className="text-muted">No open requests yet.</p>
+          {/* Quick categories (same style as Home) */}
+          <div className="quick-cats" style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className={`btn ${filterCategory === 'Vehicle' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Vehicle'); setShowFilters(true); }}>🚗 Vehicles</button>
+            <button className={`btn ${filterCategory === 'Property' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Property'); setShowFilters(true); }}>🏠 Property</button>
+            <button className={`btn ${filterCategory === 'Electronic' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Electronic'); setShowFilters(true); }}>🔌 Electronic</button>
+            <button className={`btn ${filterCategory === 'Mobile' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Mobile'); setShowFilters(true); }}>📱 Mobile</button>
+            <button className={`btn ${filterCategory === 'Home Garden' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Home Garden'); setShowFilters(true); }}>🏡 Home&nbsp;Garden</button>
+            <button className={`btn ${filterCategory === 'Job' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Job'); setShowFilters(true); }}>💼 Job</button>
+          </div>
+
+          {/* Filters dropdown toggle */}
+          <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+            <div>
+              {hasActiveBrowseFilters && (
+                <button className="btn compact" type="button" onClick={resetBrowseFilters} title="Reset all filters" style={{ flex: '0 0 auto' }}>
+                  Reset filters
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                className="input"
+                placeholder="Search requests..."
+                value={localFilter}
+                onChange={e => setLocalFilter(e.target.value)}
+                style={{ minWidth: 200 }}
+              />
+              <button className="btn" type="button" onClick={() => setShowFilters(s => !s)}>
+                {showFilters ? 'Hide Filters' : 'Filters'}
+              </button>
+            </div>
+          </div>
+
+          {showFilters && (
+            <div className="card" style={{ padding: 12, marginBottom: 12 }}>
+              <div className="grid two">
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Category</div>
+                  <CustomSelect
+                    value={filterCategory}
+                    onChange={v => setFilterCategory(v)}
+                    ariaLabel="Category"
+                    placeholder="Category"
+                    options={[
+                      { value: '', label: 'Any' },
+                      { value: 'Vehicle', label: 'Vehicle' },
+                      { value: 'Property', label: 'Property' },
+                      { value: 'Electronic', label: 'Electronic' },
+                      { value: 'Mobile', label: 'Mobile' },
+                      { value: 'Home Garden', label: 'Home Garden' },
+                      { value: 'Job', label: 'Job' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Location</div>
+                  <CustomSelect
+                    value={filterLocation}
+                    onChange={v => setFilterLocation(v)}
+                    ariaLabel="Location"
+                    placeholder="Location"
+                    options={(() => {
+                      const cached = Array.from(new Set((locationOptionsCache || []).map(v => String(v).trim()).filter(Boolean)));
+                      const fromSuggest = Array.from(new Set((locSuggestions || []).map(v => String(v).trim()).filter(Boolean)))
+                        .filter(v => !cached.includes(v));
+                      const merged = [...cached, ...fromSuggest];
+                      const opts = merged.map(v => ({ value: v, label: v }));
+                      return [{ value: '', label: 'Any' }, ...opts];
+                    })()}
+                    searchable={true}
+                    allowCustom={true}
+                  />
+                </div>
+                <input className="input" type="number" placeholder="Min budget (LKR)" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
+                <input className="input" type="number" placeholder="Max budget (LKR)" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
+
+                {/* Dynamic sub_category/model/job_type tag inputs + other keys */}
+                {filterCategory && browseFiltersDef.keys.length > 0 && (
+                  <>
+                    {/* Sub-category multi-select tags */}
+                    <div>
+                      <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Sub-category</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                        {subCategorySelected.map((tag, idx) => (
+                          <span key={`subcat-${tag}-${idx}`} className="pill">
+                            {tag}
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={() => {
+                                const next = subCategorySelected.filter((t, i) => !(t === tag && i === idx));
+                                updateBrowseFilter('sub_category', next);
+                              }}
+                              aria-label="Remove"
+                              style={{ padding: '2px 6px', marginLeft: 6 }}
+                            >✕</button>
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: 4 }}>
+                        <CustomSelect
+                          value=""
+                          onChange={(val) => {
+                            const v = String(val || '').trim();
+                            if (!v) return;
+                            const next = Array.from(new Set([...subCategorySelected, v]));
+                            updateBrowseFilter('sub_category', next);
+                          }}
+                          ariaLabel="Add sub-category"
+                          placeholder="Add sub-category..."
+                          options={subCategoryOptions.map(v => ({ value: v, label: v }))}
+                          searchable={true}
+                          allowCustom={true}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Model multi-select tags */}
+                    {(filterCategory === 'Vehicle' || filterCategory === 'Mobile' || filterCategory === 'Electronic') && (
+                      <div>
+                        <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Model</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                          {modelSelected.map((tag, idx) => (
+                            <span key={`model-${tag}-${idx}`} className="pill">
+                              {tag}
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={() => {
+                                  const next = modelSelected.filter((t, i) => !(t === tag && i === idx));
+                                  updateBrowseFilter('model', next);
+                                }}
+                                aria-label="Remove"
+                                style={{ padding: '2px 6px', marginLeft: 6 }}
+                              >✕</button>
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ marginTop: 4 }}>
+                          <CustomSelect
+                            value=""
+                            onChange={(val) => {
+                              const v = String(val || '').trim();
+                              if (!v) return;
+                              const next = Array.from(new Set([...modelSelected, v]));
+                              updateBrowseFilter('model', next);
+                            }}
+                            ariaLabel="Add model"
+                            placeholder="Add model..."
+                            options={modelOptions.map(v => ({ value: v, label: v }))}
+                            searchable={true}
+                            allowCustom={true}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Job type multi-select tags */}
+                    {filterCategory === 'Job' && (
+                      <div>
+                        <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Job Type</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                          {jobTypeSelected.map((tag, idx) => (
+                            <span key={`job-${tag}-${idx}`} className="pill">
+                              {tag}
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={() => {
+                                  const next = jobTypeSelected.filter((t, i) => !(t === tag && i === idx));
+                                  updateBrowseFilter('job_type', next);
+                                }}
+                                aria-label="Remove"
+                                style={{ padding: '2px 6px', marginLeft: 6 }}
+                              >✕</button>
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ marginTop: 4 }}>
+                          <CustomSelect
+                            value=""
+                            onChange={(val) => {
+                              const v = String(val || '').trim();
+                              if (!v) return;
+                              const next = Array.from(new Set([...jobTypeSelected, v]));
+                              updateBrowseFilter('job_type', next);
+                            }}
+                            ariaLabel="Add job type"
+                            placeholder="Add job type..."
+                            options={(browseFiltersDef.valuesByKey?.['job_type'] || []).map(v => ({ value: v, label: v }))}
+                            searchable={true}
+                            allowCustom={true}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Other dynamic keys as selects */}
+                    {(() => {
+                      const pretty = (k) => {
+                        if (!k) return '';
+                        const map = {
+                          manufacture_year: 'Manufacture Year',
+                          pricing_type: 'Pricing',
+                        };
+                        if (map[k]) return map[k];
+                        return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+                      };
+                      return browseFiltersDef.keys
+                        .filter(k => !['location','pricing_type','price','sub_category','model','model_name','job_type'].includes(k))
+                        .map(key => {
+                          const values = (browseFiltersDef.valuesByKey[key] || []).map(v => String(v));
+                          const opts = [{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))];
+                          return (
+                            <div key={key}>
+                              <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{pretty(key)}</div>
+                              <CustomSelect
+                                value={browseFilters[key] || ''}
+                                onChange={val => updateBrowseFilter(key, val)}
+                                ariaLabel={key}
+                                placeholder={pretty(key)}
+                                options={opts}
+                              />
+                            </div>
+                          );
+                        });
+                    })()}
+                  </>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button className="btn accent compact" type="button" onClick={() => setShowFilters(false)} style={{ flex: '0 0 auto' }}>
+                    Apply
+                  </button>
+                  <button className="btn compact" type="button" onClick={resetBrowseFilters} style={{ flex: '0 0 auto' }}>
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
-          {requests.filter(r => r.status === 'open').map(r => {
+
+          {loading && <div className="pill">Loading...</div>}
+          {!loading && filteredRequests.length === 0 && (
+            <p className="text-muted">No open requests match your filters.</p>
+          )}
+
+          {!loading && filteredRequests.map(r => {
             const locs = parseArray(r.locations_json);
             const modelsArr = parseArray(r.models_json);
             const filtersObj = parseFilters(r.filters_json);
@@ -412,15 +742,29 @@ export default function WantedBoardPage() {
               <div key={r.id} className="card" style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong>{r.title}</strong>
-                  {r.price_not_matter ? (
-                    <span className="pill">Price not a constraint</span>
-                  ) : (
-                    (r.price_min != null || r.price_max != null) && (
-                      <span className="pill">
-                        Budget: {r.price_min != null ? `LKR ${Number(r.price_min).toLocaleString('en-US')}` : 'Any'} - {r.price_max != null ? `LKR ${Number(r.price_max).toLocaleString('en-US')}` : 'Any'}
-                      </span>
-                    )
-                  )}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {r.price_not_matter ? (
+                      <span className="pill">Price not a constraint</span>
+                    ) : (
+                      (r.price_min != null || r.price_max != null) && (
+                        <span className="pill">
+                          Budget: {r.price_min != null ? `LKR ${Number(r.price_min).toLocaleString('en-US')}` : 'Any'} - {r.price_max != null ? `LKR ${Number(r.price_max).toLocaleString('en-US')}` : 'Any'}
+                        </span>
+                      )
+                    )}
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        const catParam = r.category ? `?category=${encodeURIComponent(r.category)}&tagWantedId=${encodeURIComponent(r.id)}` : `?tagWantedId=${encodeURIComponent(r.id)}`;
+                        navigate(`/new${catParam}`);
+                      }}
+                      title="Post a new ad for this request"
+                      aria-label="Post a new ad for this request"
+                    >
+                      Post Ad
+                    </button>
+                  </div>
                 </div>
                 <div className="text-muted" style={{ marginTop: 6 }}>
                   {r.category ? <span>Category: {r.category}</span> : <span>Category: Any</span>}

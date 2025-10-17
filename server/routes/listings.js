@@ -187,6 +187,7 @@ ensureColumn('listings', 'facebook_post_url', 'TEXT');
 ensureColumn('listings', 'is_urgent', 'INTEGER DEFAULT 0');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
 ensureColumn('listing_images', 'medium_path', 'TEXT');
+ensureColumn('listing_drafts', 'wanted_tags_json', 'TEXT');
 
 try {
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)").run();
@@ -196,6 +197,17 @@ try {
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_valid_until ON listings(valid_until)").run();
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_owner ON listings(owner_email)").run();
 } catch (_) {}
+
+// Link table: listing -> wanted request tags (max 3 per listing enforced client-side; unique at DB)
+db.prepare(
+  'CREATE TABLE IF NOT EXISTS listing_wanted_tags (' +
+  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+  '  listing_id INTEGER NOT NULL,' +
+  '  wanted_id INTEGER NOT NULL,' +
+  '  created_at TEXT NOT NULL,' +
+  '  UNIQUE(listing_id, wanted_id)' +
+  ')'
+).run();
 
 const CATEGORIES = new Set(['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden', 'Other']);
 function validateListingInputs({ main_category, title, description, files }) {
@@ -739,10 +751,25 @@ Do not confuse employment_type with general 'type' fields for other categories.`
       seoObj = {};
     }
 
+    // Parse optional wanted tag ids from request (max 3) and sanitize to an array of unique numeric IDs
+    let wantedTagIds = [];
+    try {
+      const raw = String(req.body?.wanted_tags_json || '').trim();
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          const nums = arr.map(n => Number(n)).filter(n => Number.isFinite(n));
+          const uniq = [];
+          for (const n of nums) { if (!uniq.includes(n)) uniq.push(n); }
+          wantedTagIds = uniq.slice(0, 3);
+        }
+      }
+    } catch (_) {}
+
     const ts = new Date().toISOString();
     const draftRes = db.prepare(
-      'INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, owner_email, created_at) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, owner_email, created_at, wanted_tags_json) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       selectedCategory,
       title,
@@ -752,7 +779,8 @@ Do not confuse employment_type with general 'type' fields for other categories.`
       seoObj.seo_description || '',
       Array.isArray(seoObj.seo_keywords) ? seoObj.seo_keywords.join(', ') : '',
       ownerEmail,
-      ts
+      ts,
+      JSON.stringify(wantedTagIds)
     );
     const draftId = draftRes.lastInsertRowid;
 
@@ -968,8 +996,27 @@ router.post('/submit', async (req, res) => {
       );
     }
 
-    // Create a pending notification for the owner
+    // Create tag links for explicit Wanted request tags saved on the draft
     try {
+      const rawJson = String(draft.wanted_tags_json || '').trim();
+      let wantedIds = [];
+      if (rawJson) {
+        try {
+          const arr = JSON.parse(rawJson);
+          if (Array.isArray(arr)) {
+            const nums = arr.map(n => Number(n)).filter(n => Number.isFinite(n));
+            const uniq = [];
+            for (let i = 0;  <! nums.length; i++) {
+              const n = nums[i];
+              if (!uniq.includes(n)) uniq.push(n);
+            }
+            wantedIds = uniq.slice(0, 3);
+          }
+        } catch (_) {
+          wantedIds = [];
+s (listing_id, wanted_id, created_at) VALUES (?, ?, ?)');
+        const nowIso = new Date().toISOString();
+        forry {
       if (ownerEmail) {
         db.prepare(`
           INSERT INTO notifications (title, message, target_email, created_at, type, listing_id)

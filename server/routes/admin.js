@@ -279,7 +279,7 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
       const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
       function filePathToUrlAbs(p) {
         if (!p) return null;
-        const filename = String(p).split(/[\\/]/).pop();
+        const filename = String(p).split(/[\\\/]/).pop();
         return filename ? domain + '/uploads/' + filename : null;
       }
       const imgs = db.prepare('SELECT path, medium_path FROM listing_images WHERE listing_id = ? ORDER BY id ASC LIMIT 3').all(id);
@@ -566,6 +566,48 @@ router.post('/pending/:id/approve', requireAdmin, async (req, res) => {
     console.warn('[notify] Wanted notification error:', e && e.message ? e.message : e);
   }
 
+  // Notify tagged Wanted request owners (explicit tags chosen by seller during posting)
+  try {
+    const tagRows = db.prepare('SELECT wanted_id FROM listing_wanted_tags WHERE listing_id = ?').all(id);
+    if (Array.isArray(tagRows) && tagRows.length) {
+      const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+      for (const row of tagRows) {
+        const wid = Number(row.wanted_id);
+        if (!Number.isFinite(wid)) continue;
+        const wanted = db.prepare('SELECT id, user_email, title FROM wanted_requests WHERE id = ?').get(wid);
+        if (!wanted || !wanted.user_email) continue;
+        // In-app notification
+        try {
+          db.prepare(`
+            INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+            VALUES (?, ?, ?, ?, 'wanted_tag_buyer', ?, ?)
+          `).run(
+            'A new ad was posted for your request',
+            `Tagged by seller: "${listing.title}".`,
+            String(wanted.user_email).toLowerCase().trim(),
+            new Date().toISOString(),
+            id,
+            JSON.stringify({ wanted_id: wid })
+          );
+        } catch (_) {}
+        // Email the buyer
+        try {
+          const html = `
+            <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+              <h2 style="margin:0 0 10px 0;">A new ad was posted for your request</h2>
+              <p style="margin:0 0 10px 0;">Seller tagged your request: <strong>${wanted.title}</strong></p>
+              <p style="margin:0 0 10px 0;">Ad: <strong>${listing.title}</strong></p>
+              <p style="margin:10px 0 0 0;"><a href="${domain}/listing/${listing.id}" style="color:#0b5fff;text-decoration:none;">View ad</a></p>
+            </div>
+          `;
+          await sendEmail(String(wanted.user_email).toLowerCase().trim(), 'A new ad was posted for your request', html);
+        } catch (_) {}
+      }
+    }
+  } catch (e) {
+    console.warn('[notify] Tag-based notification error:', e && e.message ? e.message : e);
+  }
+
   // If we have a Facebook post URL, notify the listing owner and optionally email them
   try {
     if (fbPostUrl && listing?.owner_email) {
@@ -808,13 +850,53 @@ router.post('/pending/approve_many', requireAdmin, (req, res) => {
           }
         } catch (_) {}
 
-        notified++;
+        // Tag-based notifications for explicit Wanted tags on this listing
+        try {
+          const tagRows = db.prepare('SELECT wanted_id FROM listing_wanted_tags WHERE listing_id = ?').all(id);
+          if (Array.isArray(tagRows) && tagRows.length) {
+            const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+            for (const row of tagRows) {
+              const wid = Number(row.wanted_id);
+              if (!Number.isFinite(wid)) continue;
+              const wanted = db.prepare('SELECT id, user_email, title FROM wanted_requests WHERE id = ?').get(wid);
+              if (!wanted || !wanted.user_email) continue;
+              // In-app
+              try {
+                db.prepare(`
+                  INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+                  VALUES (?, ?, ?, ?, 'wanted_tag_buyer', ?, ?)
+                `).run(
+                  'A new ad was posted for your request',
+                  `Tagged by seller: "${listing.title}".`,
+                  String(wanted.user_email).toLowerCase().trim(),
+                  new Date().toISOString(),
+                  id,
+                  JSON.stringify({ wanted_id: wid })
+                );
+              } catch (_) {}
+              // Email the buyer (best-effort, non-blocking)
+              try {
+                const html = `
+                  <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+                    <h2 style="margin:0 0 10px 0;">A new ad was posted for your request</h2>
+                    <p style="margin:0 0 10px 0;">Seller tagged your request: <strong>${wanted.title}</strong></p>
+                    <p style="margin:0 0 10px 0;">Ad: <strong>${listing.title}</strong></p>
+                    <p style="margin:10px 0 0 0;"><a href="${(process.env.PUBLIC_DOMAIN || 'https://ganudenu.store')}/listing/${listing.id}" style="color:#0b5fff;text-decoration:none;">View ad</a></p>
+                  </div>
+                `;
+                // Fire and forget
+                sendEmail(String(wanted.user_email).toLowerCase().trim(), 'A new ad was posted for your request', html).catch(() => {});
+              } catch (_) {}
+            }
+          }
+        } catch (_) {}
       }
     } catch (_) {}
   }
-  res.json({ ok: true, count: ids.length, notified });
-});
 
+  res.json({ ok: true });
+});
+    
 // Flag listing
 router.post('/flag', requireAdmin, (req, res) => {
   const { listing_id, reason } = req.body || {};

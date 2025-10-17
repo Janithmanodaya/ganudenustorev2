@@ -233,7 +233,7 @@ router.post('/', requireUser, async (req, res) => {
     );
     const id = result.lastInsertRowid;
 
-    // Immediately notify sellers with matching existing approved listings
+    // Immediately notify sellers with matching existing approved listings (in-app only)
     let sellerNotified = 0;
     const matchedListings = [];
     try {
@@ -269,25 +269,13 @@ router.post('/', requireUser, async (req, res) => {
             l.id,
             JSON.stringify({ wanted_id: id })
           );
-          // Email seller
-          try {
-            const link = `${DOMAIN}/listing/${l.id}`;
-            const html = `
-              <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
-                <h2 style="margin:0 0 10px 0;">Immediate buyer request</h2>
-                <p style="margin:0 0 10px 0;">A buyer posted: "<strong>${t}</strong>". Your ad "<strong>${l.title}</strong>" may match.</p>
-                <p style="margin:0;"><a href="${link}" style="color:#0b5fff;text-decoration:none;">View your ad</a></p>
-              </div>
-            `;
-            await sendEmail(owner, 'Immediate buyer request for your item', html);
-          } catch (_) {}
           sellerNotified++;
           if (matchedListings.length < 10) matchedListings.push({ id: l.id, title: l.title });
         }
       }
     } catch (_) {}
 
-    // Notify buyer: in-app + email summary
+    // Notify buyer: in-app only (no email on post)
     db.prepare(`
       INSERT INTO notifications (title, message, target_email, created_at, type, meta_json)
       VALUES (?, ?, ?, ?, 'wanted_posted', ?)
@@ -300,20 +288,6 @@ router.post('/', requireUser, async (req, res) => {
       new Date().toISOString(),
       JSON.stringify({ wanted_id: id, matches_count: sellerNotified })
     );
-    try {
-      const listHtml = matchedListings.map(m => {
-        const link = `${DOMAIN}/listing/${m.id}`;
-        return `<li><a href="${link}" style="color:#0b5fff;text-decoration:none;">${m.title}</a></li>`;
-      }).join('');
-      const html = `
-        <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
-          <h2 style="margin:0 0 10px 0;">Your Wanted request was posted</h2>
-          <p style="margin:0 0 10px 0;">${sellerNotified > 0 ? `We found ${sellerNotified} potential matches.` : 'We will notify you when matches appear.'}</p>
-          ${sellerNotified > 0 ? `<ul style="margin:0 0 10px 0;">${listHtml}</ul>` : ''}
-        </div>
-      `;
-      await sendEmail(email, 'Your Wanted request was posted', html);
-    } catch (_) {}
 
     res.json({ ok: true, id });
   } catch (e) {
