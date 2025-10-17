@@ -187,6 +187,7 @@ ensureColumn('listings', 'facebook_post_url', 'TEXT');
 ensureColumn('listings', 'is_urgent', 'INTEGER DEFAULT 0');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
 ensureColumn('listing_images', 'medium_path', 'TEXT');
+ensureColumn('listing_drafts', 'wanted_tags_json', 'TEXT');
 
 try {
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)").run();
@@ -196,6 +197,17 @@ try {
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_valid_until ON listings(valid_until)").run();
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_owner ON listings(owner_email)").run();
 } catch (_) {}
+
+// Link table: listing -> wanted request tags (max 3 per listing enforced client-side; unique at DB)
+db.prepare(
+  'CREATE TABLE IF NOT EXISTS listing_wanted_tags (' +
+  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+  '  listing_id INTEGER NOT NULL,' +
+  '  wanted_id INTEGER NOT NULL,' +
+  '  created_at TEXT NOT NULL,' +
+  '  UNIQUE(listing_id, wanted_id)' +
+  ')'
+).run();
 
 const CATEGORIES = new Set(['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden', 'Other']);
 function validateListingInputs({ main_category, title, description, files }) {
@@ -739,9 +751,8 @@ Do not confuse employment_type with general 'type' fields for other categories.`
       seoObj = {};
     }
 
-    const ts = new Date().toISOString();
-    const draftRes = db.prepare(
-      'INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, owner_email, created_at) ' +
+    // Parse optional wanted tag ids from request (max 3)
+    let wantedTagIds ='INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, owner_email, created_at) ' +
       'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       selectedCategory,

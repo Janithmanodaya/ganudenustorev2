@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import CustomSelect from '../components/CustomSelect.jsx';
+import { useNavigate } from 'react-router-dom';
 
 const CATEGORIES = ['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden', 'Other'];
 
 export default function WantedBoardPage() {
+  const navigate = useNavigate();
   const [userEmail, setUserEmail] = useState('');
   const [tab, setTab] = useState('browse'); // 'browse' | 'post' | 'mine'
   const [loading, setLoading] = useState(false);
@@ -412,15 +414,29 @@ export default function WantedBoardPage() {
               <div key={r.id} className="card" style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong>{r.title}</strong>
-                  {r.price_not_matter ? (
-                    <span className="pill">Price not a constraint</span>
-                  ) : (
-                    (r.price_min != null || r.price_max != null) && (
-                      <span className="pill">
-                        Budget: {r.price_min != null ? `LKR ${Number(r.price_min).toLocaleString('en-US')}` : 'Any'} - {r.price_max != null ? `LKR ${Number(r.price_max).toLocaleString('en-US')}` : 'Any'}
-                      </span>
-                    )
-                  )}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {r.price_not_matter ? (
+                      <span className="pill">Price not a constraint</span>
+                    ) : (
+                      (r.price_min != null || r.price_max != null) && (
+                        <span className="pill">
+                          Budget: {r.price_min != null ? `LKR ${Number(r.price_min).toLocaleString('en-US')}` : 'Any'} - {r.price_max != null ? `LKR ${Number(r.price_max).toLocaleString('en-US')}` : 'Any'}
+                        </span>
+                      )
+                    )}
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        const catParam = r.category ? `?category=${encodeURIComponent(r.category)}&tagWantedId=${encodeURIComponent(r.id)}` : `?tagWantedId=${encodeURIComponent(r.id)}`;
+                        navigate(`/new${catParam}`);
+                      }}
+                      title="Post a new ad for this request"
+                      aria-label="Post a new ad for this request"
+                    >
+                      Post Ad
+                    </button>
+                  </div>
                 </div>
                 <div className="text-muted" style={{ marginTop: 6 }}>
                   {r.category ? <span>Category: {r.category}</span> : <span>Category: Any</span>}

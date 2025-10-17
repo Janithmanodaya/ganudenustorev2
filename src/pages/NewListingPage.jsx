@@ -13,6 +13,12 @@ export default function NewListingPage() {
   const [showAuthPrompt, setShowAuthPrompt] = useState(false)
   const [processing, setProcessing] = useState(false)
 
+  // Tag Wanted Requests (optional; max 3)
+  const [wantedTags, setWantedTags] = useState([]) // [{id, title}]
+  const [allWanted, setAllWanted] = useState([])   // suggestions pool
+  const [wantedQuery, setWantedQuery] = useState('')
+  const [wantedSelectId, setWantedSelectId] = useState('')
+
   // SEO for new listing page
   useEffect(() => {
     try {
@@ -89,12 +95,51 @@ export default function NewListingPage() {
     try { localStorage.setItem('new_listing_draft', JSON.stringify(data)) } catch (_) {}
   }, [mainCategory, title, description])
 
+  // Preselect category and tagWantedId from query params
   useEffect(() => {
     const cat = sp.get('category')
     if (cat && ['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden'].includes(cat)) {
       setMainCategory(cat)
     }
   }, [sp])
+
+  // Load open wanted requests for suggestions
+  useEffect(() => {
+    async function loadWanted() {
+      try {
+        const r = await fetch('/api/wanted?limit=200')
+        const data = await r.json()
+        const rows = Array.isArray(data.results) ? data.results : []
+        setAllWanted(rows)
+        // Preselect tag from URL if present
+        const tidRaw = sp.get('tagWantedId')
+        const tid = tidRaw ? Number(tidRaw) : null
+        if (Number.isFinite(tid)) {
+          const found = rows.find(x => Number(x.id) === tid)
+          if (found) {
+            setWantedTags(prev => {
+              const exists = prev.some(t => t.id === found.id)
+              if (exists) return prev
+              if (prev.length >= 3) return prev
+              return [...prev, { id: found.id, title: found.title }]
+            })
+          }
+        }
+      } catch (_) {
+        setAllWanted([])
+      }
+    }
+    loadWanted()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Persist selected tags locally (so verify page can read if needed)
+  useEffect(() => {
+    try {
+      const ids = wantedTags.map(t => t.id)
+      localStorage.setItem('new_listing_tag_wanted_ids', JSON.stringify(ids))
+    } catch (_) {}
+  }, [wantedTags])
 
   function openPickerForSlot(index) {
     pendingSlotRef.current = index
@@ -126,6 +171,23 @@ export default function NewListingPage() {
       next[index] = null
       return next
     })
+  }
+
+  function addWantedTagById(id) {
+    const nid = Number(id)
+    if (!Number.isFinite(nid)) return
+    setWantedTags(prev => {
+      if (prev.some(t => t.id === nid)) return prev
+      if (prev.length >= 3) { setStatus('You can tag up to 3 requests.'); return prev }
+      const found = allWanted.find(x => Number(x.id) === nid)
+      if (!found) return prev
+      return [...prev, { id: found.id, title: found.title }]
+    })
+    setWantedSelectId('')
+  }
+
+  function removeWantedTag(id) {
+    setWantedTags(prev => prev.filter(t => t.id !== id))
   }
 
   async function onNext(e) {
@@ -161,6 +223,11 @@ export default function NewListingPage() {
       fd.append('title', title.trim())
       fd.append('description', description.trim())
       for (const img of selectedImages) fd.append('images', img)
+      // include tag wanted ids (max 3) for server to persist on draft
+      try {
+        const ids = wantedTags.map(t => t.id).slice(0, 3)
+        fd.append('wanted_tags_json', JSON.stringify(ids))
+      } catch (_) {}
 
       const user = JSON.parse(localStorage.getItem('user') || 'null')
       const r = await fetch('/api/listings/draft', {
@@ -242,6 +309,16 @@ export default function NewListingPage() {
     )
   }
 
+  // Derived filtered suggestions by query and category (when available)
+  const filteredWanted = useMemo(() => {
+    const q = wantedQuery.trim().toLowerCase()
+    return allWanted
+      .filter(w => String(w.status || '') === 'open')
+      .filter(w => (q ? String(w.title || '').toLowerCase().includes(q) : true))
+      .filter(w => (mainCategory ? (!w.category || w.category === mainCategory) : true))
+      .slice(0, 50)
+  }, [allWanted, wantedQuery, mainCategory])
+
   return (
     <div className="center">
       <div className="card">
@@ -259,6 +336,61 @@ export default function NewListingPage() {
           </select>
           <input id="title" className="input" placeholder="Main Title" value={title} onChange={e => setTitle(e.target.value)} />
           <textarea id="description" className="textarea" placeholder="Description (free-form text)" value={description} onChange={e => setDescription(e.target.value)} />
+
+          {/* Tag buyer requests (optional) */}
+          <div className="card" style={{ marginTop: 8 }}>
+            <div className="h2" style={{ marginTop: 0 }}>Tag Buyer Requests (optional)</div>
+            <p className="text-muted">Select up to 3 Wanted requests so buyers get notified after admin approval.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <input
+                className="input"
+                placeholder="Search requests by title"
+                value={wantedQuery}
+                onChange={e => setWantedQuery(e.target.value)}
+                style={{ minWidth: 220 }}
+              />
+              <select
+                className="select"
+                value={wantedSelectId}
+                onChange={e => setWantedSelectId(e.target.value)}
+                style={{ minWidth: 260 }}
+              >
+                <option value="">Pick a request</option>
+                {filteredWanted.map(w => (
+                  <option key={w.id} value={w.id}>{w.title}</option>
+                ))}
+              </select>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => addWantedTagById(wantedSelectId)}
+                disabled={!wantedSelectId || wantedTags.length >= 3}
+              >
+                Add
+              </button>
+            </div>
+            {wantedTags.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                {wantedTags.map(t => (
+                  <span key={t.id} className="pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {t.title}
+                    <button
+                      type="button"
+                      className="back-btn"
+                      onClick={() => removeWantedTag(t.id)}
+                      title="Remove tag"
+                      aria-label="Remove tag"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="text-muted" style={{ marginTop: 6 }}>
+              {wantedTags.length}/3 tagged
+            </div>
+          </div>
 
           <div>
             <div className="h2" style={{ marginTop: 0 }}>Photos</div>
