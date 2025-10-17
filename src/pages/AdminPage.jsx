@@ -66,6 +66,7 @@ export default function AdminPage() {
   // Banners
   const [banners, setBanners] = useState([])
   const fileRef = useRef(null)
+  const backupFileRef = useRef(null)
 
   // Dashboard metrics
   const [metrics, setMetrics] = useState(null)
@@ -514,6 +515,73 @@ export default function AdminPage() {
     }
   }
 
+  // Backup & Restore
+  async function createBackup() {
+    try {
+      const r = await fetch('/api/admin/backup', {
+        method: 'POST',
+        headers: { 'X-Admin-Email': adminEmail }
+      })
+      const ct = (r.headers && typeof r.headers.get === 'function') ? String(r.headers.get('content-type') || '').toLowerCase() : ''
+      if (!r.ok) {
+        let msg = 'Failed to create backup'
+        try {
+          if (ct.includes('application/json')) {
+            const d = await r.json()
+            msg = d?.error || msg
+          } else {
+            const t = await r.text()
+            if (t) msg = t
+          }
+        } catch (_) {}
+        throw new Error(msg)
+      }
+      const blob = await r.blob()
+      const cd = (r.headers && typeof r.headers.get === 'function') ? String(r.headers.get('content-disposition') || '') : ''
+      let filename = 'ganudenu-backup.zip'
+      const m = cd.match(/filename="([^"]+)"/)
+      if (m && m[1]) filename = m[1]
+
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => {
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+      }, 0)
+      setStatus('Backup downloaded.')
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  async function restoreFromBackup(file) {
+    if (!file) return
+    try {
+      const fd = new FormData()
+      fd.append('backup', file)
+      const r = await fetch('/api/admin/restore', {
+        method: 'POST',
+        headers: { 'X-Admin-Email': adminEmail },
+        body: fd
+      })
+      const data = await safeJson(r)
+      if (!r.ok) throw new Error(data.error || 'Failed to restore from backup')
+      setStatus('Restore completed successfully.')
+      // Refresh some data after restore
+      loadMetrics(rangeDays)
+      loadPending()
+      loadAdminNotifications()
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    } finally {
+      if (backupFileRef.current) backupFileRef.current.value = ''
+    }
+  }
+
   // Notifications (admin)
   async function loadAdminNotifications() {
     try {
@@ -956,6 +1024,7 @@ export default function AdminPage() {
             { key: 'notifications', label: (unreadCount > 0 ? `Notifications (${unreadCount})` : 'Notifications') },
             { key: 'chat', label: 'Chat' },
             { key: 'ai', label: 'AI Config' },
+            { key: 'backup', label: 'Backup' },
             { key: 'approvals', label: 'Approvals' }
           ].map(t => (
             <button
@@ -1453,6 +1522,36 @@ export default function AdminPage() {
 
             <div style={{ marginTop: 8 }}>
               <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
+            </div>
+          </>
+        )}
+
+        {/* Backup */}
+        {activeTab === 'backup' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Backup & Restore</div>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>Full Backup</div>
+              <p className="text-muted">Creates a ZIP file containing the entire database (consistent snapshot), all uploads (images), and secure config. Download the file and keep it safe.</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn primary" onClick={createBackup}>Create Full Backup</button>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 8 }}>
+              <div className="h2" style={{ marginTop: 0 }}>Restore from Backup</div>
+              <p className="text-muted">Restoring will replace the entire database contents and merge uploads from the backup. Make sure you trust the backup file.</p>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button className="btn" onClick={() => backupFileRef.current?.click()}>Choose Backup (.zip)</button>
+                <input
+                  ref={backupFileRef}
+                  type="file"
+                  accept=".zip,application/zip"
+                  style={{ display: 'none' }}
+                  onChange={e => restoreFromBackup((e.target.files && e.target.files[0]) || null)}
+                />
+                <small className="text-muted">Recommended: use the most recent backup. Max size 500MB.</small>
+              </div>
             </div>
           </>
         )}

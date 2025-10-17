@@ -6,6 +6,8 @@ import path from 'path';
 import crypto from 'crypto';
 import multer from 'multer';
 import { sendEmail } from '../lib/utils.js';
+import archiver from 'archiver';
+import AdmZip from 'adm-zip';
 
 const router = Router();
 
@@ -1448,6 +1450,264 @@ router.delete('/listings/:id', requireAdmin, (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Failed to delete listing' });
+  }
+});
+
+// --- Backup and Restore (Full Website) ---
+// Create a ZIP backup containing a consistent snapshot of the database + uploads + secure config.
+// Returns the ZIP file directly as a download response.
+router.post('/backup', requireAdmin, (req, res) => {
+  try {
+    const dataDir = path.resolve(process.cwd(), 'data');
+    const uploadsDir = path.join(dataDir, 'uploads');
+
+    // Create a consistent DB snapshot using SQLite VACUUM INTO. Fallback to direct copy if unavailable.
+    const snapshotPath = path.join(dataDir, `snapshot-${Date.now()}.sqlite`);
+    try { fs.unlinkSync(snapshotPath); } catch (_) {}
+    try {
+      const quoted = snapshotPath.replace(/'/g, "''");
+      db.exec(`VACUUM INTO '${quoted}'`);
+    } catch (_) {
+      // Fallback: direct copy of the DB (may not be perfectly consistent under write load, but acceptable as fallback)
+      try {
+        const dbFile = path.join(dataDir, 'ganudenu.sqlite');
+        fs.copyFileSync(dbFile, snapshotPath);
+      } catch (e2) {
+        return res.status(500).json({ error: 'Failed to create database snapshot' });
+      }
+    }
+
+    const ts = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-');
+    const filename = `ganudenu-backup-${ts}.zip`;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.on('error', (err) => {
+      try { fs.unlinkSync(snapshotPath); } catch (_) {}
+      // If headers already sent, end the stream
+      if (!res.headersSent) res.status(500);
+      res.end();
+    });
+
+    // When finished writing, clean up the snapshot file
+    res.on('finish', () => { try { fs.unlinkSync(snapshotPath); } catch (_) {} });
+    res.on('close', () => { try { fs.unlinkSync(snapshotPath); } catch (_) {} });
+
+    archive.pipe(res);
+
+    // Include DB snapshot as ganudenu.sqlite
+    if (fs.existsSync(snapshotPath)) {
+      archive.file(snapshotPath, { name: 'ganudenu.sqlite' });
+    }
+
+    // Include uploads directory (images, thumbnails, etc.)
+    if (fs.existsSync(uploadsDir)) {
+      archive.directory(uploadsDir, 'uploads');
+    }
+
+    // Include secure config if present
+    const secureConfigPath = path.resolve(process.cwd(), 'data', 'secure-config.enc');
+    if (fs.existsSync(secureConfigPath)) {
+      archive.file(secureConfigPath, { name: 'secure-config.enc' });
+    }
+
+    // Include AI temp extracts if present (optional but useful)
+    const tmpAiDir = path.resolve(process.cwd(), 'data', 'tmp_ai');
+    if (fs.existsSync(tmpAiDir)) {
+      archive.directory(tmpAiDir, 'tmp_ai');
+    }
+
+    // Basic metadata
+    const meta = JSON.stringify({
+      created_at: new Date().toISOString(),
+      db_snapshot_size: (() => { try { return fs.statSync(snapshotPath).size; } catch (_) { return null; } })()
+    }, null, 2);
+    archive.append(meta, { name: 'meta.json' });
+
+    archive.finalize();
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to create backup' });
+  }
+});
+
+// Restore from a ZIP backup. This will:
+// - Replace the entire database content by copying schema + data from backup DB into current DB.
+// - Merge uploads from the backup into the current uploads directory (overwrites when filenames collide).
+// - Restore secure-config.enc if present.
+// Note: Performs the operation within a transaction with foreign_keys disabled. Other requests may be blocked briefly.
+const tmpRestoreDir = path.resolve(process.cwd(), 'data', 'tmp_restore');
+if (!fs.existsSync(tmpRestoreDir)) fs.mkdirSync(tmpRestoreDir, { recursive: true });
+const backupUpload = multer({
+  dest: tmpRestoreDir,
+  limits: { files: 1, fileSize: 500 * 1024 * 1024 } // up to 500MB
+});
+
+function copyDirRecursiveSync(src, dest) {
+  if (!fs.existsSync(src)) return;
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src)) {
+    const s = path.join(src, entry);
+    const d = path.join(dest, entry);
+    const stat = fs.statSync(s);
+    if (stat.isDirectory()) {
+      copyDirRecursiveSync(s, d);
+    } else if (stat.isFile()) {
+      try {
+        fs.copyFileSync(s, d);
+      } catch (_) {}
+    }
+  }
+}
+
+router.post('/restore', requireAdmin, backupUpload.single('backup'), async (req, res) => {
+  try {
+    const f = req.file;
+    if (!f) return res.status(400).json({ error: 'Backup file (ZIP) required' });
+
+    // Basic ZIP signature check (PK\x03\x04)
+    try {
+      const fd = fs.openSync(f.path, 'r');
+      const buf = Buffer.alloc(4);
+      fs.readSync(fd, buf, 0, 4, 0);
+      fs.closeSync(fd);
+      const isZip = buf[0] === 0x50 && buf[1] === 0x4B && (buf[2] === 0x03 || buf[2] === 0x05 || buf[2] === 0x07) && (buf[3] === 0x04 || buf[3] === 0x06 || buf[3] === 0x08);
+      if (!isZip) {
+        try { fs.unlinkSync(f.path); } catch (_) {}
+        return res.status(400).json({ error: 'Invalid backup format. Please upload a .zip file.' });
+      }
+    } catch (_) {
+      // continue; we'll try to extract anyway
+    }
+
+    // Extract ZIP to a new temp directory
+    const extractDir = path.join(tmpRestoreDir, `extracted-${Date.now()}`);
+    fs.mkdirSync(extractDir, { recursive: true });
+    try {
+      const zip = new AdmZip(f.path);
+      zip.extractAllTo(extractDir, true);
+    } catch (e) {
+      try { fs.unlinkSync(f.path); } catch (_) {}
+      return res.status(400).json({ error: 'Failed to extract backup ZIP' });
+    } finally {
+      try { fs.unlinkSync(f.path); } catch (_) {}
+    }
+
+    const dataDir = path.resolve(process.cwd(), 'data');
+    const restoreDbPath = path.join(extractDir, 'ganudenu.sqlite');
+    if (!fs.existsSync(restoreDbPath)) {
+      // Some backups might store DB under data/ganudenu.sqlite
+      const altPath = path.join(extractDir, 'data', 'ganudenu.sqlite');
+      if (fs.existsSync(altPath)) {
+        try { fs.renameSync(altPath, restoreDbPath); } catch (_) {}
+      }
+    }
+    if (!fs.existsSync(restoreDbPath)) {
+      // Cleanup extraction dir
+      try { fs.rmSync(extractDir, { recursive: true, force: true }); } catch (_) {}
+      return res.status(400).json({ error: 'Backup is missing ganudenu.sqlite' });
+    }
+
+    // Attach backup DB and copy schema + data into main
+    const quoted = restoreDbPath.replace(/'/g, "''");
+    try {
+      db.exec(`PRAGMA foreign_keys = OFF`);
+      db.exec(`BEGIN EXCLUSIVE`);
+      db.exec(`ATTACH DATABASE '${quoted}' AS restore`);
+
+      // Drop existing tables, indexes, triggers in main
+      const mainTables = db.prepare(`SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'`).all();
+      for (const t of mainTables) {
+        const name = String(t.name);
+        if (!name) continue;
+        try { db.exec(`DROP TABLE IF EXISTS "${name}"`); } catch (_) {}
+      }
+      const mainIndexes = db.prepare(`SELECT name FROM sqlite_schema WHERE type='index' AND name NOT LIKE 'sqlite_%'`).all();
+      for (const idx of mainIndexes) {
+        const name = String(idx.name);
+        if (!name) continue;
+        try { db.exec(`DROP INDEX IF EXISTS "${name}"`); } catch (_) {}
+      }
+      const mainTriggers = db.prepare(`SELECT name FROM sqlite_schema WHERE type='trigger'`).all();
+      for (const tr of mainTriggers) {
+        const name = String(tr.name);
+        if (!name) continue;
+        try { db.exec(`DROP TRIGGER IF EXISTS "${name}"`); } catch (_) {}
+      }
+
+      // Recreate tables from restore schema
+      const restoreTables = db.prepare(`SELECT name, sql FROM restore.sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'`).all();
+      for (const t of restoreTables) {
+        const createSql = String(t.sql || '').trim();
+        const name = String(t.name || '').trim();
+        if (!createSql || !name) continue;
+        db.exec(createSql);
+      }
+      // Copy data for each table
+      for (const t of restoreTables) {
+        const name = String(t.name || '').trim();
+        if (!name) continue;
+        try {
+          db.exec(`INSERT INTO "${name}" SELECT * FROM restore."${name}"`);
+        } catch (_) {
+          // if columns mismatch, skip
+        }
+      }
+
+      // Recreate indexes
+      const restoreIndexes = db.prepare(`SELECT name, sql FROM restore.sqlite_schema WHERE type='index' AND sql IS NOT NULL AND name NOT LIKE 'sqlite_%'`).all();
+      for (const idx of restoreIndexes) {
+        const sql = String(idx.sql || '').trim();
+        if (!sql) continue;
+        try { db.exec(sql); } catch (_) {}
+      }
+
+      // Recreate triggers
+      const restoreTriggers = db.prepare(`SELECT name, sql FROM restore.sqlite_schema WHERE type='trigger' AND sql IS NOT NULL`).all();
+      for (const tr of restoreTriggers) {
+        const sql = String(tr.sql || '').trim();
+        if (!sql) continue;
+        try { db.exec(sql); } catch (_) {}
+      }
+
+      db.exec(`DETACH DATABASE restore`);
+      db.exec(`COMMIT`);
+      db.exec(`PRAGMA foreign_keys = ON`);
+    } catch (e) {
+      try { db.exec(`ROLLBACK`); } catch (_) {}
+      try { db.exec(`PRAGMA foreign_keys = ON`); } catch (_) {}
+      // Cleanup extraction dir
+      try { fs.rmSync(extractDir, { recursive: true, force: true }); } catch (_) {}
+      return res.status(500).json({ error: 'Failed to restore database from backup' });
+    }
+
+    // Restore uploads (merge/overwrite collisions)
+    try {
+      const backupUploads = path.join(extractDir, 'uploads');
+      if (fs.existsSync(backupUploads)) {
+        const destUploads = path.join(dataDir, 'uploads');
+        fs.mkdirSync(destUploads, { recursive: true });
+        copyDirRecursiveSync(backupUploads, destUploads);
+      }
+    } catch (_) {}
+
+    // Restore secure config if present
+    try {
+      const backupSecure = path.join(extractDir, 'secure-config.enc');
+      if (fs.existsSync(backupSecure)) {
+        const destSecure = path.resolve(process.cwd(), 'data', 'secure-config.enc');
+        fs.copyFileSync(backupSecure, destSecure);
+      }
+    } catch (_) {}
+
+    // Cleanup extraction dir
+    try { fs.rmSync(extractDir, { recursive: true, force: true }); } catch (_) {}
+
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to restore from backup' });
   }
 });
 
