@@ -29,6 +29,9 @@ export default function WantedBoardPage() {
   const [models, setModels] = useState([]);
   const [modelInput, setModelInput] = useState('');
   const [modelSuggestedValue, setModelSuggestedValue] = useState('');
+  const [jobTypes, setJobTypes] = useState([]);
+  const [jobTypeInput, setJobTypeInput] = useState('');
+  const [jobTypeSuggestedValue, setJobTypeSuggestedValue] = useState('');
   const [yearMin, setYearMin] = useState('');
   const [yearMax, setYearMax] = useState('');
   const [priceMin, setPriceMin] = useState('');
@@ -91,6 +94,7 @@ export default function WantedBoardPage() {
       setFilterCustomValue('');
       setModelSuggestedValue('');
       setLocSuggestedValue('');
+      setJobTypeSuggestedValue('');
     }
     loadFilters();
   }, [form.category]);
@@ -140,6 +144,16 @@ export default function WantedBoardPage() {
   }
   function removeModel(v) {
     setModels(prev => prev.filter(x => x !== v));
+  }
+  function addJobType() {
+    const v = String(jobTypeInput || jobTypeSuggestedValue || '').trim();
+    if (!v) return;
+    setJobTypes(prev => (prev.includes(v) ? prev : [...prev, v]));
+    setJobTypeInput('');
+    setJobTypeSuggestedValue('');
+  }
+  function removeJobType(v) {
+    setJobTypes(prev => prev.filter(x => x !== v));
   }
 
   function addFilterValue() {
@@ -228,7 +242,7 @@ export default function WantedBoardPage() {
       const filtersPayload = {};
       for (const [k, arr] of Object.entries(selectedFilters)) {
         if (!Array.isArray(arr) || arr.length === 0) continue;
-        if (['location', 'pricing_type', 'price', 'phone', 'model'].includes(k)) continue;
+        if (['location', 'pricing_type', 'price', 'phone', 'model', 'job_type'].includes(k)) continue;
         filtersPayload[k] = arr;
       }
 
@@ -238,6 +252,7 @@ export default function WantedBoardPage() {
         category: form.category || '',
         locations,
         models: (form.category === 'Vehicle' || form.category === 'Mobile' || form.category === 'Electronic') ? models : [],
+        job_types: form.category === 'Job' ? jobTypes : [],
         year_min: form.category === 'Vehicle' && yearMin ? Number(yearMin) : '',
         year_max: form.category === 'Vehicle' && yearMax ? Number(yearMax) : '',
         price_min: priceNoMatter ? '' : (priceMin ? Number(priceMin) : ''),
@@ -258,6 +273,7 @@ export default function WantedBoardPage() {
         setForm({ title: '', category: '', description: '' });
         setLocations([]);
         setModels([]);
+        setJobTypes([]);
         setYearMin('');
         setYearMax('');
         setPriceMin('');
@@ -364,7 +380,7 @@ export default function WantedBoardPage() {
     }
   }
 
-  const filteredKeysForUI = (filtersMeta.keys || []).filter(k => !['location', 'pricing_type', 'price', 'phone', 'model'].includes(k));
+  const filteredKeysForUI = (filtersMeta.keys || []).filter(k => !['location', 'pricing_type', 'price', 'phone', 'model', 'job_type'].includes(k));
 
   return (
     <div className="container">
@@ -390,7 +406,8 @@ export default function WantedBoardPage() {
             const locs = parseArray(r.locations_json);
             const modelsArr = parseArray(r.models_json);
             const filtersObj = parseFilters(r.filters_json);
-            const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model'].includes(String(k)));
+            const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model', 'job_type'].includes(String(k)));
+            const jobTypesArr = parseArray(r.job_types_json);
             return (
               <div key={r.id} className="card" style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -415,6 +432,11 @@ export default function WantedBoardPage() {
                 {modelsArr.length > 0 && (r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && (
                   <div className="text-muted" style={{ marginTop: 6 }}>
                     Models: {modelsArr.join(', ')}
+                  </div>
+                )}
+                {r.category === 'Job' && jobTypesArr.length > 0 && (
+                  <div className="text-muted" style={{ marginTop: 6 }}>
+                    Job Types: {jobTypesArr.join(', ')}
                   </div>
                 )}
                 {filterEntries.length > 0 && (
@@ -531,6 +553,35 @@ export default function WantedBoardPage() {
                 <button className="btn" type="button" onClick={addModel}>Add</button>
               </div>
               {renderChips(models, removeModel)}
+            </div>
+          )}
+
+          {form.category === 'Job' && (
+            <div className="card" style={{ marginTop: 10 }}>
+              <div className="h3" style={{ marginTop: 0 }}>Job Type(s)</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 240, flex: '0 0 240px' }}>
+                  <CustomSelect
+                    value={jobTypeSuggestedValue}
+                    onChange={v => setJobTypeSuggestedValue(v)}
+                    ariaLabel="Suggested job types"
+                    placeholder="Suggested job types"
+                    options={(filtersMeta.valuesByKey?.['job_type'] || []).map(v => ({ value: v, label: v }))}
+                    searchable={true}
+                    allowCustom={true}
+                  />
+                </div>
+                <input
+                  className="input"
+                  placeholder="Or type a job type (e.g., Accountant)"
+                  value={jobTypeInput}
+                  onChange={e => setJobTypeInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addJobType(); }}}
+                  style={{ minWidth: 220 }}
+                />
+                <button className="btn" type="button" onClick={addJobType}>Add</button>
+              </div>
+              {renderChips(jobTypes, removeJobType)}
             </div>
           )}
 
@@ -673,7 +724,8 @@ export default function WantedBoardPage() {
                 const locs = parseArray(r.locations_json);
                 const modelsArr = parseArray(r.models_json);
                 const filtersObj = parseFilters(r.filters_json);
-                const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model'].includes(String(k)));
+                const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model', 'job_type'].includes(String(k)));
+                const jobTypesArr = parseArray(r.job_types_json);
                 return (
                   <div key={r.id} className="card" style={{ marginBottom: 10 }}>
                     <strong>{r.title}</strong>
@@ -687,6 +739,11 @@ export default function WantedBoardPage() {
                     {modelsArr.length > 0 && (r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && (
                       <div className="text-muted" style={{ marginTop: 6 }}>
                         Models: {modelsArr.join(', ')}
+                      </div>
+                    )}
+                    {r.category === 'Job' && jobTypesArr.length > 0 && (
+                      <div className="text-muted" style={{ marginTop: 6 }}>
+                        Job Types: {jobTypesArr.join(', ')}
                       </div>
                     )}
                     {filterEntries.length > 0 && (
