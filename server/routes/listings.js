@@ -1014,7 +1014,10 @@ router.post('/submit', async (req, res) => {
       if (wantedIds.length) {
         const ins = db.prepare('INSERT OR IGNORE INTO listing_wanted_tags (listing_id, wanted_id, created_at) VALUES (?, ?, ?)');
         const nowIso = new Date().toISOString();
-        forry {
+        for (const wid of wantedIds) {
+          try { ins.run(listingId, wid, nowIso); } catch (_) {}
+        }
+      }
       if (ownerEmail) {
         db.prepare(`
           INSERT INTO notifications (title, message, target_email, created_at, type, listing_id)
