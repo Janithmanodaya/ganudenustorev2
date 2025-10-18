@@ -854,12 +854,12 @@ export default function ViewListingPage() {
                 {descOpen ? (
                   <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
                 ) : (
-                 <<div
+                  <div
                     className="desc-mobile-preview"
                     dangerouslySetInnerHTML={renderDescHTML(
                       truncateForPreview(listing?.enhanced_description || listing?.description || '', 180)
                     )}
-                           </p>
+                  />
                 )}
                 {String(listing?.enhanced_description || listing?.description || '').length > 180 && (
                   <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
