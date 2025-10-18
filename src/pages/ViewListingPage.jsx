@@ -75,6 +75,26 @@ export default function ViewListingPage() {
     }
   }
 
+  // Truncate for mobile preview while keeping bold markers balanced where possible
+  function truncateForPreview(desc, limit = 180) {
+    const s = String(desc || '');
+    if (s.length <= limit) return s;
+    let t = s.slice(0, limit);
+    // If we cut inside an odd "**" count, remove the last unmatched "**" to avoid showing raw asterisks
+    const starPairs = (t.match(/\*\*/g) || []).length;
+    if (starPairs % 2 === 1) {
+      const li = t.lastIndexOf('**');
+      if (li >= 0) t = t.slice(0, li) + t.slice(li + 2);
+    }
+    // Same for the bullet bold marker "••"
+    const bulletPairs = (t.match(/•{2}/g) || []).length;
+    if (bulletPairs % 2 === 1) {
+      const li = t.lastIndexOf('••');
+      if (li >= 0) t = t.slice(0, li) + t.slice(li + 2);
+    }
+    return t + '…';
+  }
+
   // Lightbox state for full-size image with zoom and slide controls
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
@@ -830,14 +850,16 @@ export default function ViewListingPage() {
                 <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
               </div>
               {/* Mobile collapsible description */}
-             <<div className="desc-mobile">
+              <div className="desc-mobile">
                 {descOpen ? (
-                 <<div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
+                  <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
                 ) : (
-                  <p style={{ whiteSpace: 'pre-wrap' }}>
-                    {String(listing?.enhanced_description || listing?.description || '').slice(0, 180)}
-                    {String(listing?.enhanced_description || listing?.description || '').length > 180 ? '…' : ''}
-                  </p>
+                  <div
+                    className="desc-mobile-preview"
+                    dangerouslySetInnerHTML={renderDescHTML(
+                      truncateForPreview(listing?.enhanced_description || listing?.description || '', 180)
+                    )}
+                  />
                 )}
                 {String(listing?.enhanced_description || listing?.description || '').length > 180 && (
                   <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
