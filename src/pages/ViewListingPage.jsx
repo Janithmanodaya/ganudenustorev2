@@ -830,9 +830,9 @@ export default function ViewListingPage() {
                 <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
               </div>
               {/* Mobile collapsible description */}
-              <div className="desc-mobile">
+             <<div className="desc-mobile">
                 {descOpen ? (
-                  <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
+                 <<div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
                 ) : (
                   <p style={{ whiteSpace: 'pre-wrap' }}>
                     {String(listing?.enhanced_description || listing?.description || '').slice(0, 180)}
