@@ -960,7 +960,7 @@ export default function WantedBoardPage() {
                     ))}
                   </div>
                 )}
-                {r.description && <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{r.description}</div>
+                {r.description && <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{r.description}</div>}
 
                 {canOffer && (
                   <div style={{ marginTop: 10 }}>
