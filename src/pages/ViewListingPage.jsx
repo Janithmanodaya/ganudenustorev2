@@ -977,11 +977,13 @@ export default function ViewListingPage() {
                               style={{
                                 position: 'absolute',
                                 top: 8,
-                                right: 8,
-                                background: 'rgba(239,68,68,0.15)',
-                                border: '1px solid rgba(239,68,68,0.35)',
-                                color: '#fecaca',
-                                fontSize: 12
+                                left: 8,
+                                background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))',
+                                border: '1px solid rgba(239,68,68,0.5)',
+                                color: '#fff',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                boxShadow: '0 4px 12px rgba(239,68,68,0.25)'
                               }}
                             >
                               Urgent
