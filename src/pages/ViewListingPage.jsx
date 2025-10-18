@@ -53,7 +53,7 @@ export default function ViewListingPage() {
       .join(' ')
   }
 
-  // Simple formatter: escape HTML, preserve newlines, support **bold**
+  // Simple formatter: escape HTML, preserve newlines, support **bold** and ••bold••
   function renderDescHTML(desc) {
     try {
       let s = String(desc || '');
@@ -62,8 +62,11 @@ export default function ViewListingPage() {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-      // Bold: **text**
+      // Bold markers:
+      // - Markdown style: **text**
+      // - Bullet style seen in older descriptions: ••text••
       s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      s = s.replace(/•{2}(.+?)•{2}/g, '<strong>$1</strong>');
       // Preserve line breaks
       s = s.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '<br/>');
       return { __html: s };
@@ -827,9 +830,9 @@ export default function ViewListingPage() {
                 <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
               </div>
               {/* Mobile collapsible description */}
-              <div className="desc-mobile">
+             <<div className="desc-mobile">
                 {descOpen ? (
-                  <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
+                 <<div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
                 ) : (
                   <p style={{ whiteSpace: 'pre-wrap' }}>
                     {String(listing?.enhanced_description || listing?.description || '').slice(0, 180)}
@@ -957,9 +960,8 @@ export default function ViewListingPage() {
                   }
                   return (
                     <div
-                      key={item.id}
-                      className="card"
-                      onClick={() => navigate(permalinkForItem(item))}
+                    dangerouslySetInnerHTML={renderDescPreviewHTML(listing?.enhanced_description || listing?.description)}
+                _code}
                       style={{ cursor: 'pointer' }}
                     >
                       {hero && (
@@ -977,11 +979,13 @@ export default function ViewListingPage() {
                               style={{
                                 position: 'absolute',
                                 top: 8,
-                                right: 8,
-                                background: 'rgba(239,68,68,0.15)',
-                                border: '1px solid rgba(239,68,68,0.35)',
-                                color: '#fecaca',
-                                fontSize: 12
+                                left: 8,
+                                background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))',
+                                border: '1px solid rgba(239,68,68,0.5)',
+                                color: '#fff',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                boxShadow: '0 4px 12px rgba(239,68,68,0.25)'
                               }}
                             >
                               Urgent

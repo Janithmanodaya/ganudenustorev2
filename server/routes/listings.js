@@ -444,20 +444,36 @@ router.post('/draft', upload.array('images', 5), async (req, res) => {
     const validationError = validateListingInputs({ main_category: selectedCategory, title, description, files });
     if (validationError) return res.status(400).json({ error: validationError });
 
+    // Accept any standard image format (JPEG, PNG, WebP, GIF, AVIF, TIFF, SVG) via mimetype check.
+    // Multer's fileFilter already restricts to image/*, and sharp will convert to WebP for storage.
     for (const f of files) {
+      const mt = String(f.mimetype || '');
+      if (!mt.startsWith('image/')) {
+        try { fs.unlinkSync(f.path); } catch (_) {}
+        return res.status(400).json({ error: 'File ' + (f.originalname) + ' is not an image.' });
+      }
+      // Optional: lightweight magic check to guard against mislabeled files (best-effort, non-blocking).
       try {
         const fd = fs.openSync(f.path, 'r');
-        const buf = Buffer.alloc(8);
-        fs.readSync(fd, buf, 0, 8, 0);
+        const buf = Buffer.alloc(12);
+        fs.readSync(fd, buf, 0, 12, 0);
         fs.closeSync(fd);
         const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
         const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
-        if (!isJpeg && !isPng) {
-          try { fs.unlinkSync(f.path); } catch (_) {}
-          return res.status(400).json({ error: 'File ' + (f.originalname) + ' is not a valid JPEG/PNG.' });
+        const isWebp = buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 && // 'RIFF'
+                       buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50;   // 'WEBP'
+        const isGif = buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38;      // 'GIF8'
+        const isAvif = buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70 &&   // 'ftyp'
+                       buf[8] === 0x61 && buf[9] === 0x76 && buf[10] === 0x69 && buf[11] === 0x66;   // 'avif' (heuristic)
+        const isTiff = (buf[0] === 0x49 && buf[1] === 0x49 && buf[2] === 0x2A && buf[3] === 0x00) || // 'II*\\0'
+                       (buf[0] === 0x4D && buf[1] === 0x4D && buf[2] === 0x00 && buf[3] === 0x2A);   // 'MM\\0*'
+        const isSvg = mt === 'image/svg+xml';
+        if (!(isJpeg || isPng || isWebp || isGif || isAvif || isTiff || isSvg)) {
+          // Do not block; rely on mimetype. Just warn.
+          console.warn('[upload] Unrecognized image magic for', f.originalname, 'mimetype:', mt);
         }
-      } catch (_) {
-        return res.status(400).json({ error: 'Failed to read file ' + (f.originalname) + '.' });
+      } catch (e) {
+        // Non-blocking: continue if magic check fails; multer and sharp will handle real images.
       }
     }
 
@@ -1806,6 +1822,47 @@ router.get('/payment-info/:id', (req, res) => {
   } catch (e) {
     console.error('[listings] /payment-info/:id error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to load payment info' });
+  }
+});
+
+// Seller note to admin regarding payment
+router.post('/payment-note', async (req, res) => {
+  try {
+    const listingId = Number(req.body?.listing_id);
+    const noteText = String(req.body?.note || '').trim();
+    if (!Number.isFinite(listingId)) return res.status(400).json({ error: 'Invalid listing_id' });
+    if (!noteText || noteText.length < 2) return res.status(400).json({ error: 'Note is required' });
+
+    const listing = db.prepare('SELECT id, title, owner_email FROM listings WHERE id = ?').get(listingId);
+    if (!listing) return res.status(404).json({ error: 'Listing not found' });
+
+    // Collect admin emails
+    const admins = db.prepare('SELECT email FROM users WHERE is_admin = 1').all();
+    const adminEmails = Array.isArray(admins) ? admins.map(r => String(r.email || '').toLowerCase().trim()).filter(Boolean) : [];
+    if (adminEmails.length === 0) {
+      // Fallback to env ADMIN_EMAIL if no admin users found
+      const fallback = (process.env.ADMIN_EMAIL || '').toLowerCase().trim();
+      if (fallback) adminEmails.push(fallback);
+    }
+    if (adminEmails.length === 0) return res.status(500).json({ error: 'Admin not configured' });
+
+    const now = new Date().toISOString();
+    const title = 'Payment note received';
+    const message = `Seller note for listing #${listing.id} (“${listing.title}”): ${noteText}`;
+    const meta = JSON.stringify({ sender_email: String(listing.owner_email || '').toLowerCase().trim() });
+
+    const stmt = db.prepare(`
+      INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
+      VALUES (?, ?, ?, ?, 'payment_note', ?, ?)
+    `);
+    for (const email of adminEmails) {
+      try { stmt.run(title, message, email, now, listing.id, meta); } catch (_) {}
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[listings] /payment-note error:', e && e.message ? e.message : e);
+    res.status(500).json({ error: 'Failed to send note' });
   }
 });
 

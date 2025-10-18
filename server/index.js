@@ -439,11 +439,26 @@ function purgeOldChats() {
   }
 }
 
+// Purge wanted requests older than 15 days
+function purgeOldWantedRequests() {
+  try {
+    const cutoff = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+    const info = db.prepare(`DELETE FROM wanted_requests WHERE status = 'open' AND created_at < ?`).run(cutoff);
+    if (info.changes) {
+      console.log(`[cleanup] Purged ${info.changes} wanted requests older than 15 days at ${new Date().toISOString()}`);
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
 // Run cleanup at startup and hourly
 purgeExpiredListings();
 purgeOldChats();
+purgeOldWantedRequests();
 setInterval(purgeExpiredListings, 60 * 60 * 1000);
 setInterval(purgeOldChats, 60 * 60 * 1000);
+setInterval(purgeOldWantedRequests, 60 * 60 * 1000);
 
 // Email digests for saved-search notifications (runs every 15 minutes)
 async function sendSavedSearchEmailDigests() {
