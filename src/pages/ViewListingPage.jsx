@@ -960,8 +960,9 @@ export default function ViewListingPage() {
                   }
                   return (
                     <div
-                    dangerouslySetInnerHTML={renderDescPreviewHTML(listing?.enhanced_description || listing?.description)}
-                _code}
+                      key={item.id}
+                      className="card"
+                      onClick={() => navigate(permalinkForItem(item))}
                       style={{ cursor: 'pointer' }}
                     >
                       {hero && (
