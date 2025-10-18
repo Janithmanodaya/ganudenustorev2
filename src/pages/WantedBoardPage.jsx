@@ -887,6 +887,26 @@ export default function WantedBoardPage() {
             const filtersObj = parseFilters(r.filters_json);
             const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model', 'job_type'].includes(String(k)));
             const jobTypesArr = parseArray(r.job_types_json);
+            // Age label from created_at: minutes in first hour, then hours, then days (same as homepage)
+            let ageStr = '';
+            try {
+              if (r.created_at) {
+                const created = new Date(r.created_at);
+                const diffMs = Date.now() - created.getTime();
+                const mins = Math.max(0, Math.floor(diffMs / 60000));
+                if (mins < 60) {
+                  ageStr = `${mins} min${mins === 1 ? '' : 's'} ago`;
+                } else {
+                  const hours = Math.floor(mins / 60);
+                  if (hours < 24) {
+                    ageStr = `${hours} hour${hours === 1 ? '' : 's'} ago`;
+                  } else {
+                    const days = Math.floor(hours / 24);
+                    ageStr = `${days} day${days === 1 ? '' : 's'} ago`;
+                  }
+                }
+              }
+            } catch (_) {}
             return (
               <div key={r.id} className="card" style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -921,6 +941,7 @@ export default function WantedBoardPage() {
                   {r.category === 'Vehicle' && (r.year_min || r.year_max) ? (
                     <span> • Year: {r.year_min || 'Any'} - {r.year_max || 'Any'}</span>
                   ) : null}
+                  {ageStr ? <span> • {ageStr}</span> : null}
                 </div>
                 {modelsArr.length > 0 && (r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && (
                   <div className="text-muted" style={{ marginTop: 6 }}>
@@ -939,7 +960,7 @@ export default function WantedBoardPage() {
                     ))}
                   </div>
                 )}
-                {r.description && <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{r.description}</div>}
+                {r.description && <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{r.description}</div>
 
                 {canOffer && (
                   <div style={{ marginTop: 10 }}>
@@ -1219,6 +1240,26 @@ export default function WantedBoardPage() {
                 const filtersObj = parseFilters(r.filters_json);
                 const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model', 'job_type'].includes(String(k)));
                 const jobTypesArr = parseArray(r.job_types_json);
+                // Age label from created_at (same as homepage)
+                let ageStr = '';
+                try {
+                  if (r.created_at) {
+                    const created = new Date(r.created_at);
+                    const diffMs = Date.now() - created.getTime();
+                    const mins = Math.max(0, Math.floor(diffMs / 60000));
+                    if (mins < 60) {
+                      ageStr = `${mins} min${mins === 1 ? '' : 's'} ago`;
+                    } else {
+                      const hours = Math.floor(mins / 60);
+                      if (hours < 24) {
+                        ageStr = `${hours} hour${hours === 1 ? '' : 's'} ago`;
+                      } else {
+                        const days = Math.floor(hours / 24);
+                        ageStr = `${days} day${days === 1 ? '' : 's'} ago`;
+                      }
+                    }
+                  }
+                } catch (_) {}
                 return (
                   <div key={r.id} className="card" style={{ marginBottom: 10 }}>
                     <strong>{r.title}</strong>
@@ -1228,6 +1269,7 @@ export default function WantedBoardPage() {
                       {r.category === 'Vehicle' && (r.year_min || r.year_max) ? (
                         <span> • Year: {r.year_min || 'Any'} - {r.year_max || 'Any'}</span>
                       ) : null}
+                      {ageStr ? <span> • {ageStr}</span> : null}
                     </div>
                     {modelsArr.length > 0 && (r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && (
                       <div className="text-muted" style={{ marginTop: 6 }}>
