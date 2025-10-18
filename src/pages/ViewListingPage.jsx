@@ -53,7 +53,7 @@ export default function ViewListingPage() {
       .join(' ')
   }
 
-  // Simple formatter: escape HTML, preserve newlines, support **bold**
+  // Simple formatter: escape HTML, preserve newlines, support **bold** and ••bold••
   function renderDescHTML(desc) {
     try {
       let s = String(desc || '');
@@ -62,8 +62,11 @@ export default function ViewListingPage() {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-      // Bold: **text**
+      // Bold markers:
+      // - Markdown style: **text**
+      // - Bullet style seen in older descriptions: ••text••
       s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      s = s.replace(/•{2}(.+?)•{2}/g, '<strong>$1</strong>');
       // Preserve line breaks
       s = s.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '<br/>');
       return { __html: s };
