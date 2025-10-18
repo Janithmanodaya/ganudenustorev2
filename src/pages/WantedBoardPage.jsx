@@ -469,6 +469,155 @@ export default function WantedBoardPage() {
 
   const filteredKeysForUI = (filtersMeta.keys || []).filter(k => !['location', 'pricing_type', 'price', 'phone', 'model', 'job_type'].includes(k));
 
+  // Helpers and missing handlers
+
+  // Render array as chips with remove buttons
+  function renderChips(items, onRemove) {
+    const arr = Array.isArray(items) ? items : [];
+    if (!arr.length) return null;
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+        {arr.map((v, idx) => (
+          <span key={`${String(v)}-${idx}`} className="pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {String(v)}
+            <button
+              type="button"
+              className="back-btn"
+              onClick={() => onRemove(v)}
+              title="Remove"
+              aria-label="Remove"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  // Load my wanted requests for the "mine" tab
+  async function loadMyRequests() {
+    if (!userEmail) { setMyRequests([]); return; }
+    try {
+      const r = await fetch('/api/wanted/my', { headers: { 'X-User-Email': userEmail } });
+      const data = await r.json();
+      setMyRequests(Array.isArray(data.results) ? data.results : []);
+    } catch (_) {
+      setMyRequests([]);
+    }
+  }
+
+  // Can current user offer one of their listings
+  const canOffer = useMemo(() => {
+    return !!(userEmail && myListings && myListings.length > 0);
+  }, [userEmail, myListings]);
+
+  // Send an offer (seller responds to a wanted request)
+  async function sendOffer(wantedId) {
+    const lid = Number(offerSelections[wantedId] || 0);
+    if (!userEmail) { alert('Please login first.'); return; }
+    if (!lid) { alert('Select one of your ads to offer.'); return; }
+    setOfferSending(prev => ({ ...prev, [wantedId]: true }));
+    try {
+      const r = await fetch('/api/wanted/respond', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Email': userEmail
+        },
+        body: JSON.stringify({ wanted_id: wantedId, listing_id: lid, message: '' })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        alert(data?.error || 'Failed to send offer');
+      } else {
+        alert('Offer sent');
+      }
+    } catch (_) {
+      alert('Failed to send offer');
+    } finally {
+      setOfferSending(prev => ({ ...prev, [wantedId]: false }));
+    }
+  }
+
+  // Close my wanted request
+  async function closeRequest(id) {
+    if (!userEmail) { alert('Please login first.'); return; }
+    try {
+      const r = await fetch(`/api/wanted/${id}/close`, {
+        method: 'POST',
+        headers: { 'X-User-Email': userEmail }
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        alert(data?.error || 'Failed to close request');
+      } else {
+        await loadMyRequests();
+      }
+    } catch (_) {
+      alert('Failed to close request');
+    }
+  }
+
+  // Submit a new wanted request
+  async function submitForm(e) {
+    e.preventDefault();
+    if (loading) return;
+    setPostStatus({ ok: false, message: '' });
+    setLoading(true);
+    try {
+      const payload = {
+        title: String(form.title || '').trim(),
+        description: String(form.description || '').trim(),
+        category: String(form.category || '').trim(),
+        locations: Array.isArray(locations) ? locations : [],
+        models: Array.isArray(models) ? models : [],
+        year_min: yearMin ? Number(yearMin) : null,
+        year_max: yearMax ? Number(yearMax) : null,
+        price_min: priceMin ? Number(priceMin) : null,
+        price_max: priceMax ? Number(priceMax) : null,
+        price_not_matter: !!priceNoMatter,
+        filters: selectedFilters
+      };
+      const r = await fetch('/api/wanted', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Email': userEmail || ''
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        setPostStatus({ ok: false, message: data?.error || 'Failed to post request' });
+      } else {
+        setPostStatus({ ok: true, message: 'Request posted successfully' });
+        // reset form minimally
+        setForm({ title: '', category: '', description: '' });
+        setLocations([]);
+        setModels([]);
+        setJobTypes([]);
+        setYearMin('');
+        setYearMax('');
+        setPriceMin('');
+        setPriceMax('');
+        setPriceNoMatter(false);
+        setSelectedFilters({});
+        setFilterKey('');
+        setFilterSuggestedValue('');
+        setFilterCustomValue('');
+        // refresh lists
+        await loadRequests();
+        await loadMyRequests();
+        setTab('mine');
+      }
+    } catch (_) {
+      setPostStatus({ ok: false, message: 'Failed to post request' });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="container">
       <div className="h1" style={{ marginTop: 0 }}>Wanted Board</div>
