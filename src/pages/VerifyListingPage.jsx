@@ -207,11 +207,8 @@ export default function VerifyListingPage() {
       const desc = String(data.description || '').trim();
       if (!desc) throw new Error('Empty description');
 
-      // Safety: ensure no '*' characters are used for emphasis/bullets.
-      // Convert any asterisks to '•' to avoid markdown styling.
-      const safeDesc = desc.replace(/\*/g, '•');
-
-      setDescriptionText(safeDesc);
+      // Keep markdown-style **bold** so it renders in preview and on the listing page.
+      setDescriptionText(desc);
       setGenUsed(true);
       try { localStorage.setItem(`desc_gen_used_${draftId}`, '1'); } catch (_) {}
     } catch (e) {
@@ -771,6 +768,28 @@ export default function VerifyListingPage() {
               rows={6}
               style={{ marginTop: 6 }}
             />
+            {/* Live preview with **bold** and line breaks */}
+            {descriptionText && (
+              <div className="card" style={{ marginTop: 8 }}>
+                <div className="h2" style={{ marginTop: 0 }}>Preview</div>
+                <div
+                  dangerouslySetInnerHTML={(() => {
+                    try {
+                      let s = String(descriptionText || '');
+                      // Escape HTML
+                      s = s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                      // **bold**
+                      s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                      // Preserve line breaks
+                      s = s.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '<br/>');
+                      return { __html: s };
+                    } catch (_) {
+                      return { __html: String(descriptionText || '') };
+                    }
+                  })()}
+                />
+              </div>
+            )}
 
             <div className="h2" style={{ marginTop: 12 }}>Images</div>
 
