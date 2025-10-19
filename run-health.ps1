@@ -13,34 +13,41 @@ if (-not (Test-Path $reportDir)) {
 $ts = Get-Date -Format "yyyyMMdd_HHmmss"
 $reportFile = Join-Path $reportDir "health_$ts.txt"
 
-"Health check started at $(Get-Date)" | Out-File -FilePath $reportFile -Encoding UTF8
+"Health check started at $(Get-Date)" | Out-File -FilePath $reportFile -Encoding utf8
 
 if (-not $SkipInstall) {
   Write-Host "Installing dependencies..." -ForegroundColor Yellow
-  & npm install 2>&1 | Tee-Object -FilePath $reportFile -Append | Write-Host
+  # Echo each line to console and append to UTF-8 report
+  & npm install 2>&1 | ForEach-Object {
+    $_
+    $_ | Out-File -FilePath $reportFile -Append -Encoding utf8
+  }
   $npmInstallCode = $LASTEXITCODE
   if ($npmInstallCode -ne 0) {
-    "npm install exited with code $npmInstallCode" | Out-File -FilePath $reportFile -Append -Encoding UTF8
+    "npm install exited with code $npmInstallCode" | Out-File -FilePath $reportFile -Append -Encoding utf8
   }
 } else {
   Write-Host "Skipping npm install..." -ForegroundColor Yellow
-  "Skipping npm install..." | Out-File -FilePath $reportFile -Append -Encoding UTF8
+  "Skipping npm install..." | Out-File -FilePath $reportFile -Append -Encoding utf8
 }
 
 Write-Host "Running full health checks (public + authenticated)..." -ForegroundColor Green
-"Running full health checks (public + authenticated)..." | Out-File -FilePath $reportFile -Append -Encoding UTF8
+"Running full health checks (public + authenticated)..." | Out-File -FilePath $reportFile -Append -Encoding utf8
 
-& npm run health:full 2>&1 | Tee-Object -FilePath $reportFile -Append | Write-Host
+& npm run health:full 2>&1 | ForEach-Object {
+  $_
+  $_ | Out-File -FilePath $reportFile -Append -Encoding utf8
+}
 $testExitCode = $LASTEXITCODE
 
-"`n" | Out-File -FilePath $reportFile -Append -Encoding UTF8
+"`n" | Out-File -FilePath $reportFile -Append -Encoding utf8
 if ($testExitCode -eq 0) {
-  "RESULT: PASS" | Out-File -FilePath $reportFile -Append -Encoding UTF8
+  "RESULT: PASS" | Out-File -FilePath $reportFile -Append -Encoding utf8
   Write-Host "RESULT: PASS" -ForegroundColor Green
 } else {
-  "RESULT: FAIL (exit code $testExitCode)" | Out-File -FilePath $reportFile -Append -Encoding UTF8
+  "RESULT: FAIL (exit code $testExitCode)" | Out-File -FilePath $reportFile -Append -Encoding utf8
   Write-Host "RESULT: FAIL (exit code $testExitCode)" -ForegroundColor Red
 }
-"Completed at $(Get-Date)" | Out-File -FilePath $reportFile -Append -Encoding UTF8
+"Completed at $(Get-Date)" | Out-File -FilePath $reportFile -Append -Encoding utf8
 
 exit $testExitCode

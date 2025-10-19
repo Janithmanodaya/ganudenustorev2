@@ -16,28 +16,29 @@ echo Report file: "!REPORT_FILE!"
 echo.
 
 echo Installing dependencies...
-REM Pipe output to both console and report
-powershell -NoProfile -Command "& { & npm install 2>&1 | Tee-Object -FilePath '%REPORT_FILE%' -Append; exit $LASTEXITCODE }"
+REM Capture output to file (UTF-8) and also echo to console
+powershell -NoProfile -Command "npm install 2>&1 ^| ForEach-Object { $_; $_ ^| Out-File -FilePath '%REPORT_FILE%' -Append -Encoding utf8 }; exit $LASTEXITCODE"
 set "NPM_INSTALL_CODE=%ERRORLEVEL%"
 if not "!NPM_INSTALL_CODE!"=="0" (
-  echo npm install exited with code !NPM_INSTALL_CODE! >> "!REPORT_FILE!"
+  echo npm install exited with code !NPM_INSTALL_CODE!>> "!REPORT_FILE!"
 )
 
 echo.>> "!REPORT_FILE!"
-echo Running full health checks (public + authenticated)... | tee
-powershell -NoProfile -Command "& { & npm run health:full 2>&1 | Tee-Object -FilePath '%REPORT_FILE%' -Append; exit $LASTEXITCODE }"
+echo Running full health checks (public + authenticated)...
+echo Running full health checks (public + authenticated)...>> "!REPORT_FILE!"
+powershell -NoProfile -Command "npm run health:full 2>&1 ^| ForEach-Object { $_; $_ ^| Out-File -FilePath '%REPORT_FILE%' -Append -Encoding utf8 }; exit $LASTEXITCODE"
 set "TEST_EXIT_CODE=%ERRORLEVEL%"
 
 echo.>> "!REPORT_FILE!"
 if "!TEST_EXIT_CODE!"=="0" (
-  echo RESULT: PASS >> "!REPORT_FILE!"
+  echo RESULT: PASS>> "!REPORT_FILE!"
   echo RESULT: PASS
 ) else (
-  echo RESULT: FAIL (exit code !TEST_EXIT_CODE!) >> "!REPORT_FILE!"
+  echo RESULT: FAIL (exit code !TEST_EXIT_CODE!)>> "!REPORT_FILE!"
   echo RESULT: FAIL (exit code !TEST_EXIT_CODE!)
 )
 
-echo Completed at !DATE! !TIME! >> "!REPORT_FILE!"
+echo Completed at !DATE! !TIME!>> "!REPORT_FILE!"
 ENDLOCAL
 
 REM Propagate the test exit code to the caller
