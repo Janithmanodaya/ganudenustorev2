@@ -652,12 +652,25 @@ export default function AdminPage() {
   // Chat management (admin)
   async function loadConversations() {
     try {
-      const r = await fetch('/api/chats/admin/conversations', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load conversations')
+      // Chats admin endpoints require a valid bearer token; if missing, skip silently
+      if (!authToken) {
+        setConversations([])
+        return
+      }
+      const r = await fetch('/api/chats/admin/conversations', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': `Bearer ${authToken}` } })
+      let data = {}
+      try {
+        data = await safeJson(r)
+      } catch (_) {
+        data = {}
+      }
+      // If the backend returns a non-OK (e.g., token expired), do not surface a global error
+      if (!r.ok) {
+        return
+      }
       setConversations(Array.isArray(data.results) ? data.results : [])
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
+    } catch (_e) {
+      // Silent on errors to avoid noisy Status card on dashboard
     }
   }
   async function loadChatMessages(email) {
