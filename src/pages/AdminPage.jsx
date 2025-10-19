@@ -452,7 +452,7 @@ export default function AdminPage() {
     const yes = window.confirm('Delete this report?')
     if (!yes) return
     try {
-      const r = await fetch(`/api/admin/reports/${id}`, { method: 'DELETE', headers: getAdminHeaders(_codeminEmail } })
+      const r = await fetch(`/api/admin/reports/${id}`, { method: 'DELETE', headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to delete report')
       loadReports(reportFilter)
