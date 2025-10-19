@@ -15,12 +15,28 @@ echo Health check started at !DATE! !TIME! > "!REPORT_FILE!"
 echo Report file: "!REPORT_FILE!"
 echo.
 
+REM Verify npm is available
+where npm >nul 2>&1
+if errorlevel 1 (
+  echo ERROR: npm is not available on PATH.>> "!REPORT_FILE!"
+  echo Please install Node.js and ensure npm is on PATH.>> "!REPORT_FILE!"
+  echo RESULT: FAIL (exit code 1)>> "!REPORT_FILE!"
+  echo RESULT: FAIL (exit code 1)
+  ENDLOCAL
+  exit /b 1
+)
+
 echo Installing dependencies...
 REM Capture output to file (UTF-8) and also echo to console
 powershell -NoProfile -Command "npm install 2>&1 ^| ForEach-Object { $_; $_ ^| Out-File -FilePath '%REPORT_FILE%' -Append -Encoding utf8 }; exit $LASTEXITCODE"
 set "NPM_INSTALL_CODE=%ERRORLEVEL%"
 if not "!NPM_INSTALL_CODE!"=="0" (
   echo npm install exited with code !NPM_INSTALL_CODE!>> "!REPORT_FILE!"
+  echo.>> "!REPORT_FILE!"
+  echo RESULT: FAIL (exit code !NPM_INSTALL_CODE!)>> "!REPORT_FILE!"
+  echo RESULT: FAIL (exit code !NPM_INSTALL_CODE!)
+  ENDLOCAL
+  exit /b !NPM_INSTALL_CODE!
 )
 
 echo.>> "!REPORT_FILE!"

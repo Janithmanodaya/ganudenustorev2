@@ -15,16 +15,28 @@ $reportFile = Join-Path $reportDir "health_$ts.txt"
 
 "Health check started at $(Get-Date)" | Out-File -FilePath $reportFile -Encoding utf8
 
+# Verify npm is available
+$npmPath = (Get-Command npm -ErrorAction SilentlyContinue).Path
+if (-not $npmPath) {
+  "ERROR: npm is not available on PATH." | Out-File -FilePath $reportFile -Append -Encoding utf8
+  "Please install Node.js and ensure npm is on PATH." | Out-File -FilePath $reportFile -Append -Encoding utf8
+  Write-Host "ERROR: npm is not available on PATH." -ForegroundColor Red
+  "RESULT: FAIL (exit code 1)" | Out-File -FilePath $reportFile -Append -Encoding utf8
+  exit 1
+}
+
 if (-not $SkipInstall) {
   Write-Host "Installing dependencies..." -ForegroundColor Yellow
   # Echo each line to console and append to UTF-8 report
-  & npm install 2>&1 | ForEach-Object {
+  & $npmPath install 2>&1 | ForEach-Object {
     $_
     $_ | Out-File -FilePath $reportFile -Append -Encoding utf8
   }
   $npmInstallCode = $LASTEXITCODE
   if ($npmInstallCode -ne 0) {
     "npm install exited with code $npmInstallCode" | Out-File -FilePath $reportFile -Append -Encoding utf8
+    "RESULT: FAIL (exit code $npmInstallCode)" | Out-File -FilePath $reportFile -Append -Encoding utf8
+    exit $npmInstallCode
   }
 } else {
   Write-Host "Skipping npm install..." -ForegroundColor Yellow
@@ -34,7 +46,7 @@ if (-not $SkipInstall) {
 Write-Host "Running full health checks (public + authenticated)..." -ForegroundColor Green
 "Running full health checks (public + authenticated)..." | Out-File -FilePath $reportFile -Append -Encoding utf8
 
-& npm run health:full 2>&1 | ForEach-Object {
+& $npmPath run health:full 2>&1 | ForEach-Object {
   $_
   $_ | Out-File -FilePath $reportFile -Append -Encoding utf8
 }
