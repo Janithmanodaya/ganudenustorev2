@@ -10,6 +10,7 @@ if (!fs.existsSync(dataDir)) {
 const dbPath = path.join(dataDir, 'ganudenu.sqlite');
 export const db = new Database(dbPath, { fileMustExist: false });
 
-// Pragmas for stability
+// Pragmas for stability and integrity
 db.pragma('journal_mode = WAL');
 db.pragma('synchronous = NORMAL');
+db.pragma('foreign_keys = ON');

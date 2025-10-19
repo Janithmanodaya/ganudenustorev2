@@ -1,22 +1,103 @@
 /**
- * Ganudenu Store - Backend Server
- * Provides:
- * - Auth (Login/Registration) with bcrypt hashing
- * - Rate limiting
- * - Admin config for Gemini API key
- * - Prompt management (listing extraction, SEO metadata, resume extraction)
- * - Listings workflow (draft, verify, submit)
+ * Express application (exported for tests and server entry)
  */
+import dotenv from 'dotenv';
+import express from 'express';
+import cors from 'cors';
+import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
+import path from 'path';
+import fs from 'fs';
+import bcrypt from 'bcrypt';
+import { db } from './lib/db.js';
+import authRouter from './routes/auth.js';
+import adminRouter from './routes/admin.js';
+import listingsRouter from './routes/listings.js';
+import jobsRouter from './routes/jobs.js';
+import notificationsRouter from './routes/notifications.js';
+import chatsRouter from './routes/chats.js';
+import usersRouter from './routes/users.js';
+import wantedRouter from './routes/wanted.js';
+import { sendEmail } from './lib/utils.js';
+import helmet from 'helmet';
+import compression from 'compression';
 
-import app from './app.js';
+dotenv.config();
 
-const PORT = process.env.PORT || 5174;
-app.listen(PORT, () => {
-  console.log(`Ganudenu backend running at http://localhost:${PORT}`);
+const app = express();
+
+// Trust proxy: configurable hops
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
+
+// Security headers and compression
+const isProd = process.env.NODE_ENV === 'production';
+if (isProd) {
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: true,
+    crossOriginOpenerPolicy: { policy: 'same-origin' },
+    crossOriginResourcePolicy: { policy: 'same-origin' },
+    referrerPolicy: { policy: 'no-referrer' }
+  }));
+  app.use(compression());
+} else {
+  app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(compression());
+}
+
+// Strict CORS whitelist
+const corsWhitelist = (() => {
+  const envList = String(process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || process.env.PUBLIC_ORIGIN || '').trim();
+  if (!envList) return [];
+  return envList.split(',').map(s => s.trim()).filter(Boolean);
+})();
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (corsWhitelist.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS not allowed for origin: ' + origin), false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 600
+}));
+
+app.use(express.json());
+
+// Logging
+if (process.env.NODE_ENV === 'production') {
+  app.use(morgan((tokens, req, res) => JSON.stringify({
+    method: tokens.method(req, res),
+    url: tokens.url(req, res),
+    status: Number(tokens.status(req, res)),
+    length: tokens.res(req, res, 'content-length'),
+    response_time_ms: Number(tokens['response-time'](req, res)),
+    ts: new Date().toISOString()
+  })));
+} else {
+  app.use(morgan('dev'));
+}
+
+// Static uploads
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'data', 'uploads'), {
+  maxAge: '365d',
+  immutable: true,
+  setHeaders: (res, filePath) => {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+}));
+
+// Global rate limit
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false
 });
 app.use(globalLimiter);
 
-// Initialize DB tables if missing
+// DB setup (same as original index.js)
 db.prepare(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +108,7 @@ db.prepare(`
   )
 `).run();
 
-// Ensure username and profile_photo_path columns exist
+// Ensure columns
 try {
   const cols = db.prepare(`PRAGMA table_info(users)`).all();
   const hasUsername = cols.some(c => c.name === 'username');
@@ -39,28 +120,18 @@ try {
     }
   }
   const hasPhoto = cols.some(c => c.name === 'profile_photo_path');
-  if (!hasPhoto) {
-    db.prepare(`ALTER TABLE users ADD COLUMN profile_photo_path TEXT`).run();
-  }
-  // Add moderation columns if missing
+  if (!hasPhoto) db.prepare(`ALTER TABLE users ADD COLUMN profile_photo_path TEXT`).run();
   const hasIsBanned = cols.some(c => c.name === 'is_banned');
-  if (!hasIsBanned) {
-    db.prepare(`ALTER TABLE users ADD COLUMN is_banned INTEGER NOT NULL DEFAULT 0`).run();
-  }
+  if (!hasIsBanned) db.prepare(`ALTER TABLE users ADD COLUMN is_banned INTEGER NOT NULL DEFAULT 0`).run();
   const hasSuspendedUntil = cols.some(c => c.name === 'suspended_until');
-  if (!hasSuspendedUntil) {
-    db.prepare(`ALTER TABLE users ADD COLUMN suspended_until TEXT`).run();
-  }
-  // Add public UID and verification status if missing (used by auth and admin)
+  if (!hasSuspendedUntil) db.prepare(`ALTER TABLE users ADD COLUMN suspended_until TEXT`).run();
   const hasUserUID = cols.some(c => c.name === 'user_uid');
   if (!hasUserUID) {
     db.prepare(`ALTER TABLE users ADD COLUMN user_uid TEXT`).run();
     db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_uid_unique ON users(user_uid)`).run();
   }
   const hasIsVerified = cols.some(c => c.name === 'is_verified');
-  if (!hasIsVerified) {
-    db.prepare(`ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0`).run();
-  }
+  if (!hasIsVerified) db.prepare(`ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0`).run();
 } catch (_) {}
 
 db.prepare(`
@@ -83,7 +154,6 @@ try {
   if (!hasEmailApprove) db.prepare(`ALTER TABLE admin_config ADD COLUMN email_on_approve INTEGER NOT NULL DEFAULT 0`).run();
 } catch (_) {}
 
-// Payment rules per category (amount in LKR and enabled flag)
 db.prepare(`
   CREATE TABLE IF NOT EXISTS payment_rules (
     category TEXT PRIMARY KEY,
@@ -92,7 +162,7 @@ db.prepare(`
   )
 `).run();
 
-// Seed defaults if not present
+// Seed defaults
 try {
   const defaults = [
     ['Vehicle', 300, 1],
@@ -118,7 +188,6 @@ db.prepare(`
   )
 `).run();
 
-// OTPs table (used by auth routes for registration and password reset)
 db.prepare(`
   CREATE TABLE IF NOT EXISTS otps (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,7 +197,6 @@ db.prepare(`
   )
 `).run();
 
-// Homepage banners table
 db.prepare(`
   CREATE TABLE IF NOT EXISTS banners (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -139,14 +207,13 @@ db.prepare(`
   )
 `).run();
 
-// Ensure a single row exists for admin_config
+// Ensure single admin_config row
 const existingConfig = db.prepare('SELECT id FROM admin_config WHERE id = 1').get();
 if (!existingConfig) {
   db.prepare('INSERT INTO admin_config (id, gemini_api_key) VALUES (1, NULL)').run();
 }
 
-// Ensure admin account exists (seed/update)
-// Admin email defaults to the one you provided; password must be set via ADMIN_PASSWORD
+// Admin seed
 (async () => {
   try {
     const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'janithmanodaya2002@gmail.com').toLowerCase();
@@ -160,92 +227,38 @@ if (!existingConfig) {
         db.prepare('UPDATE users SET password_hash = ?, is_admin = 1 WHERE id = ?').run(hash, user.id);
       } else {
         db.prepare('INSERT INTO users (email, password_hash, is_admin, created_at) VALUES (?, ?, 1, ?)').run(
-          ADMIN_EMAIL,
-          hash,
-          new Date().toISOString()
+          ADMIN_EMAIL, hash, new Date().toISOString()
         );
       }
     }
-  } catch (e) {
-  }
+  } catch (e) {}
 })();
 
-// Mount routers with tighter rate limits for sensitive endpoints
-const authLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false
-});
+// Rate limits and routers
+const authLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
 app.use('/api/auth', authLimiter, authRouter);
 
-const adminLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 60,
-  standardHeaders: true,
-  legacyHeaders: false
-});
+const adminLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 app.use('/api/admin', adminLimiter, adminRouter);
 
-// Listings endpoints (separate limiter)
-const listingsLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 120,
-  standardHeaders: true,
-  legacyHeaders: false
-});
+const listingsLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
 app.use('/api/listings', listingsLimiter, listingsRouter);
 
-// Jobs endpoints (separate limiter)
-const jobsLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 60,
-  standardHeaders: true,
-  legacyHeaders: false
-});
+const jobsLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 app.use('/api/jobs', jobsLimiter, jobsRouter);
 
-// Notifications endpoints (separate limiter)
-const notificationsLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 120,
-  standardHeaders: true,
-  legacyHeaders: false
-});
+const notificationsLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
 app.use('/api/notifications', notificationsLimiter, notificationsRouter);
 
-// Users (profiles/ratings)
-const usersLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 120,
-  standardHeaders: true,
-  legacyHeaders: false
-});
+const usersLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
 app.use('/api/users', usersLimiter, usersRouter);
 
-// Wanted requests (reverse notifications)
-const wantedLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 120,
-  standardHeaders: true,
-  legacyHeaders: false
-});
+const wantedLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
 app.use('/api/wanted', wantedLimiter, wantedRouter);
 
-// Chats endpoints (separate limiter)
-const chatsLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 240,
-  standardHeaders: true,
-  legacyHeaders: false
-});
-app.use('/api/chats', chatsLimiter, chatsRouter);
-
-
-// Public banners endpoint
+// Public banners
 app.get('/api/banners', (req, res) => {
   try {
-    const uploadsDir = path.resolve(process.cwd(), 'data', 'uploads');
     const rows = db.prepare(`SELECT id, path FROM banners WHERE active = 1 ORDER BY sort_order ASC, id DESC LIMIT 12`).all();
     const items = rows.map(r => {
       const filename = String(r.path || '').split('/').pop();
@@ -263,20 +276,19 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, service: 'ganudenu.store', ts: new Date().toISOString() });
 });
 
-// Robots.txt
+// Robots.txt and sitemap.xml copied from index.js
+const domainDefault = 'https://ganudenu.store';
 app.get('/robots.txt', (req, res) => {
-  const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+  const domain = process.env.PUBLIC_DOMAIN || domainDefault;
   res.type('text/plain').send(`User-agent: *
 Allow: /
 Sitemap: ${domain}/sitemap.xml`);
 });
 
-// Sitemap.xml (Approved listings + core pages, with lastmod, SEO-friendly permalinks)
 app.get('/sitemap.xml', (req, res) => {
-  const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+  const domain = process.env.PUBLIC_DOMAIN || domainDefault;
   const rows = db.prepare(`SELECT id, title, structured_json, created_at FROM listings WHERE status = 'Approved' ORDER BY id DESC LIMIT 3000`).all();
 
-  // Basic XML escape to prevent injection/breakage
   function xmlEscape(str) {
     return String(str || '')
       .replace(/&/g, '&amp;')
@@ -295,20 +307,16 @@ app.get('/sitemap.xml', (req, res) => {
   ];
 
   function makeSlug(s) {
-    // Only allow a-z0-9 and hyphens; collapse sequences; clamp length
     const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
     return (base || 'listing').slice(0, 80);
   }
-
   function safeLastMod(v) {
     try {
       if (!v) return nowIso;
       const d = new Date(v);
       if (isNaN(d.getTime())) return nowIso;
       return d.toISOString();
-    } catch (_) {
-      return nowIso;
-    }
+    } catch (_) { return nowIso; }
   }
 
   const urls = [
@@ -326,7 +334,6 @@ app.get('/sitemap.xml', (req, res) => {
       const idCode = Number(r.id).toString(36).toUpperCase();
       const parts = [makeSlug(r.title || ''), year, idCode].filter(Boolean);
       const rawLoc = `${domain}/listing/${r.id}-${parts.join('-')}`;
-      // Ensure URL-safe and escape for XML
       const loc = xmlEscape(encodeURI(rawLoc));
       return { loc, lastmod: safeLastMod(r.created_at) };
     })
@@ -339,25 +346,18 @@ ${urls.map(u => `<url><loc>${u.loc}</loc><lastmod>${xmlEscape(u.lastmod)}</lastm
   res.type('application/xml').send(xml);
 });
 
+// Background tasks (unchanged)
 async function purgeExpiredListings() {
   try {
     const nowIso = new Date().toISOString();
     const expired = db.prepare(`SELECT id, thumbnail_path, medium_path FROM listings WHERE valid_until IS NOT NULL AND valid_until < ?`).all(nowIso);
-    const uploadsDir = path.resolve(process.cwd(), 'data', 'uploads');
-
     for (const row of expired) {
       const images = db.prepare(`SELECT path FROM listing_images WHERE listing_id = ?`).all(row.id);
-      // Delete image files
       for (const img of images) {
-        if (img.path) {
-          try { fs.unlinkSync(img.path); } catch (_) {}
-        }
+        if (img.path) { try { fs.unlinkSync(img.path); } catch (_) {} }
       }
-      // Delete variants
       if (row.thumbnail_path) { try { fs.unlinkSync(row.thumbnail_path); } catch (_) {} }
       if (row.medium_path) { try { fs.unlinkSync(row.medium_path); } catch (_) {} }
-
-      // Remove DB rows
       db.prepare(`DELETE FROM listing_images WHERE listing_id = ?`).run(row.id);
       db.prepare(`DELETE FROM listings WHERE id = ?`).run(row.id);
     }
@@ -368,34 +368,20 @@ async function purgeExpiredListings() {
     console.error('[cleanup] Error during purge:', e);
   }
 }
-
-// Purge chats older than 7 days
 function purgeOldChats() {
   try {
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const info = db.prepare(`DELETE FROM chats WHERE created_at < ?`).run(cutoff);
-    if (info.changes) {
-      console.log(`[cleanup] Purged ${info.changes} chats older than 7 days at ${new Date().toISOString()}`);
-    }
-  } catch (e) {
-    // ignore
-  }
+    if (info.changes) console.log(`[cleanup] Purged ${info.changes} chats older than 7 days at ${new Date().toISOString()}`);
+  } catch (e) {}
 }
-
-// Purge wanted requests older than 15 days
 function purgeOldWantedRequests() {
   try {
     const cutoff = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
     const info = db.prepare(`DELETE FROM wanted_requests WHERE status = 'open' AND created_at < ?`).run(cutoff);
-    if (info.changes) {
-      console.log(`[cleanup] Purged ${info.changes} wanted requests older than 15 days at ${new Date().toISOString()}`);
-    }
-  } catch (e) {
-    // ignore
-  }
+    if (info.changes) console.log(`[cleanup] Purged ${info.changes} wanted requests older than 15 days at ${new Date().toISOString()}`);
+  } catch (e) {}
 }
-
-// Run cleanup at startup and hourly
 purgeExpiredListings();
 purgeOldChats();
 purgeOldWantedRequests();
@@ -403,11 +389,9 @@ setInterval(purgeExpiredListings, 60 * 60 * 1000);
 setInterval(purgeOldChats, 60 * 60 * 1000);
 setInterval(purgeOldWantedRequests, 60 * 60 * 1000);
 
-// Email digests for saved-search notifications (runs every 15 minutes)
 async function sendSavedSearchEmailDigests() {
   try {
     const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    // Collect unsent saved_search notifications
     const rows = db.prepare(`
       SELECT id, title, message, target_email, created_at, listing_id
       FROM notifications
@@ -421,7 +405,6 @@ async function sendSavedSearchEmailDigests() {
 
     if (!rows.length) return;
 
-    // Group by target_email
     const groups = {};
     for (const r of rows) {
       const k = String(r.target_email).toLowerCase().trim();
@@ -430,15 +413,15 @@ async function sendSavedSearchEmailDigests() {
     }
 
     for (const [email, items] of Object.entries(groups)) {
-      const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+      const domain = process.env.PUBLIC_DOMAIN || domainDefault;
       const html = `
         <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color: #111;">
           <h2 style="margin-bottom: 8px;">New listings matching your search</h2>
           <p style="margin-top: 0; color: #444;">Here are recent matches:</p>
           <ul>
             ${items.map(it => {
-              const url = `${domain}/listing/${it.listing_id || ''}`;
-              return `<li><a href="${url}" style="color:#0b5fff;text-decoration:none;">${it.message}</a> <span style="color:#666;font-size:12px;">(${new Date(it.created_at).toLocaleString()})</span></li>`;
+              const url = \`\${domain}/listing/\${it.listing_id || ''}\`;
+              return \`<li><a href="\${url}" style="color:#0b5fff;text-decoration:none;">\${it.message}</a> <span style="color:#666;font-size:12px;">(\${new Date(it.created_at).toLocaleString()})</span></li>\`;
             }).join('')}
           </ul>
           <p style="color:#666;font-size:12px;">You can manage saved searches from your Account page.</p>
@@ -447,10 +430,9 @@ async function sendSavedSearchEmailDigests() {
       const res = await sendEmail(email, 'New listings that match your saved search', html);
       if (res?.ok) {
         const now = new Date().toISOString();
-        const ids = items.map(i => i.id);
         const stmt = db.prepare(`UPDATE notifications SET emailed_at = ? WHERE id = ?`);
-        for (const id of ids) {
-          try { stmt.run(now, id); } catch (_) {}
+        for (const it of items) {
+          try { stmt.run(now, it.id); } catch (_) {}
         }
       } else {
         console.warn('[email:digest] Failed to send to', email, res?.error || res);
@@ -463,6 +445,4 @@ async function sendSavedSearchEmailDigests() {
 sendSavedSearchEmailDigests();
 setInterval(sendSavedSearchEmailDigests, 15 * 60 * 1000);
 
-app.listen(PORT, () => {
-  console.log(`Ganudenu backend running at http://localhost:${PORT}`);
-});
+export default app;

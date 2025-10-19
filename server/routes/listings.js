@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import fetch from 'node-fetch';
 import { writeExtract, readExtract, deleteUserTempDb, openUserTempDb } from '../lib/tmpdb.js';
+import { requireUser, getBearerToken, verifyTokenRaw } from '../lib/auth.js';
 
 // Helper: convert a stored file path to public URL (/uploads/<filename>)
 function filePathToUrl(p) {
@@ -20,6 +21,13 @@ try {
   sharp = (await import('sharp')).default;
 } catch (_) {
   sharp = null;
+}
+
+// Random name generator for stored images (avoid using original filenames)
+import crypto from 'crypto';
+function randomBaseName() {
+  try { return crypto.randomBytes(8).toString('hex'); } catch (_) {}
+  return Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
 }
 
 const router = Router();
@@ -79,7 +87,10 @@ const upload = multer({
   dest: uploadsDir,
   limits: { files: 5, fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!String(file.mimetype).startsWith('image/')) return cb(new Error('Only images are allowed'));
+    const mt = String(file.mimetype || '');
+    if (!mt.startsWith('image/')) return cb(new Error('Only images are allowed'));
+    // Block SVG uploads explicitly (stored XSS risk). Only allow raster images.
+    if (mt === 'image/svg+xml') return cb(new Error('SVG images are not allowed'));
     cb(null, true);
   }
 });
@@ -108,34 +119,7 @@ db.prepare(
   '  draft_id INTEGER NOT NULL,' +
   '  path TEXT NOT NULL,' +
   '  original_name TEXT NOT NULL,' +
-  '  FOREIGN KEY(draft_id) REFERENCES listing_drafts(id)' +
-  ')'
-).run();
-
-db.prepare(
-  'CREATE TABLE IF NOT EXISTS listings (' +
-  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
-  '  main_category TEXT NOT NULL,' +
-  '  title TEXT NOT NULL,' +
-  '  description TEXT NOT NULL,' +
-  '  structured_json TEXT,' +
-  '  seo_title TEXT,' +
-  '  seo_description TEXT,' +
-  '  seo_keywords TEXT,' +
-  '  seo_json TEXT,' +
-  '  resume_file_url TEXT,' +
-  '  location TEXT,' +
-  '  location_lat REAL,' +
-  '  location_lng REAL,' +
-  '  price REAL,' +
-  '  pricing_type TEXT,' +
-  '  phone TEXT,' +
-  '  owner_email TEXT,' +
-  '  thumbnail_path TEXT,' +
-  '  medium_path TEXT,' +
-  '  valid_until TEXT,' +
-  "  status TEXT NOT NULL DEFAULT 'Pending Approval'," +
-  '  created_at TEXT NOT NULL' +
+  '  FOREIGN KEY(draft_id) REFERENCES listing_drafts(id) ON DELETE CASCADE' +
   ')'
 ).run();
 
@@ -145,7 +129,42 @@ db.prepare(
   '  listing_id INTEGER NOT NULL,' +
   '  path TEXT NOT NULL,' +
   '  original_name TEXT NOT NULL,' +
-  '  FOREIGN KEY(listing_id) REFERENCES listings(id)' +
+  '  FOREIGN KEY(listing_id) REFERENCES listings(id) ON DELETE CASCADE' +
+  ')'
+).run();
+
+db.prepare(
+  'CREATE TABLE IF NOT EXISTS reports (' +
+  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+  '  listing_id INTEGER NOT NULL,' +
+  '  reporter_email TEXT,' +
+  '  reason TEXT NOT NULL,' +
+  '  ts TEXT NOT NULL,' +
+  '  FOREIGN KEY(listing_id) REFERENCES listings(id) ON DELETE CASCADE' +
+  ')'
+).run();
+
+db.prepare(
+  'CREATE TABLE IF NOT EXISTS listing_views (' +
+  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+  '  listing_id INTEGER NOT NULL,' +
+  '  ip TEXT,' +
+  '  viewer_email TEXT,' +
+  '  ts TEXT NOT NULL,' +
+  '  UNIQUE(listing_id, ip),' +
+  '  FOREIGN KEY(listing_id) REFERENCES listings(id) ON DELETE CASCADE' +
+  ')'
+).run();
+
+db.prepare(
+  'CREATE TABLE IF NOT EXISTS listing_wanted_tags (' +
+  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+  '  listing_id INTEGER NOT NULL,' +
+  '  wanted_id INTEGER NOT NULL,' +
+  '  created_at TEXT NOT NULL,' +
+  '  UNIQUE(listing_id, wanted_id),' +
+  '  FOREIGN KEY(listing_id) REFERENCES listings(id) ON DELETE CASCADE,' +
+  '  FOREIGN KEY(wanted_id) REFERENCES wanted_requests(id) ON DELETE CASCADE' +
   ')'
 ).run();
 
@@ -234,11 +253,12 @@ function validateListingInputs({ main_category, title, description, files }) {
   return null;
 }
 
+import { getSecret } from '../lib/secure-config.js';
+
 function getGeminiKey() {
-  const row = db.prepare('SELECT gemini_api_key FROM admin_config WHERE id = 1').get();
-  const fromDb = row?.gemini_api_key || null;
-  const fromEnv = process.env.GEMINI_API_KEY ? String(process.env.GEMINI_API_KEY).trim() : null;
-  return fromDb || fromEnv || null;
+  const fromCfg = getSecret('gemini_api_key');
+  const key = fromCfg ? String(fromCfg).trim() : null;
+  return key || null;
 }
 function getPrompt(type) {
   const row = db.prepare('SELECT content FROM prompts WHERE type = ?').get(type);
@@ -938,19 +958,46 @@ router.post('/submit', async (req, res) => {
         await sharp(firstImgPath).resize(120, 90).toFile(thumbPath);
         await sharp(firstImgPath).resize(640, 480).toFile(mediumPath);
 
-        // OG image 1200x630 with subtle overlay
+        // OG image 1200x630 with hardened SVG text overlay (fully escaped + sanitized)
         const bg = await sharp(firstImgPath).resize(1200, 630).blur(2).toBuffer();
+
+        function xmlEscape(str) {
+          return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+        }
+        function sanitizeText(str, maxLen) {
+          // Whitelist common printable chars and collapse whitespace
+          const s = String(str || '')
+            .replace(/[^\w\s.,:;!@#%&()\\-\\/+°]+/g, ' ') // allow letters/digits and selected punctuation
+            .replace(/\\s+/g, ' ')
+            .trim()
+            .slice(0, maxLen || 60);
+          return s;
+        }
+
+        const titleSafe = xmlEscape(sanitizeText(draft.title || '', 60));
+        const cat = String(draft.main_category || '');
+        const priceSafe = (typeof finalStruct.price === 'number' && isFinite(Number(finalStruct.price)))
+          ? ' • LKR ' + Number(finalStruct.price).toLocaleString('en-US')
+          : '';
+        const subtitleSafe = xmlEscape(sanitizeText(cat + priceSafe, 64));
+        const locationSafe = xmlEscape(sanitizeText(finalStruct.location || '', 64));
+
         const svgOverlay = `
           <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
             <rect x="0" y="0" width="1200" height="630" fill="rgba(0,0,0,0.35)"/>
             <text x="50" y="360" font-family="Arial, Helvetica, sans-serif" font-size="56" fill="#ffffff" font-weight="700">
-              ${String(draft.title || '').slice(0, 42).replace(/&/g,'&amp;')}
+              ${titleSafe}
             </text>
             <text x="50" y="420" font-family="Arial, Helvetica, sans-serif" font-size="28" fill="#e5e7eb" font-weight="500">
-              ${draft.main_category}${typeof finalStruct.price === 'number' ? ' • LKR ' + Number(finalStruct.price).toLocaleString('en-US') : ''}
+              ${subtitleSafe}
             </text>
             <text x="50" y="480" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#cbd5e1">
-              ${String(finalStruct.location || '').slice(0, 48).replace(/&/g,'&amp;')}
+              ${locationSafe}
             </text>
           </svg>`;
         await sharp(bg)
@@ -1605,15 +1652,14 @@ router.get('/suggestions', (req, res) => {
 
 
 // Get current user's listings (My _code (My Ads)
-router.get('/my', (req, res) => {
+router.get('/my', requireUser, (req, res) => {
   try {
-    const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
-    if (!email) return res.status(401).json({ error: 'Missing user email' });
+    const email = req.user.email;
 
     const rows = db.prepare(`
       SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views, is_urgent
       FROM listings
-      WHERE owner_email = ?
+      WHERE LOWER(owner_email) = LOWER(?)
       ORDER BY created_at DESC
       LIMIT 200
     `).all(email);
@@ -1651,7 +1697,13 @@ router.get('/:id', (req, res) => {
     // - Do not count views from the listing owner
     // - Do not count duplicate views from the same IP
     try {
-      const viewerEmail = String(req.header('X-User-Email') || '').toLowerCase().trim();
+      // Try to derive viewer email from bearer token (if provided)
+      let viewerEmail = '';
+      const tok = getBearerToken(req);
+      if (tok) {
+        const v = verifyTokenRaw(tok);
+        if (v.ok && v.decoded?.email) viewerEmail = String(v.decoded.email).toLowerCase().trim();
+      }
       const ownerEmail = String(listing.owner_email || '').toLowerCase().trim();
       // Determine client IP (favor X-Forwarded-For, else remoteAddress/ip)
       let ip = '';
@@ -1738,12 +1790,11 @@ router.post('/:id/report', (req, res) => {
 });
 
 // Delete a listing (owner only)
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireUser, (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid ID' });
-    const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
-    if (!email) return res.status(401).json({ error: 'Missing user email' });
+    const email = req.user.email;
 
     const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
@@ -1826,7 +1877,7 @@ router.get('/payment-info/:id', (req, res) => {
 });
 
 // Seller note to admin regarding payment
-router.post('/payment-note', async (req, res) => {
+router.post('/payment-note', requireUser, async (req, res) => {
   try {
     const listingId = Number(req.body?.listing_id);
     const noteText = String(req.body?.note || '').trim();
@@ -1835,6 +1886,12 @@ router.post('/payment-note', async (req, res) => {
 
     const listing = db.prepare('SELECT id, title, owner_email FROM listings WHERE id = ?').get(listingId);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
+
+    // Only the listing owner can send a payment note
+    const sender = req.user.email;
+    if (String(listing.owner_email || '').toLowerCase().trim() !== String(sender)) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
 
     // Collect admin emails
     const admins = db.prepare('SELECT email FROM users WHERE is_admin = 1').all();
@@ -1849,7 +1906,7 @@ router.post('/payment-note', async (req, res) => {
     const now = new Date().toISOString();
     const title = 'Payment note received';
     const message = `Seller note for listing #${listing.id} (“${listing.title}”): ${noteText}`;
-    const meta = JSON.stringify({ sender_email: String(listing.owner_email || '').toLowerCase().trim() });
+    const meta = JSON.stringify({ sender_email: sender });
 
     const stmt = db.prepare(`
       INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)

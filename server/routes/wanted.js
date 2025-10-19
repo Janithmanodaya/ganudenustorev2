@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db } from '../lib/db.js';
 import { sendEmail } from '../lib/utils.js';
+import { requireUser } from '../lib/auth.js';
 
 const router = Router();
 
@@ -43,20 +44,6 @@ try {
 
 const CATEGORIES = new Set(['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden', 'Other']);
 const DOMAIN = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
-
-// Auth gate via header
-function requireUser(req, res, next) {
-  const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
-  if (!email) return res.status(401).json({ error: 'Missing user email' });
-  const user = db.prepare('SELECT id, is_banned, suspended_until FROM users WHERE email = ?').get(email);
-  if (!user) return res.status(401).json({ error: 'Invalid user' });
-  if (user.is_banned) return res.status(403).json({ error: 'Account banned' });
-  if (user.suspended_until && user.suspended_until > new Date().toISOString()) {
-    return res.status(403).json({ error: 'Account suspended' });
-  }
-  req.user = { email, id: user.id };
-  next();
-}
 
 // Helper: value normalization
 function parseJsonArray(s) {

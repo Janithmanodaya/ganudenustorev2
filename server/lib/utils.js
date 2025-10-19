@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import nodemailer from 'nodemailer';
+import { getSecret } from './secure-config.js';
 
 export function generateOtp() {
   return Math.floor(1000 + Math.random() * 9000).toString();
@@ -31,13 +32,13 @@ export async function sendEmail(to, subject, htmlContent) {
     return { ok: true, dev: true };
   }
 
-  // Try generic SMTP first if available
-  const SMTP_HOST = process.env.SMTP_HOST;
-  const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
-  const SMTP_SECURE = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true';
-  const SMTP_USER = process.env.SMTP_USER;
-  const SMTP_PASS = process.env.SMTP_PASS;
-  const SMTP_FROM = process.env.SMTP_FROM || process.env.BREVO_LOGIN || 'no-reply@example.com';
+  // Try generic SMTP first if available (secure-config preferred)
+  const SMTP_HOST = getSecret('smtp_host');
+  const SMTP_PORT = Number(getSecret('smtp_port') || 587);
+  const SMTP_SECURE = String(getSecret('smtp_secure') || '').toLowerCase() === 'true';
+  const SMTP_USER = getSecret('smtp_user');
+  const SMTP_PASS = getSecret('smtp_pass');
+  const SMTP_FROM = getSecret('smtp_from') || 'no-reply@example.com';
 
   if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
     try {
@@ -61,11 +62,10 @@ export async function sendEmail(to, subject, htmlContent) {
     }
   }
 
-  // Brevo fallback via HTTP
-  const BREVO_API_KEY = process.env.BREVO_API_KEY;
-  const BREVO_LOGIN = process.env.BREVO_LOGIN;
-  if (!BREVO_API_KEY || !BREVO_LOGIN) {
-    console.error('[email] No SMTP config and Brevo credentials missing.');
+  // Brevo fallback via HTTP (secure-config preferred)
+  const BREVO_API_KEY = getSecret('brevo_api_key');
+  const BREVO_LOGIN = getSecret('brevo_login');
+  if (!BREVO_API_KEYole.error('[email] No SMTP config and Brevo credentials missing.');
     return { ok: false, error: 'Email provider not configured.' };
   }
 

@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "@sendinblue/client": "^3.3.1",
@@ -23,14 +24,18 @@
     "bcrypt": "^5.1.1",
     "dotenv": "^16.4.5",
     "helmet": "^7.0.0",
+    "compression": "^1.7.4",
     "multer": "^1.4.5-lts.1",
     "node-fetch": "^3.3.2",
     "nodemailer": "^6.9.9",
     "archiver": "^7.0.1",
-    "adm-zip": "^0.5.16"
+    "adm-zip": "^0.5.16",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.2",
-    "vite": "^5.4.0"
+    "vite": "^5.4.0",
+    "vitest": "^1.0.0",
+    "supertest": "^6.3.4"
   }
 }

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db } from '../lib/db.js';
+import { requireAdmin, requireUser } from '../lib/auth.js';
 
 const router = Router();
 
@@ -38,9 +39,8 @@ function purgeOldChats() {
 purgeOldChats();
 
 // User: list own recent messages (last 7 days)
-router.get('/', (req, res) => {
-  const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
-  if (!email) return res.status(401).json({ error: 'Login required.' });
+router.get('/', requireUser, (req, res) => {
+  const email = req.user.email;
   try {
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const rows = db.prepare(`
@@ -57,9 +57,8 @@ router.get('/', (req, res) => {
 });
 
 // User: send a message
-router.post('/', (req, res) => {
-  const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
-  if (!email) return res.status(401).json({ error: 'Login required.' });
+router.post('/', requireUser, (req, res) => {
+  const email = req.user.email;
   const { message } = req.body || {};
   if (!message || typeof message !== 'string' || !message.trim()) {
     return res.status(400).json({ error: 'Message required.' });

@@ -8,6 +8,13 @@ import multer from 'multer';
 import { sendEmail } from '../lib/utils.js';
 import archiver from 'archiver';
 import AdmZip from 'adm-zip';
+import { requireAdmin, requireAdmin2FA } from '../lib/auth.js';
+
+// Dynamic sharp import for image processing
+let sharp = null;
+(async () => {
+  try { sharp = (await import('sharp')).default; } catch (_) { sharp = null; }
+})();
 
 const router = Router();
 
@@ -30,7 +37,8 @@ db.prepare(`
     listing_id INTEGER NOT NULL,
     reporter_email TEXT,
     reason TEXT NOT NULL,
-    ts TEXT NOT NULL
+    ts TEXT NOT NULL,
+    FOREIGN KEY(listing_id) REFERENCES listings(id) ON DELETE CASCADE
   )
 `).run();
 
@@ -51,16 +59,6 @@ try {
   }
 } catch (_) {}
 
-// Simple admin auth gate using a header "X-Admin-Email"
-function requireAdmin(req, res, next) {
-  const adminEmail = req.header('X-Admin-Email');
-  if (!adminEmail) return res.status(401).json({ error: 'Missing admin credentials.' });
-  const user = db.prepare('SELECT id, is_admin FROM users WHERE email = ?').get(adminEmail.toLowerCase());
-  if (!user || !user.is_admin) return res.status(403).json({ error: 'Forbidden.' });
-  req.admin = { id: user.id, email: adminEmail.toLowerCase() };
-  next();
-}
-
 // Upload config
 const uploadsDir = path.resolve(process.cwd(), 'data', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -68,15 +66,16 @@ const upload = multer({
   dest: uploadsDir,
   limits: { files: 1, fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!String(file.mimetype).startsWith('image/')) return cb(new Error('Only images are allowed'));
+    const mt = String(file.mimetype || '');
+    if (!mt.startsWith('image/')) return cb(new Error('Only images are allowed'));
+    if (mt === 'image/svg+xml') return cb(new Error('SVG images are not allowed'));
     cb(null, true);
-  }
-});
+  }_code
+}new)</;
 
 // Get current Gemini API key (masked)
 router.get('/config', requireAdmin, (req, res) => {
-  const row = db.prepare('SELECT gemini_api_key, bank_details, whatsapp_number, email_on_approve FROM admin_config WHERE id = 1').get();
-  const key = row?.gemini_api_key || null;
+  const row = db.prepare('SELECT bank_details, whatsapp_number, email_on_approve FROM admin_config WHERE id = 1').get();
   // Load payment rules
   let rules = [];
   try {
@@ -85,20 +84,18 @@ router.get('/config', requireAdmin, (req, res) => {
     rules = [];
   }
   res.json({
-    gemini_api_key_masked: key ? `${key.slice(0, 4)}...${key.slice(-4)}` : null,
     bank_details: row?.bank_details || '',
     whatsapp_number: row?.whatsapp_number || '',
     email_on_approve: !!(row && row.email_on_approve),
-    payment_rules: rules
+    payment_rules: rules,
+    secrets_managed: true
   });
 });
 
 // Save Gemini API key
 router.post('/config', requireAdmin, (req, res) => {
-  const { geminiApiKey, bankDetails, whatsappNumber, emailOnApprove, paymentRules } = req.body || {};
-  if (geminiApiKey && typeof geminiApiKey !== 'string') {
-    return res.status(400).json({ error: 'geminiApiKey must be string.' });
-  }
+  const { bankDetails, whatsappNumber, emailOnApprove, paymentRules } = req.body || {};
+
   if (bankDetails && typeof bankDetails !== 'string') {
     return res.status(400).json({ error: 'bankDetails must be string.' });
   }
@@ -107,9 +104,8 @@ router.post('/config', requireAdmin, (req, res) => {
   }
   const row = db.prepare('SELECT id FROM admin_config WHERE id = 1').get();
   if (!row) db.prepare('INSERT INTO admin_config (id) VALUES (1)').run();
-  db.prepare('UPDATE admin_config SET gemini_api_key = COALESCE(?, gemini_api_key), bank_details = COALESCE(?, bank_details), whatsapp_number = COALESCE(?, whatsapp_number), email_on_approve = COALESCE(?, email_on_approve) WHERE id = 1')
+  db.prepare('UPDATE admin_config SET bank_details = COALESCE(?, bank_details), whatsapp_number = COALESCE(?, whatsapp_number), email_on_approve = COALESCE(?, email_on_approve) WHERE id = 1')
     .run(
-      geminiApiKey ? geminiApiKey.trim() : null,
       bankDetails ? bankDetails.trim() : null,
       whatsappNumber ? whatsappNumber.trim() : null,
       (emailOnApprove == null ? null : (emailOnApprove ? 1 : 0))
@@ -133,9 +129,10 @@ router.post('/config', requireAdmin, (req, res) => {
 });
 
 // Test Gemini API key by calling a lightweight public endpoint
+import { getSecret } from '../lib/secure-config.js';
+
 router.post('/test-gemini', requireAdmin, async (req, res) => {
-  const row = db.prepare('SELECT gemini_api_key FROM admin_config WHERE id = 1').get();
-  const key = row?.gemini_api_key;
+  const key = getSecret('gemini_api_key');
   if (!key) return res.status(400).json({ error: 'No Gemini API key configured.' });
   try {
     const url = `https://generativelanguage.googleapis.com/v1/models?key=${encodeURIComponent(key)}`;
@@ -1248,11 +1245,11 @@ router.post('/users/:id/unsuspend', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/banners', requireAdmin, upload.single('image'), (req, res) => {
+router.post('/banners', requireAdmin, upload.single('image'), async (req, res) => {
   try {
     const f = req.file;
     if (!f) return res.status(400).json({ error: 'Image file required' });
-    // basic signature check
+    // basic signature check + block SVG
     try {
       const fd = fs.openSync(f.path, 'r');
       const buf = Buffer.alloc(8);
@@ -1260,6 +1257,11 @@ router.post('/banners', requireAdmin, upload.single('image'), (req, res) => {
       fs.closeSync(fd);
       const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
       const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+      const isSvg = String(f.mimetype || '') === 'image/svg+xml';
+      if (isSvg) {
+        try { fs.unlinkSync(f.path); } catch (_) {}
+        return res.status(400).json({ error: 'SVG images are not allowed.' });
+      }
       if (!isJpeg && !isPng) {
         try { fs.unlinkSync(f.path); } catch (_) {}
         return res.status(400).json({ error: 'Invalid image format. Use JPG or PNG.' });
@@ -1267,8 +1269,20 @@ router.post('/banners', requireAdmin, upload.single('image'), (req, res) => {
     } catch (_) {
       return res.status(400).json({ error: 'Failed to read uploaded file.' });
     }
+    // Re-encode to WebP with randomized filename
+    let storedPath = f.path;
+    try {
+      if (sharp) {
+        const base = crypto.randomBytes(8).toString('hex');
+        const outDir = path.dirname(f.path);
+        const webpPath = path.join(outDir, `${base}.webp`);
+        await sharp(f.path).resize({ width: 1200, withoutEnlargement: true }).webp({ quality: 85 }).toFile(webpPath);
+        try { fs.unlinkSync(f.path); } catch (_) {}
+        storedPath = webpPath;
+      }
+    } catch (_) {}
     db.prepare(`INSERT INTO banners (path, active, sort_order, created_at) VALUES (?, 1, 0, ?)`)
-      .run(f.path, new Date().toISOString());
+      .run(storedPath, new Date().toISOString());
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Failed to upload banner' });
@@ -1644,7 +1658,7 @@ function copyDirRecursiveSync(src, dest) {
   }
 }
 
-router.post('/restore', requireAdmin, backupUpload.single('backup'), async (req, res) => {
+router.post('/restore', requireAdmin2FA, backupUpload.single('backup'), async (req, res) => {
   try {
     const f = req.file;
     if (!f) return res.status(400).json({ error: 'Backup file (ZIP) required' });
@@ -1664,15 +1678,40 @@ router.post('/restore', requireAdmin, backupUpload.single('backup'), async (req,
       // continue; we'll try to extract anyway
     }
 
-    // Extract ZIP to a new temp directory
+    // Extract ZIP to a new temp directory with zip-slip protection and whitelist
     const extractDir = path.join(tmpRestoreDir, `extracted-${Date.now()}`);
     fs.mkdirSync(extractDir, { recursive: true });
     try {
       const zip = new AdmZip(f.path);
-      zip.extractAllTo(extractDir, true);
+      const entries = zip.getEntries();
+      const allowTop = new Set(['ganudenu.sqlite', 'secure-config.enc', 'uploads/', 'data/', 'tmp_ai/']);
+      for (const entry of entries) {
+        const name = String(entry.entryName || '');
+        // Normalize using POSIX separators
+        const norm = name.replace(/\\/g, '/');
+        // Disallow absolute paths and parent traversals
+        if (norm.startsWith('/') || norm.includes('..')) {
+          continue;
+        }
+        // Whitelist expected roots
+        const allowed = [...allowTop].some(prefix => norm === prefix || norm.startsWith(prefix));
+        if (!allowed) continue;
+
+        // Compute destination
+        const destPath = path.join(extractDir, norm);
+        const destDir = path.dirname(destPath);
+        fs.mkdirSync(destDir, { recursive: true });
+
+        if (entry.isDirectory) {
+          fs.mkdirSync(destPath, { recursive: true });
+        } else {
+          const data = entry.getData();
+          fs.writeFileSync(destPath, data);
+        }
+      }
     } catch (e) {
       try { fs.unlinkSync(f.path); } catch (_) {}
-      return res.status(400).json({ error: 'Failed to extract backup ZIP' });
+      return res.status(400).json({ error: 'Failed to extract backup ZIP safely' });
     } finally {
       try { fs.unlinkSync(f.path); } catch (_) {}
     }
@@ -1765,7 +1804,7 @@ router.post('/restore', requireAdmin, backupUpload.single('backup'), async (req,
       return res.status(500).json({ error: 'Failed to restore database from backup' });
     }
 
-    // Restore uploads (merge/overwrite collisions)
+    // Restore uploads (merge/overwrite collisions) - only within uploads folder
     try {
       const backupUploads = path.join(extractDir, 'uploads');
       if (fs.existsSync(backupUploads)) {
