@@ -12,7 +12,13 @@ const router = Router();
 // Dynamic sharp import for image processing
 let sharp = null;
 (async () => {
-  try { sharp = (await import('sharp')).default;();
+  try {
+    const mod = await import('sharp');
+    sharp = mod.default || mod;
+  } catch (_) {
+    sharp = null;
+  }
+})();
 
 // Set up uploads (reuse same uploads directory)
 const uploadsDir = path.resolve(process.cwd(), 'data', 'uploads');
