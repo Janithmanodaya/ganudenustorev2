@@ -8,7 +8,7 @@ import multer from 'multer';
 import { sendEmail } from '../lib/utils.js';
 import archiver from 'archiver';
 import AdmZip from 'adm-zip';
-import { requireAdmin } from '../lib/auth.js';
+import { requireAdmin, requireAdmin2FA } from '../lib/auth.js';
 
 // Dynamic sharp import for image processing
 let sharp = null;
@@ -1660,7 +1660,7 @@ function copyDirRecursiveSync(src, dest) {
   }
 }
 
-router.post('/restore', requireAdmin, backupUpload.single('backup'), async (req, res) => {
+router.post('/restore', requireAdmin2FA, backupUpload.single('backup'), async (req, res) => {
   try {
     const f = req.file;
     if (!f) return res.status(400).json({ error: 'Backup file (ZIP) required' });
@@ -1680,15 +1680,40 @@ router.post('/restore', requireAdmin, backupUpload.single('backup'), async (req,
       // continue; we'll try to extract anyway
     }
 
-    // Extract ZIP to a new temp directory
+    // Extract ZIP to a new temp directory with zip-slip protection and whitelist
     const extractDir = path.join(tmpRestoreDir, `extracted-${Date.now()}`);
     fs.mkdirSync(extractDir, { recursive: true });
     try {
       const zip = new AdmZip(f.path);
-      zip.extractAllTo(extractDir, true);
+      const entries = zip.getEntries();
+      const allowTop = new Set(['ganudenu.sqlite', 'secure-config.enc', 'uploads/', 'data/', 'tmp_ai/']);
+      for (const entry of entries) {
+        const name = String(entry.entryName || '');
+        // Normalize using POSIX separators
+        const norm = name.replace(/\\/g, '/');
+        // Disallow absolute paths and parent traversals
+        if (norm.startsWith('/') || norm.includes('..')) {
+          continue;
+        }
+        // Whitelist expected roots
+        const allowed = [...allowTop].some(prefix => norm === prefix || norm.startsWith(prefix));
+        if (!allowed) continue;
+
+        // Compute destination
+        const destPath = path.join(extractDir, norm);
+        const destDir = path.dirname(destPath);
+        fs.mkdirSync(destDir, { recursive: true });
+
+        if (entry.isDirectory) {
+          fs.mkdirSync(destPath, { recursive: true });
+        } else {
+          const data = entry.getData();
+          fs.writeFileSync(destPath, data);
+        }
+      }
     } catch (e) {
       try { fs.unlinkSync(f.path); } catch (_) {}
-      return res.status(400).json({ error: 'Failed to extract backup ZIP' });
+      return res.status(400).json({ error: 'Failed to extract backup ZIP safely' });
     } finally {
       try { fs.unlinkSync(f.path); } catch (_) {}
     }
@@ -1781,7 +1806,7 @@ router.post('/restore', requireAdmin, backupUpload.single('backup'), async (req,
       return res.status(500).json({ error: 'Failed to restore database from backup' });
     }
 
-    // Restore uploads (merge/overwrite collisions)
+    // Restore uploads (merge/overwrite collisions) - only within uploads folder
     try {
       const backupUploads = path.join(extractDir, 'uploads');
       if (fs.existsSync(backupUploads)) {

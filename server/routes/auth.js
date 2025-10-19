@@ -303,7 +303,8 @@ router.post('/verify-admin-login-otp', async (req, res) => {
   // OTP valid; consume it and log in
   try { db.prepare('DELETE FROM otps WHERE id = ?').run(otpRecord.id); } catch (_) {}
 
-  const token = signToken({ id: user.id, email: user.email, is_admin: true });
+  // Issue admin token with MFA claim
+  const token = signToken({ id: user.id, email: user.email, is_admin: true, mfa: true });
   const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
   return res.json({
     ok: true,

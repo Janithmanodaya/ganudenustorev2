@@ -20,7 +20,9 @@ export function signToken(user) {
   const payload = {
     user_id: user.id,
     email: user.email.toLowerCase(),
-    is_admin: !!user.is_admin
+    is_admin: !!user.is_admin,
+    // Optional MFA claim for admin flows
+    mfa: user.mfa ? true : false
   };
   return jwt.sign(payload, JWT_SECRET, { algorithm: 'HS256', expiresIn: DEFAULT_EXP });
 }
@@ -83,6 +85,30 @@ export function requireAdmin(req, res, next) {
   const v = verifyTokenRaw(tok);
   if (!v.ok) return res.status(401).json({ error: 'Invalid token' });
   const claims = v.decoded;
+  try {
+    const row = db.prepare('SELECT id, email, is_admin FROM users WHERE id = ?').get(Number(claims.user_id));
+    if (!row || !row.is_admin) return res.status(403).json({ error: 'Forbidden' });
+    if (String(row.email).toLowerCase() !== String(claims.email).toLowerCase()) {
+      return res.status(401).json({ error: 'Invalid user' });
+    }
+    req.admin = { id: row.id, email: row.email.toLowerCase() };
+    next();
+  } catch (e) {
+    return res.status(500).json({ error: 'Admin auth failed' });
+  }
+}
+
+/**
+ * requireAdmin2FA middleware: requires admin token with MFA=true claim.
+ * This is issued only by the /verify-admin-login-otp flow.
+ */
+export function requireAdmin2FA(req, res, next) {
+  const tok = getBearerToken(req);
+  if (!tok) return res.status(401).json({ error: 'Missing Authorization bearer token' });
+  const v = verifyTokenRaw(tok);
+  if (!v.ok) return res.status(401).json({ error: 'Invalid token' });
+  const claims = v.decoded;
+  if (!claims.mfa) return res.status(401).json({ error: 'Admin 2FA required' });
   try {
     const row = db.prepare('SELECT id, email, is_admin FROM users WHERE id = ?').get(Number(claims.user_id));
     if (!row || !row.is_admin) return res.status(403).json({ error: 'Forbidden' });
