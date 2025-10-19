@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../lib/db.js';
-import { requireUser } from '../lib/auth.js';
+import { requireUser, requireAdmin } from '../lib/auth.js';
 
 const router = Router();
 
@@ -13,13 +13,7 @@ db.prepare(`
     message TEXT NOT NULL,
     created_at TEXT NOT NULL
   )
-`).run();
-
-// Basic admin auth (same pattern as admin router)
-function requireAdmin(req, res, next) {
-  const adminEmailHdr = req.header('X-Admin-Email');
-  const email = String(adminEmailHdr || '').toLowerCase().trim();
-  if (!email) return res.status(401).json({ error: 'Missing admin credentials.' });
+`).run(););
 
   const configuredAdmin = String(process.env.ADMIN_EMAIL || '').toLowerCase().trim();
   const user = db.prepare('SELECT id, is_admin FROM users WHERE email = ?').get(email);
