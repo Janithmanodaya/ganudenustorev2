@@ -10,6 +10,12 @@ import archiver from 'archiver';
 import AdmZip from 'adm-zip';
 import { requireAdmin } from '../lib/auth.js';
 
+// Dynamic sharp import for image processing
+let sharp = null;
+(async () => {
+  try { sharp = (await import('sharp')).default; } catch (_) { sharp = null; }
+})();
+
 const router = Router();
 
 // Init audit table
@@ -59,10 +65,12 @@ const upload = multer({
   dest: uploadsDir,
   limits: { files: 1, fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!String(file.mimetype).startsWith('image/')) return cb(new Error('Only images are allowed'));
+    const mt = String(file.mimetype || '');
+    if (!mt.startsWith('image/')) return cb(new Error('Only images are allowed'));
+    if (mt === 'image/svg+xml') return cb(new Error('SVG images are not allowed'));
     cb(null, true);
-  }
-});
+  }_code
+}new)</;
 
 // Get current Gemini API key (masked)
 router.get('/config', requireAdmin, (req, res) => {
@@ -1239,11 +1247,11 @@ router.post('/users/:id/unsuspend', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/banners', requireAdmin, upload.single('image'), (req, res) => {
+router.post('/banners', requireAdmin, upload.single('image'), async (req, res) => {
   try {
     const f = req.file;
     if (!f) return res.status(400).json({ error: 'Image file required' });
-    // basic signature check
+    // basic signature check + block SVG
     try {
       const fd = fs.openSync(f.path, 'r');
       const buf = Buffer.alloc(8);
@@ -1251,6 +1259,11 @@ router.post('/banners', requireAdmin, upload.single('image'), (req, res) => {
       fs.closeSync(fd);
       const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
       const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+      const isSvg = String(f.mimetype || '') === 'image/svg+xml';
+      if (isSvg) {
+        try { fs.unlinkSync(f.path); } catch (_) {}
+        return res.status(400).json({ error: 'SVG images are not allowed.' });
+      }
       if (!isJpeg && !isPng) {
         try { fs.unlinkSync(f.path); } catch (_) {}
         return res.status(400).json({ error: 'Invalid image format. Use JPG or PNG.' });
@@ -1258,8 +1271,20 @@ router.post('/banners', requireAdmin, upload.single('image'), (req, res) => {
     } catch (_) {
       return res.status(400).json({ error: 'Failed to read uploaded file.' });
     }
+    // Re-encode to WebP with randomized filename
+    let storedPath = f.path;
+    try {
+      if (sharp) {
+        const base = crypto.randomBytes(8).toString('hex');
+        const outDir = path.dirname(f.path);
+        const webpPath = path.join(outDir, `${base}.webp`);
+        await sharp(f.path).resize({ width: 1200, withoutEnlargement: true }).webp({ quality: 85 }).toFile(webpPath);
+        try { fs.unlinkSync(f.path); } catch (_) {}
+        storedPath = webpPath;
+      }
+    } catch (_) {}
     db.prepare(`INSERT INTO banners (path, active, sort_order, created_at) VALUES (?, 1, 0, ?)`)
-      .run(f.path, new Date().toISOString());
+      .run(storedPath, new Date().toISOString());
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Failed to upload banner' });

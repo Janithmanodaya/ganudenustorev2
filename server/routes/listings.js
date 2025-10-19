@@ -23,6 +23,13 @@ try {
   sharp = null;
 }
 
+// Random name generator for stored images (avoid using original filenames)
+import crypto from 'crypto';
+function randomBaseName() {
+  try { return crypto.randomBytes(8).toString('hex'); } catch (_) {}
+  return Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+}
+
 const router = Router();
 
 // Simple in-memory cache with TTL for GET endpoints
@@ -80,7 +87,10 @@ const upload = multer({
   dest: uploadsDir,
   limits: { files: 5, fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!String(file.mimetype).startsWith('image/')) return cb(new Error('Only images are allowed'));
+    const mt = String(file.mimetype || '');
+    if (!mt.startsWith('image/')) return cb(new Error('Only images are allowed'));
+    // Block SVG uploads explicitly (stored XSS risk). Only allow raster images.
+    if (mt === 'image/svg+xml') return cb(new Error('SVG images are not allowed'));
     cb(null, true);
   }
 });

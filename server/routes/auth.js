@@ -9,6 +9,11 @@ import { signToken, requireUser, getBearerToken, verifyTokenRaw } from '../lib/a
 
 const router = Router();
 
+// Dynamic sharp import for image processing
+let sharp = null;
+(async () => {
+  try { sharp = (await import('sharp')).default;();
+
 // Set up uploads (reuse same uploads directory)
 const uploadsDir = path.resolve(process.cwd(), 'data', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -16,7 +21,9 @@ const upload = multer({
   dest: uploadsDir,
   limits: { files: 1, fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!String(file.mimetype).startsWith('image/')) return cb(new Error('Only images are allowed'));
+    const mt = String(file.mimetype || '');
+    if (!mt.startsWith('image/')) return cb(new Error('Only images are allowed'));
+    if (mt === 'image/svg+xml') return cb(new Error('SVG images are not allowed'));
     cb(null, true);
   }
 });
@@ -68,7 +75,7 @@ router.post('/upload-profile-photo', upload.single('photo'), async (req, res) =>
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'Image file is required.' });
 
-    // Basic file signature check
+    // Basic file signature check + block SVG
     try {
       const fd = fs.openSync(file.path, 'r');
       const buf = Buffer.alloc(8);
@@ -76,6 +83,11 @@ router.post('/upload-profile-photo', upload.single('photo'), async (req, res) =>
       fs.closeSync(fd);
       const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
       const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+      const isSvg = String(file.mimetype || '') === 'image/svg+xml';
+      if (isSvg) {
+        try { fs.unlinkSync(file.path); } catch (_) {}
+        return res.status(400).json({ error: 'SVG images are not allowed.' });
+      }
       if (!isJpeg && !isPng) {
         try { fs.unlinkSync(file.path); } catch (_) {}
         return res.status(400).json({ error: 'Invalid image format. Use JPG or PNG.' });
@@ -84,8 +96,23 @@ router.post('/upload-profile-photo', upload.single('photo'), async (req, res) =>
       return res.status(400).json({ error: 'Failed to read uploaded file.' });
     }
 
-    db.prepare('UPDATE users SET profile_photo_path = ? WHERE id = ?').run(file.path, user.id);
-    const publicUrl = '/uploads/' + path.basename(file.path);
+    // Re-encode to WebP with randomized filename
+    let storedPath = file.path;
+    try {
+      if (sharp) {
+        const outDir = path.dirname(file.path);
+        const base = (await import('crypto')).randomBytes(8).toString('hex');
+        const webpPath = path.join(outDir, `${base}.webp`);
+        await sharp(file.path).resize({ width: 800, withoutEnlargement: true }).webp({ quality: 85 }).toFile(webpPath);
+        try { fs.unlinkSync(file.path); } catch (_) {}
+        storedPath = webpPath;
+      }
+    } catch (_) {
+      // fallback: keep original path
+    }
+
+    db.prepare('UPDATE users SET profile_photo_path = ? WHERE id = ?').run(storedPath, user.id);
+    const publicUrl = '/uploads/' + path.basename(storedPath);
     return res.json({ ok: true, photo_url: publicUrl });
   } catch (e) {
     return res.status(500).json({ error: 'Unexpected error.' });
