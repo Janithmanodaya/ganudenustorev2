@@ -75,8 +75,7 @@ const upload = multer({
 
 // Get current Gemini API key (masked)
 router.get('/config', requireAdmin, (req, res) => {
-  const row = db.prepare('SELECT gemini_api_key, bank_details, whatsapp_number, email_on_approve FROM admin_config WHERE id = 1').get();
-  const key = row?.gemini_api_key || null;
+  const row = db.prepare('SELECT bank_details, whatsapp_number, email_on_approve FROM admin_config WHERE id = 1').get();
   // Load payment rules
   let rules = [];
   try {
@@ -85,20 +84,18 @@ router.get('/config', requireAdmin, (req, res) => {
     rules = [];
   }
   res.json({
-    gemini_api_key_masked: key ? `${key.slice(0, 4)}...${key.slice(-4)}` : null,
     bank_details: row?.bank_details || '',
     whatsapp_number: row?.whatsapp_number || '',
     email_on_approve: !!(row && row.email_on_approve),
-    payment_rules: rules
+    payment_rules: rules,
+    secrets_managed: true
   });
 });
 
 // Save Gemini API key
 router.post('/config', requireAdmin, (req, res) => {
-  const { geminiApiKey, bankDetails, whatsappNumber, emailOnApprove, paymentRules } = req.body || {};
-  if (geminiApiKey && typeof geminiApiKey !== 'string') {
-    return res.status(400).json({ error: 'geminiApiKey must be string.' });
-  }
+  const { bankDetails, whatsappNumber, emailOnApprove, paymentRules } = req.body || {};
+
   if (bankDetails && typeof bankDetails !== 'string') {
     return res.status(400).json({ error: 'bankDetails must be string.' });
   }
@@ -107,9 +104,8 @@ router.post('/config', requireAdmin, (req, res) => {
   }
   const row = db.prepare('SELECT id FROM admin_config WHERE id = 1').get();
   if (!row) db.prepare('INSERT INTO admin_config (id) VALUES (1)').run();
-  db.prepare('UPDATE admin_config SET gemini_api_key = COALESCE(?, gemini_api_key), bank_details = COALESCE(?, bank_details), whatsapp_number = COALESCE(?, whatsapp_number), email_on_approve = COALESCE(?, email_on_approve) WHERE id = 1')
+  db.prepare('UPDATE admin_config SET bank_details = COALESCE(?, bank_details), whatsapp_number = COALESCE(?, whatsapp_number), email_on_approve = COALESCE(?, email_on_approve) WHERE id = 1')
     .run(
-      geminiApiKey ? geminiApiKey.trim() : null,
       bankDetails ? bankDetails.trim() : null,
       whatsappNumber ? whatsappNumber.trim() : null,
       (emailOnApprove == null ? null : (emailOnApprove ? 1 : 0))
@@ -133,9 +129,10 @@ router.post('/config', requireAdmin, (req, res) => {
 });
 
 // Test Gemini API key by calling a lightweight public endpoint
+import { getSecret } from '../lib/secure-config.js';
+
 router.post('/test-gemini', requireAdmin, async (req, res) => {
-  const row = db.prepare('SELECT gemini_api_key FROM admin_config WHERE id = 1').get();
-  const key = row?.gemini_api_key;
+  const key = getSecret('gemini_api_key');
   if (!key) return res.status(400).json({ error: 'No Gemini API key configured.' });
   try {
     const url = `https://generativelanguage.googleapis.com/v1/models?key=${encodeURIComponent(key)}`;

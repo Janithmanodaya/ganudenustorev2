@@ -253,11 +253,12 @@ function validateListingInputs({ main_category, title, description, files }) {
   return null;
 }
 
+import { getSecret } from '../lib/secure-config.js';
+
 function getGeminiKey() {
-  const row = db.prepare('SELECT gemini_api_key FROM admin_config WHERE id = 1').get();
-  const fromDb = row?.gemini_api_key || null;
-  const fromEnv = process.env.GEMINI_API_KEY ? String(process.env.GEMINI_API_KEY).trim() : null;
-  return fromDb || fromEnv || null;
+  const fromCfg = getSecret('gemini_api_key');
+  const key = fromCfg ? String(fromCfg).trim() : null;
+  return key || null;
 }
 function getPrompt(type) {
   const row = db.prepare('SELECT content FROM prompts WHERE type = ?').get(type);
