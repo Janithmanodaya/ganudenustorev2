@@ -65,7 +65,8 @@ export async function sendEmail(to, subject, htmlContent) {
   // Brevo fallback via HTTP (secure-config preferred)
   const BREVO_API_KEY = getSecret('brevo_api_key');
   const BREVO_LOGIN = getSecret('brevo_login');
-  if (!BREVO_API_KEYole.error('[email] No SMTP config and Brevo credentials missing.');
+  if (!BREVO_API_KEY || !BREVO_LOGIN) {
+    console.error('[email] No SMTP config and Brevo credentials missing.');
     return { ok: false, error: 'Email provider not configured.' };
   }
 
