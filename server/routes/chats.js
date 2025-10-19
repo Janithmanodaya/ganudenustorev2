@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../lib/db.js';
-import { requireUser } from '../lib/auth.js';
+import { requireUser, requireAdmin } from '../lib/auth.js';
 
 const router = Router();
 
@@ -14,16 +14,6 @@ db.prepare(`
     created_at TEXT NOT NULL
   )
 `).run();
-
-// Basic admin auth (same pattern as admin router)
-function requireAdmin(req, res, next) {
-  const adminEmail = req.header('X-Admin-Email');
-  if (!adminEmail) return res.status(401).json({ error: 'Missing admin credentials.' });
-  const user = db.prepare('SELECT id, is_admin FROM users WHERE email = ?').get(String(adminEmail).toLowerCase());
-  if (!user || !user.is_admin) return res.status(403).json({ error: 'Forbidden.' });
-  req.admin = { id: user.id, email: String(adminEmail).toLowerCase() };
-  next();
-}
 
 // Helper: purge messages older than 7 days
 function purgeOldChats() {

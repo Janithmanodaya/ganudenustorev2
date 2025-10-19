@@ -12,8 +12,9 @@ export default function AdminPage() {
   const [emailOnApprove, setEmailOnApprove] = useState(false)
   const [status, setStatus] = useState(null)
   const [allowed, setAllowed] = useState(false)
+  const [authToken, setAuthToken] = useState('')
 
-  // Helper: safely parse JSON; if HTML or other content returned (e.g., backend down), show a friendly error.
+  // Helper: safely parse JSON; tolerate HTML/plain text without throwing to keep admin dashboard responsive.
   async function safeJson(r) {
     if (!r) throw new Error('No response')
     const headers = r.headers
@@ -45,10 +46,11 @@ export default function AdminPage() {
       try { return JSON.parse(trimmed) } catch (_) {}
     }
 
-    // Detect HTML error pages coming from a dev server or reverse proxy
+    // Detect HTML error pages (e.g., index.html from dev server/proxy)
     const isHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.includes('<html')
     if (isHtml) {
-      throw new Error('Backend is not responding. Please make sure the server is running.')
+      // Return empty object to avoid noisy global errors on admin UI
+      return {}
     }
 
     // Plain text response: return as a simple object to avoid generic errors
@@ -105,7 +107,7 @@ export default function AdminPage() {
 
   async function fetchConfig() {
     try {
-      const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load config')
       setMaskedKey(data.gemini_api_key_masked)
@@ -123,7 +125,8 @@ export default function AdminPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Admin-Email': adminEmail
+          'X-Admin-Email': adminEmail,
+          'Authorization': authToken ? `Bearer ${authToken}` : undefined
         },
         body: JSON.stringify({ geminiApiKey, bankDetails, whatsappNumber, emailOnApprove })
       })
@@ -141,7 +144,7 @@ export default function AdminPage() {
     try {
       const r = await fetch('/api/admin/test-gemini', {
         method: 'POST',
-        headers: { 'X-Admin-Email': adminEmail }
+        headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined }
       })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error?.message || data.error || 'Failed to test API key')
@@ -153,7 +156,7 @@ export default function AdminPage() {
 
   async function loadPending() {
     try {
-      const r = await fetch('/api/admin/pending', { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch('/api/admin/pending', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load pending')
       setPending(data.items || [])
@@ -649,7 +652,7 @@ export default function AdminPage() {
   // Chat management (admin)
   async function loadConversations() {
     try {
-      const r = await fetch('/api/chats/admin/conversations', { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch('/api/chats/admin/conversations', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load conversations')
       setConversations(Array.isArray(data.results) ? data.results : [])
@@ -657,10 +660,9 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function loadChatMessages(email) {
     try {
-      const r = await fetch(`/api/chats/admin/${encodeURIComponent(email)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/chats/admin/${encodeURIComponent(email)}`, { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load messages')
       setSelectedChatEmail(email)
@@ -676,7 +678,7 @@ export default function AdminPage() {
     try {
       const r = await fetch(`/api/chats/admin/${encodeURIComponent(selectedChatEmail)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined },
         body: JSON.stringify({ message: msg })
       })
       const data = await safeJson(r)
@@ -693,15 +695,17 @@ export default function AdminPage() {
     async function init() {
       try {
         const user = JSON.parse(localStorage.getItem('user') || 'null')
+        const token = localStorage.getItem('auth_token') || ''
         const email = user?.email || ''
+        if (token) setAuthToken(token)
         if (!email) {
           setAllowed(false)
           return
         }
-        // Refresh admin status from backend in case localStorage is stale
+        // Refresh admin status from backend with bearer token when available
         try {
           const r = await fetch(`/api/auth/status?t=${Date.now()}`, {
-            headers: { 'X-User-Email': email, 'Cache-Control': 'no-store' },
+            headers: { 'Authorization': token ? `Bearer ${token}` : undefined, 'Cache-Control': 'no-store' },
             cache: 'no-store'
           })
 
@@ -760,7 +764,7 @@ export default function AdminPage() {
       // preload conversations
       loadConversations()
       // initial unread count
-      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail } })
+      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
         .then(async r => {
           try {
             const d = await safeJson(r)
@@ -780,7 +784,7 @@ export default function AdminPage() {
     if (activeTab !== 'notifications') return
     const refresh = () => {
       loadAdminNotifications()
-      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail } })
+      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
         .then(async r => {
           try {
             const d = await safeJson(r)

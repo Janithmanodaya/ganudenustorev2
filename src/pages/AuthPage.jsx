@@ -33,19 +33,46 @@ export default function AuthPage() {
     canonical: 'https://ganudenu.store/auth'
   })
 
-  // Helper to safely parse JSON and handle backend-down cases
+  // Helper to safely parse JSON with graceful fallbacks for non-JSON responses.
+  // Avoids falsely reporting that the backend is down when a proxy returns HTML.
   async function safeJson(r) {
-    const ct = String(r.headers?.get?.('content-type') || '')
-    if (!ct.toLowerCase().includes('application/json')) {
-      let text = ''
-      try { text = await r.text() } catch (_) {}
-      const isHtml = text.startsWith('<!DOCTYPE') || text.includes('<html')
-      const msg = isHtml
-        ? 'Backend is not responding. Please make sure the server is running.'
-        : 'Unexpected response. Please try again.'
-      throw new Error(msg)
+    if (!r) throw new Error('No response')
+    const ctRaw = r.headers && typeof r.headers.get === 'function' ? r.headers.get('content-type') : ''
+    const ct = String(ctRaw || '').toLowerCase()
+
+    // If server indicates JSON, parse it directly
+    if (ct.includes('application/json')) {
+      try {
+        return await r.json()
+      } catch (_) {
+        // Invalid JSON — treat as empty object so callers can still read r.ok
+        return {}
+      }
     }
-    return r.json()
+
+    // Otherwise read text and try to be resilient
+    let text = ''
+    try { text = await r.text() } catch (_) {}
+    const trimmed = String(text || '').trim()
+
+    // Empty or 204: treat as success with no payload
+    if (!trimmed || r.status === 204) {
+      return {}
+    }
+
+    // Attempt JSON parse even if content-type is missing
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try { return JSON.parse(trimmed) } catch (_) {}
+    }
+
+    // If it's HTML (often dev index.html), don't claim backend is down; surface a generic message
+    const isHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.includes('<html')
+    if (isHtml) {
+      throw new Error('Unexpected server response. Please refresh and ensure API proxy is configured.')
+    }
+
+    // Plain text: return as a simple object
+    return { message: trimmed }
   }
 
   async function submit(e) {
@@ -141,8 +168,9 @@ export default function AuthPage() {
         setSubmitting(false)
       } else if (mode === 'register' && registerStep === 'verify') {
         try {
-          const user = { id: data.userId, email, username: data.username, is_admin: !!data.is_admin }
+          const user = data.user || { id: data.userId, email, username: data.username, is_admin: !!data.is_admin }
           localStorage.setItem('user', JSON.stringify(user))
+          if (data.token) localStorage.setItem('auth_token', data.token)
         } catch (_) {}
         setResult({ ok: true, message: 'Registration successful. Redirecting to home...' })
         setTimeout(() => navigate('/'), 800)
@@ -150,6 +178,7 @@ export default function AuthPage() {
         try {
           const user = data.user
           localStorage.setItem('user', JSON.stringify(user))
+          if (data.token) localStorage.setItem('auth_token', data.token)
         } catch (_) {}
         setResult({ ok: true, message: 'Login successful. Redirecting to home...' })
         setTimeout(() => navigate('/'), 800)

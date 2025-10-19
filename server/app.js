@@ -51,17 +51,29 @@ const corsWhitelist = (() => {
   if (!envList) return [];
   return envList.split(',').map(s => s.trim()).filter(Boolean);
 })();
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (corsWhitelist.includes(origin)) return callback(null, true);
-    return callback(new Error('CORS not allowed for origin: ' + origin), false);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 600
-}));
+app.use(cors(
+  corsWhitelist.length === 0
+    // Development: allow all origins when no whitelist provided
+    ? {
+        origin: true,
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Email', 'X-User-Email'],
+        maxAge: 600
+      }
+    // Production: strict whitelist
+    : {
+        origin: function (origin, callback) {
+          if (!origin) return callback(null, true);
+          if (corsWhitelist.includes(origin)) return callback(null, true);
+          return callback(new Error('CORS not allowed for origin: ' + origin), false);
+        },
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Email', 'X-User-Email'],
+        maxAge: 600
+      }
+));
 
 app.use(express.json());
 
