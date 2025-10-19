@@ -958,19 +958,46 @@ router.post('/submit', async (req, res) => {
         await sharp(firstImgPath).resize(120, 90).toFile(thumbPath);
         await sharp(firstImgPath).resize(640, 480).toFile(mediumPath);
 
-        // OG image 1200x630 with subtle overlay
+        // OG image 1200x630 with hardened SVG text overlay (fully escaped + sanitized)
         const bg = await sharp(firstImgPath).resize(1200, 630).blur(2).toBuffer();
+
+        function xmlEscape(str) {
+          return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+        }
+        function sanitizeText(str, maxLen) {
+          // Whitelist common printable chars and collapse whitespace
+          const s = String(str || '')
+            .replace(/[^\w\s.,:;!@#%&()\\-\\/+°]+/g, ' ') // allow letters/digits and selected punctuation
+            .replace(/\\s+/g, ' ')
+            .trim()
+            .slice(0, maxLen || 60);
+          return s;
+        }
+
+        const titleSafe = xmlEscape(sanitizeText(draft.title || '', 60));
+        const cat = String(draft.main_category || '');
+        const priceSafe = (typeof finalStruct.price === 'number' && isFinite(Number(finalStruct.price)))
+          ? ' • LKR ' + Number(finalStruct.price).toLocaleString('en-US')
+          : '';
+        const subtitleSafe = xmlEscape(sanitizeText(cat + priceSafe, 64));
+        const locationSafe = xmlEscape(sanitizeText(finalStruct.location || '', 64));
+
         const svgOverlay = `
           <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
             <rect x="0" y="0" width="1200" height="630" fill="rgba(0,0,0,0.35)"/>
             <text x="50" y="360" font-family="Arial, Helvetica, sans-serif" font-size="56" fill="#ffffff" font-weight="700">
-              ${String(draft.title || '').slice(0, 42).replace(/&/g,'&amp;')}
+              ${titleSafe}
             </text>
             <text x="50" y="420" font-family="Arial, Helvetica, sans-serif" font-size="28" fill="#e5e7eb" font-weight="500">
-              ${draft.main_category}${typeof finalStruct.price === 'number' ? ' • LKR ' + Number(finalStruct.price).toLocaleString('en-US') : ''}
+              ${subtitleSafe}
             </text>
             <text x="50" y="480" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#cbd5e1">
-              ${String(finalStruct.location || '').slice(0, 48).replace(/&/g,'&amp;')}
+              ${locationSafe}
             </text>
           </svg>`;
         await sharp(bg)
