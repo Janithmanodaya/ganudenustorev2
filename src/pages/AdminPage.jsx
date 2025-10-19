@@ -14,6 +14,13 @@ export default function AdminPage() {
   const [allowed, setAllowed] = useState(false)
   const [authToken, setAuthToken] = useState('')
 
+  // Helper: build admin headers consistently with bearer token when available
+  function getAdminHeaders(extra = {}) {
+    const h = { 'X-Admin-Email': adminEmail }
+    if (authToken) h['Authorization'] = `Bearer ${authToken}`
+    return { ...h, ...extra }
+  }
+
   // Helper: safely parse JSON; tolerate HTML/plain text without throwing to keep admin dashboard responsive.
   async function safeJson(r) {
     if (!r) throw new Error('No response')
@@ -167,7 +174,7 @@ export default function AdminPage() {
 
   async function loadDetail(id) {
     try {
-      const r = await fetch(`/api/admin/pending/${encodeURIComponent(id)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/pending/${encodeURIComponent(id)}`, { headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load item')
       setDetail(data)
@@ -182,10 +189,7 @@ export default function AdminPage() {
     try {
       const r = await fetch(`/api/admin/pending/${encodeURIComponent(selectedId)}/update`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Email': adminEmail
-        },
+        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           structured_json: editStructured
         })
@@ -203,7 +207,7 @@ export default function AdminPage() {
     try {
       const r = await fetch(`/api/admin/pending/${encodeURIComponent(selectedId)}/approve`, {
         method: 'POST',
-        headers: { 'X-Admin-Email': adminEmail }
+        headers: getAdminHeaders()
       })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to approve')
@@ -220,10 +224,7 @@ export default function AdminPage() {
     try {
       const r = await fetch(`/api/admin/pending/${encodeURIComponent(selectedId)}/reject`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Email': adminEmail
-        },
+        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ reason: rejectReason })
       })
       const data = await safeJson(r)
@@ -240,7 +241,7 @@ export default function AdminPage() {
 
   async function loadBanners() {
     try {
-      const r = await fetch('/api/admin/banners', { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch('/api/admin/banners', { headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load banners')
       setBanners(data.results || [])
@@ -251,7 +252,7 @@ export default function AdminPage() {
 
   async function loadMetrics(days = rangeDays) {
     try {
-      const r = await fetch(`/api/admin/metrics?days=${encodeURIComponent(days)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/metrics?days=${encodeURIComponent(days)}`, { headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load metrics')
       setMetrics(data)
@@ -262,7 +263,7 @@ export default function AdminPage() {
 
   async function loadUsers(q = '') {
     try {
-      const r = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}`, { headers: getAdminHeaders() })
       let data = {}
       try {
         data = await safeJson(r)
@@ -289,7 +290,7 @@ export default function AdminPage() {
 
   async function banUser(id) {
     try {
-      const r = await fetch(`/api/admin/users/${id}/ban`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/users/${id}/ban`, { method: 'POST', headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to ban user')
       loadUsers(userQuery)
@@ -300,7 +301,7 @@ export default function AdminPage() {
 
   async function unbanUser(id) {
     try {
-      const r = await fetch(`/api/admin/users/${id}/unban`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/users/${id}/unban`, { method: 'POST', headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to unban user')
       loadUsers(userQuery)
@@ -313,7 +314,7 @@ export default function AdminPage() {
     try {
       const r = await fetch(`/api/admin/users/${id}/suspend`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ days: Number(suspendDays) || 7 })
       })
       const data = await safeJson(r)
@@ -326,7 +327,7 @@ export default function AdminPage() {
 
   async function unsuspendUser(id) {
     try {
-      const r = await fetch(`/api/admin/users/${id}/unsuspend`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/users/${id}/unsuspend`, { method: 'POST', headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to unsuspend user')
       loadUsers(userQuery)
@@ -339,7 +340,7 @@ export default function AdminPage() {
   async function loadUserAds(user) {
     try {
       const userId = (typeof user === 'object' && user !== null) ? user.id : user
-      const r = await fetch(`/api/admin/users/${userId}/listings`, { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/users/${userId}/listings`, { headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load user ads')
       const rows = Array.isArray(data.results) ? data.results : []
@@ -389,7 +390,7 @@ export default function AdminPage() {
     const yes = window.confirm('Delete this listing?')
     if (!yes) return
     try {
-      const r = await fetch(`/api/admin/listings/${listingId}`, { method: 'DELETE', headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/listings/${listingId}`, { method: 'DELETE', headers: getAdminHeaders() })
       const d = await safeJson(r)
       if (!r.ok) throw new Error(d.error || 'Failed to delete listing')
       setStatus('Listing deleted.')
@@ -404,7 +405,7 @@ export default function AdminPage() {
     try {
       const r = await fetch(`/api/admin/listings/${listingId}/urgent`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ urgent: !!urgent })
       })
       const d = await safeJson(r)
@@ -418,7 +419,7 @@ export default function AdminPage() {
 
   async function loadReports(filter = 'pending') {
     try {
-      const r = await fetch(`/api/admin/reports?status=${encodeURIComponent(filter)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/reports?status=${encodeURIComponent(filter)}`, { headers: getAdminHeaders() })
       let data = {}
       try {
         data = await safeJson(r)
@@ -438,7 +439,7 @@ export default function AdminPage() {
 
   async function resolveReport(id) {
     try {
-      const r = await fetch(`/api/admin/reports/${id}/resolve`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/reports/${id}/resolve`, { method: 'POST', headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to resolve report')
       loadReports(reportFilter)
@@ -451,7 +452,7 @@ export default function AdminPage() {
     const yes = window.confirm('Delete this report?')
     if (!yes) return
     try {
-      const r = await fetch(`/api/admin/reports/${id}`, { method: 'DELETE', headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/reports/${id}`, { method: 'DELETE', headers: getAdminHeaders(_codeminEmail } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to delete report')
       loadReports(reportFilter)
@@ -467,7 +468,7 @@ export default function AdminPage() {
       fd.append('image', file)
       const r = await fetch('/api/admin/banners', {
         method: 'POST',
-        headers: { 'X-Admin-Email': adminEmail },
+        headers: getAdminHeaders(),
         body: fd
       })
       // If server returns HTML, we want a friendly error
@@ -491,7 +492,7 @@ export default function AdminPage() {
     try {
       const r = await fetch(`/api/admin/banners/${id}/active`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ active: !active })
       })
       const data = await safeJson(r)
@@ -508,7 +509,7 @@ export default function AdminPage() {
     try {
       const r = await fetch(`/api/admin/banners/${id}`, {
         method: 'DELETE',
-        headers: { 'X-Admin-Email': adminEmail }
+        headers: getAdminHeaders()
       })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to delete banner')
@@ -523,7 +524,7 @@ export default function AdminPage() {
     try {
       const r = await fetch('/api/admin/backup', {
         method: 'POST',
-        headers: { 'X-Admin-Email': adminEmail }
+        headers: getAdminHeaders()
       })
       const ct = (r.headers && typeof r.headers.get === 'function') ? String(r.headers.get('content-type') || '').toLowerCase() : ''
       if (!r.ok) {
@@ -568,7 +569,7 @@ export default function AdminPage() {
       fd.append('backup', file)
       const r = await fetch('/api/admin/restore', {
         method: 'POST',
-        headers: { 'X-Admin-Email': adminEmail },
+        headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined },
         body: fd
       })
       const data = await safeJson(r)
@@ -588,7 +589,7 @@ export default function AdminPage() {
   // Notifications (admin)
   async function loadAdminNotifications() {
     try {
-      const r = await fetch('/api/admin/notifications', { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch('/api/admin/notifications', { headers: getAdminHeaders() })
       let data = {}
       try {
         data = await safeJson(r)
@@ -620,7 +621,7 @@ export default function AdminPage() {
       }
       const r = await fetch('/api/admin/notifications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       })
       const data = await safeJson(r)
@@ -640,7 +641,7 @@ export default function AdminPage() {
     const yes = window.confirm('Delete this notification?')
     if (!yes) return
     try {
-      const r = await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE', headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to delete notification')
       loadAdminNotifications()
@@ -652,12 +653,25 @@ export default function AdminPage() {
   // Chat management (admin)
   async function loadConversations() {
     try {
-      const r = await fetch('/api/chats/admin/conversations', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load conversations')
+      // Chats admin endpoints require a valid bearer token; if missing, skip silently
+      if (!authToken) {
+        setConversations([])
+        return
+      }
+      const r = await fetch('/api/chats/admin/conversations', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': `Bearer ${authToken}` } })
+      let data = {}
+      try {
+        data = await safeJson(r)
+      } catch (_) {
+        data = {}
+      }
+      // If the backend returns a non-OK (e.g., token expired), do not surface a global error
+      if (!r.ok) {
+        return
+      }
       setConversations(Array.isArray(data.results) ? data.results : [])
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
+    } catch (_e) {
+      // Silent on errors to avoid noisy Status card on dashboard
     }
   }
   async function loadChatMessages(email) {
@@ -754,6 +768,10 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (allowed && adminEmail) {
+      // Avoid hitting admin endpoints without a bearer token to prevent "Missing Authorization bearer token" errors.
+      if (!authToken) {
+        return
+      }
       fetchConfig()
       loadPending()
       loadBanners()
@@ -764,7 +782,7 @@ export default function AdminPage() {
       // preload conversations
       loadConversations()
       // initial unread count
-      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
+      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': `Bearer ${authToken}` } })
         .then(async r => {
           try {
             const d = await safeJson(r)
@@ -776,7 +794,7 @@ export default function AdminPage() {
         .catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, adminEmail])
+  }, [allowed, adminEmail, authToken])
 
   // Auto-refresh notifications when on the Notifications tab (and update unread count)
   useEffect(() => {
@@ -926,7 +944,7 @@ export default function AdminPage() {
     async function loadRules() {
       setLoading(true)
       try {
-        const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail } })
+        const r = await fetch('/api/admin/config', { headers: getAdminHeaders() })
         const data = await safeJson(r)
         if (!r.ok) throw new Error(data.error || 'Failed to load rules')
         setRules(Array.isArray(data.payment_rules) ? data.payment_rules : [])
@@ -957,7 +975,7 @@ export default function AdminPage() {
         }
         const r = await fetch('/api/admin/config', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+          headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(payload)
         })
         const data = await safeJson(r)
@@ -1208,8 +1226,8 @@ export default function AdminPage() {
                         <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend {suspendDays} days</button>
                       )}
                       {/* Verify controls */}
-                      {!u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/verify`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } }); const d = await safeJson(r); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Verify</button>}
-                      {u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/unverify`, { method: 'POST', headers: { 'X-Admin-Email': adminEmail } }); const d = await safeJson(r); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Unverify</button>}
+                      {!u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/verify`, { method: 'POST', headers: getAdminHeaders() }); const d = await safeJson(r); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Verify</button>}
+                      {u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/unverify`, { method: 'POST', headers: getAdminHeaders() }); const d = await safeJson(r); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Unverify</button>}
                       {/* View user's ads */}
                       <button className="btn" onClick={() => toggleExpandUser(u.id)}>
                         {expandedUserIds.includes(u.id) ? 'Hide Ads' : 'View Ads'}
@@ -1627,7 +1645,7 @@ export default function AdminPage() {
                             try {
                               const r = await fetch(`/api/admin/listings/${encodeURIComponent(selectedId)}/urgent`, {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+                                headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
                                 body: JSON.stringify({ urgent: !!urgentFlag })
                               })
                               const d = await safeJson(r)
