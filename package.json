@@ -27,7 +27,8 @@
     "node-fetch": "^3.3.2",
     "nodemailer": "^6.9.9",
     "archiver": "^7.0.1",
-    "adm-zip": "^0.5.16"
+    "adm-zip": "^0.5.16",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.2",

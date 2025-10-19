@@ -8,6 +8,7 @@ import multer from 'multer';
 import { sendEmail } from '../lib/utils.js';
 import archiver from 'archiver';
 import AdmZip from 'adm-zip';
+import { requireAdmin } from '../lib/auth.js';
 
 const router = Router();
 
@@ -50,16 +51,6 @@ try {
     db.prepare(`ALTER TABLE reports ADD COLUMN handled_at TEXT`).run();
   }
 } catch (_) {}
-
-// Simple admin auth gate using a header "X-Admin-Email"
-function requireAdmin(req, res, next) {
-  const adminEmail = req.header('X-Admin-Email');
-  if (!adminEmail) return res.status(401).json({ error: 'Missing admin credentials.' });
-  const user = db.prepare('SELECT id, is_admin FROM users WHERE email = ?').get(adminEmail.toLowerCase());
-  if (!user || !user.is_admin) return res.status(403).json({ error: 'Forbidden.' });
-  req.admin = { id: user.id, email: adminEmail.toLowerCase() };
-  next();
-}
 
 // Upload config
 const uploadsDir = path.resolve(process.cwd(), 'data', 'uploads');

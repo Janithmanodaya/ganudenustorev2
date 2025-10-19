@@ -5,6 +5,7 @@ import { generateOtp, sendEmail, generateUserUID } from '../lib/utils.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { signToken, requireUser, getBearerToken, verifyTokenRaw } from '../lib/auth.js';
 
 const router = Router();
 
@@ -184,7 +185,10 @@ router.post('/verify-otp-and-register', async (req, res) => {
     const stmt = db.prepare('INSERT INTO users (email, password_hash, is_admin, created_at, username, user_uid, is_verified) VALUES (?, ?, 0, ?, ?, ?, 0)');
     const info = stmt.run(email.toLowerCase(), hashed, new Date().toISOString(), username, uid);
     db.prepare('DELETE FROM otps WHERE id = ?').run(otpRecord.id);
-    return res.json({ ok: true, userId: info.lastInsertRowid, user_uid: uid, is_admin: false, username, is_verified: false });
+
+    // Issue token for immediate authenticated use
+    const token = signToken({ id: info.lastInsertRowid, email: email.toLowerCase(), is_admin: false });
+    return res.json({ ok: true, token, user: { id: info.lastInsertRowid, user_uid: uid, email: email.toLowerCase(), username, is_admin: false, is_verified: false } });
   } catch (e) {
     if (String(e).includes('UNIQUE constraint')) {
       return res.status(409).json({ error: 'Email or username already registered.' });
@@ -243,8 +247,9 @@ router.post('/login', async (req, res) => {
   }
 
   // Normal user login (no OTP required)
+  const token = signToken({ id: user.id, email: user.email, is_admin: !!user.is_admin });
   const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
-  return res.json({ ok: true, user: { id: user.id, user_uid: user.user_uid, email: user.email, username: user.username, is_admin: !!user.is_admin, is_verified: !!user.is_verified, photo_url } });
+  return res.json({ ok: true, token, user: { id: user.id, user_uid: user.user_uid, email: user.email, username: user.username, is_admin: !!user.is_admin, is_verified: !!user.is_verified, photo_url } });
 });
 
 // Verify Admin Login OTP (second step)
@@ -271,9 +276,11 @@ router.post('/verify-admin-login-otp', async (req, res) => {
   // OTP valid; consume it and log in
   try { db.prepare('DELETE FROM otps WHERE id = ?').run(otpRecord.id); } catch (_) {}
 
+  const token = signToken({ id: user.id, email: user.email, is_admin: true });
   const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
   return res.json({
     ok: true,
+    token,
     user: {
       id: user.id,
       user_uid: user.user_uid,
@@ -378,14 +385,15 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-// Public user status endpoint (used by client to enforce bans/suspensions)
+// Authenticated user status endpoint using bearer token
 router.get('/status', (req, res) => {
   try {
-    const hdrEmail = String(req.header('X-User-Email') || '').toLowerCase().trim();
-    const qEmail = String(req.query.email || '').toLowerCase().trim();
-    const email = hdrEmail || qEmail;
-    if (!email) return res.status(400).json({ error: 'Email required.' });
-    const user = db.prepare('SELECT id, email, is_admin, is_banned, suspended_until, username FROM users WHERE email = ?').get(email);
+    const tok = getBearerToken(req);
+    if (!tok) return res.status(400).json({ error: 'Authorization bearer token required.' });
+    const v = verifyTokenRaw(tok);
+    if (!v.ok) return res.status(401).json({ error: 'Invalid token.' });
+    const claims = v.decoded;
+    const user = db.prepare('SELECT id, email, is_admin, is_banned, suspended_until, username FROM users WHERE id = ?').get(Number(claims.user_id));
     if (!user) return res.status(404).json({ error: 'User not found.' });
     return res.json({
       ok: true,

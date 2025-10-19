@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import fetch from 'node-fetch';
 import { writeExtract, readExtract, deleteUserTempDb, openUserTempDb } from '../lib/tmpdb.js';
+import { requireUser, getBearerToken, verifyTokenRaw } from '../lib/auth.js';
 
 // Helper: convert a stored file path to public URL (/uploads/<filename>)
 function filePathToUrl(p) {
@@ -1605,15 +1606,14 @@ router.get('/suggestions', (req, res) => {
 
 
 // Get current user's listings (My _code (My Ads)
-router.get('/my', (req, res) => {
+router.get('/my', requireUser, (req, res) => {
   try {
-    const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
-    if (!email) return res.status(401).json({ error: 'Missing user email' });
+    const email = req.user.email;
 
     const rows = db.prepare(`
       SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views, is_urgent
       FROM listings
-      WHERE owner_email = ?
+      WHERE LOWER(owner_email) = LOWER(?)
       ORDER BY created_at DESC
       LIMIT 200
     `).all(email);
@@ -1651,7 +1651,13 @@ router.get('/:id', (req, res) => {
     // - Do not count views from the listing owner
     // - Do not count duplicate views from the same IP
     try {
-      const viewerEmail = String(req.header('X-User-Email') || '').toLowerCase().trim();
+      // Try to derive viewer email from bearer token (if provided)
+      let viewerEmail = '';
+      const tok = getBearerToken(req);
+      if (tok) {
+        const v = verifyTokenRaw(tok);
+        if (v.ok && v.decoded?.email) viewerEmail = String(v.decoded.email).toLowerCase().trim();
+      }
       const ownerEmail = String(listing.owner_email || '').toLowerCase().trim();
       // Determine client IP (favor X-Forwarded-For, else remoteAddress/ip)
       let ip = '';
@@ -1738,12 +1744,11 @@ router.post('/:id/report', (req, res) => {
 });
 
 // Delete a listing (owner only)
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireUser, (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid ID' });
-    const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
-    if (!email) return res.status(401).json({ error: 'Missing user email' });
+    const email = req.user.email;
 
     const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
@@ -1826,7 +1831,7 @@ router.get('/payment-info/:id', (req, res) => {
 });
 
 // Seller note to admin regarding payment
-router.post('/payment-note', async (req, res) => {
+router.post('/payment-note', requireUser, async (req, res) => {
   try {
     const listingId = Number(req.body?.listing_id);
     const noteText = String(req.body?.note || '').trim();
@@ -1835,6 +1840,12 @@ router.post('/payment-note', async (req, res) => {
 
     const listing = db.prepare('SELECT id, title, owner_email FROM listings WHERE id = ?').get(listingId);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
+
+    // Only the listing owner can send a payment note
+    const sender = req.user.email;
+    if (String(listing.owner_email || '').toLowerCase().trim() !== String(sender)) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
 
     // Collect admin emails
     const admins = db.prepare('SELECT email FROM users WHERE is_admin = 1').all();
@@ -1849,7 +1860,7 @@ router.post('/payment-note', async (req, res) => {
     const now = new Date().toISOString();
     const title = 'Payment note received';
     const message = `Seller note for listing #${listing.id} (“${listing.title}”): ${noteText}`;
-    const meta = JSON.stringify({ sender_email: String(listing.owner_email || '').toLowerCase().trim() });
+    const meta = JSON.stringify({ sender_email: sender });
 
     const stmt = db.prepare(`
       INSERT INTO notifications (title, message, target_email, created_at, type, listing_id, meta_json)
