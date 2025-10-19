@@ -27,45 +27,52 @@ import usersRouter from './routes/users.js';
 import wantedRouter from './routes/wanted.js';
 import { sendEmail } from './lib/utils.js';
 
-let helmet = null;
-try {
-  helmet = (await import('helmet')).default;
-} catch (_) {
-  helmet = null;
-}
-let compression = null;
-try {
-  compression = (await import('compression')).default;
-} catch (_) {
-  compression = null;
-}
+import helmet from 'helmet';
+import compression from 'compression';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5174;
 
-// Trust the first proxy (e.g., Vite dev proxy or reverse proxy) so express-rate-limit
-// correctly reads client IP from X-Forwarded-For when present.
-app.set('trust proxy', 1);
+// Trust proxy: if behind multiple proxies, set a higher number via env
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
 
-// Security headers (if helmet available)
-if (helmet) {
+// Security headers: always enable in production with stricter defaults
+const isProd = process.env.NODE_ENV === 'production';
+if (isProd) {
   app.use(helmet({
-    contentSecurityPolicy: false
+    // Disable CSP only if you haven't audited inline scripts; consider enabling later
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: true,
+    crossOriginOpenerPolicy: { policy: 'same-origin' },
+    crossOriginResourcePolicy: { policy: 'same-origin' },
+    referrerPolicy: { policy: 'no-referrer' }
   }));
-}
-// Gzip/deflate compression if available
-if (compression) {
+  app.use(compression());
+} else {
+  // In non-prod, still enable basic protections and compression
+  app.use(helmet({ contentSecurityPolicy: false }));
   app.use(compression());
 }
 
-// CORS
-const isProd = process.env.NODE_ENV === 'production';
-const allowedOrigin = isProd ? (process.env.CORS_ORIGIN || process.env.PUBLIC_ORIGIN || '') : (process.env.CORS_ORIGIN || 'http://localhost:5173');
+// Strict CORS whitelist
+const corsWhitelist = (() => {
+  const envList = String(process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || process.env.PUBLIC_ORIGIN || '').trim();
+  if (!envList) return [];
+  return envList.split(',').map(s => s.trim()).filter(Boolean);
+})();
 app.use(cors({
-  origin: allowedOrigin || '*',
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow no-origin (same-origin/opaque requests like curl) if needed
+    if (!origin) return callback(null, true);
+    if (corsWhitelist.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS not allowed for origin: ' + origin), false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 600
 }));
 
 app.use(express.json());
