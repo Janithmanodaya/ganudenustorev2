@@ -420,8 +420,9 @@ async function sendSavedSearchEmailDigests() {
           <p style="margin-top: 0; color: #444;">Here are recent matches:</p>
           <ul>
             ${items.map(it => {
-              const url = \`\${domain}/listing/\${it.listing_id || ''}\`;
-              return \`<li><a href="\${url}" style="color:#0b5fff;text-decoration:none;">\${it.message}</a> <span style="color:#666;font-size:12px;">(\${new Date(it.created_at).toLocaleString()})</span></li>\`;
+              const url = String(domain) + '/listing/' + String(it.listing_id || '');
+              const dateStr = new Date(it.created_at).toLocaleString();
+              return '<li><a href="' + url + '" style="color:#0b5fff;text-decoration:none;">' + it.message + '</a> <span style="color:#666;font-size:12px;">(' + dateStr + ')</span></li>';
             }).join('')}
           </ul>
           <p style="color:#666;font-size:12px;">You can manage saved searches from your Account page.</p>
