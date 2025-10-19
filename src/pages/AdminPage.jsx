@@ -767,6 +767,10 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (allowed && adminEmail) {
+      // Avoid hitting admin endpoints without a bearer token to prevent "Missing Authorization bearer token" errors.
+      if (!authToken) {
+        return
+      }
       fetchConfig()
       loadPending()
       loadBanners()
@@ -777,7 +781,7 @@ export default function AdminPage() {
       // preload conversations
       loadConversations()
       // initial unread count
-      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
+      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': `Bearer ${authToken}` } })
         .then(async r => {
           try {
             const d = await safeJson(r)
@@ -789,7 +793,7 @@ export default function AdminPage() {
         .catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, adminEmail])
+  }, [allowed, adminEmail, authToken])
 
   // Auto-refresh notifications when on the Notifications tab (and update unread count)
   useEffect(() => {
