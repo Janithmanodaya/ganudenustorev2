@@ -70,8 +70,8 @@ const upload = multer({
     if (!mt.startsWith('image/')) return cb(new Error('Only images are allowed'));
     if (mt === 'image/svg+xml') return cb(new Error('SVG images are not allowed'));
     cb(null, true);
-  }_code
-}new)</;
+  }
+});
 
 // Get current Gemini API key (masked)
 router.get('/config', requireAdmin, (req, res) => {
