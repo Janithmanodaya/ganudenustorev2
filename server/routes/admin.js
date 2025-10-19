@@ -37,7 +37,8 @@ db.prepare(`
     listing_id INTEGER NOT NULL,
     reporter_email TEXT,
     reason TEXT NOT NULL,
-    ts TEXT NOT NULL
+    ts TEXT NOT NULL,
+    FOREIGN KEY(listing_id) REFERENCES listings(id) ON DELETE CASCADE
   )
 `).run();
 

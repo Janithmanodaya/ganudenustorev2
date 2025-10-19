@@ -119,34 +119,7 @@ db.prepare(
   '  draft_id INTEGER NOT NULL,' +
   '  path TEXT NOT NULL,' +
   '  original_name TEXT NOT NULL,' +
-  '  FOREIGN KEY(draft_id) REFERENCES listing_drafts(id)' +
-  ')'
-).run();
-
-db.prepare(
-  'CREATE TABLE IF NOT EXISTS listings (' +
-  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
-  '  main_category TEXT NOT NULL,' +
-  '  title TEXT NOT NULL,' +
-  '  description TEXT NOT NULL,' +
-  '  structured_json TEXT,' +
-  '  seo_title TEXT,' +
-  '  seo_description TEXT,' +
-  '  seo_keywords TEXT,' +
-  '  seo_json TEXT,' +
-  '  resume_file_url TEXT,' +
-  '  location TEXT,' +
-  '  location_lat REAL,' +
-  '  location_lng REAL,' +
-  '  price REAL,' +
-  '  pricing_type TEXT,' +
-  '  phone TEXT,' +
-  '  owner_email TEXT,' +
-  '  thumbnail_path TEXT,' +
-  '  medium_path TEXT,' +
-  '  valid_until TEXT,' +
-  "  status TEXT NOT NULL DEFAULT 'Pending Approval'," +
-  '  created_at TEXT NOT NULL' +
+  '  FOREIGN KEY(draft_id) REFERENCES listing_drafts(id) ON DELETE CASCADE' +
   ')'
 ).run();
 
@@ -156,7 +129,42 @@ db.prepare(
   '  listing_id INTEGER NOT NULL,' +
   '  path TEXT NOT NULL,' +
   '  original_name TEXT NOT NULL,' +
-  '  FOREIGN KEY(listing_id) REFERENCES listings(id)' +
+  '  FOREIGN KEY(listing_id) REFERENCES listings(id) ON DELETE CASCADE' +
+  ')'
+).run();
+
+db.prepare(
+  'CREATE TABLE IF NOT EXISTS reports (' +
+  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+  '  listing_id INTEGER NOT NULL,' +
+  '  reporter_email TEXT,' +
+  '  reason TEXT NOT NULL,' +
+  '  ts TEXT NOT NULL,' +
+  '  FOREIGN KEY(listing_id) REFERENCES listings(id) ON DELETE CASCADE' +
+  ')'
+).run();
+
+db.prepare(
+  'CREATE TABLE IF NOT EXISTS listing_views (' +
+  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+  '  listing_id INTEGER NOT NULL,' +
+  '  ip TEXT,' +
+  '  viewer_email TEXT,' +
+  '  ts TEXT NOT NULL,' +
+  '  UNIQUE(listing_id, ip),' +
+  '  FOREIGN KEY(listing_id) REFERENCES listings(id) ON DELETE CASCADE' +
+  ')'
+).run();
+
+db.prepare(
+  'CREATE TABLE IF NOT EXISTS listing_wanted_tags (' +
+  '  id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+  '  listing_id INTEGER NOT NULL,' +
+  '  wanted_id INTEGER NOT NULL,' +
+  '  created_at TEXT NOT NULL,' +
+  '  UNIQUE(listing_id, wanted_id),' +
+  '  FOREIGN KEY(listing_id) REFERENCES listings(id) ON DELETE CASCADE,' +
+  '  FOREIGN KEY(wanted_id) REFERENCES wanted_requests(id) ON DELETE CASCADE' +
   ')'
 ).run();
 
