@@ -13,7 +13,7 @@ export default function AdminPage() {
   const [status, setStatus] = useState(null)
   const [allowed, setAllowed] = useState(false)
 
-  // Helper: safely parse JSON; if HTML or other content returned (e.g., backend down), show a friendly error.
+  // Helper: safely parse JSON; tolerate HTML/plain text from proxies without implying backend is down.
   async function safeJson(r) {
     if (!r) throw new Error('No response')
     const headers = r.headers
@@ -45,10 +45,11 @@ export default function AdminPage() {
       try { return JSON.parse(trimmed) } catch (_) {}
     }
 
-    // Detect HTML error pages coming from a dev server or reverse proxy
+    // Detect HTML error pages (e.g., index.html from dev server/proxy)
     const isHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.includes('<html')
     if (isHtml) {
-      throw new Error('Backend is not responding. Please make sure the server is running.')
+      // Do not mislead — surface a generic message that hints at proxy/config issues
+      throw new Error('Unexpected server response. Check API proxy or server configuration.')
     }
 
     // Plain text response: return as a simple object to avoid generic errors
