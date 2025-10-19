@@ -361,16 +361,40 @@ Sitemap: ${domain}/sitemap.xml`);
 app.get('/sitemap.xml', (req, res) => {
   const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
   const rows = db.prepare(`SELECT id, title, structured_json, created_at FROM listings WHERE status = 'Approved' ORDER BY id DESC LIMIT 3000`).all();
+
+  // Basic XML escape to prevent injection/breakage
+  function xmlEscape(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  const nowIso = new Date().toISOString();
   const core = [
-    { loc: `${domain}/`, lastmod: new Date().toISOString() },
-    { loc: `${domain}/jobs`, lastmod: new Date().toISOString() },
-    { loc: `${domain}/search`, lastmod: new Date().toISOString() },
-    { loc: `${domain}/policy`, lastmod: new Date().toISOString() }
+    { loc: `${domain}/`, lastmod: nowIso },
+    { loc: `${domain}/jobs`, lastmod: nowIso },
+    { loc: `${domain}/search`, lastmod: nowIso },
+    { loc: `${domain}/policy`, lastmod: nowIso }
   ];
 
   function makeSlug(s) {
+    // Only allow a-z0-9 and hyphens; collapse sequences; clamp length
     const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    return base || 'listing';
+    return (base || 'listing').slice(0, 80);
+  }
+
+  function safeLastMod(v) {
+    try {
+      if (!v) return nowIso;
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return nowIso;
+      return d.toISOString();
+    } catch (_) {
+      return nowIso;
+    }
   }
 
   const urls = [
@@ -380,18 +404,23 @@ app.get('/sitemap.xml', (req, res) => {
       try {
         const sj = JSON.parse(r.structured_json || '{}');
         const y = sj.manufacture_year || sj.year || sj.model_year || null;
-        if (y) year = String(y);
+        if (y) {
+          const yy = parseInt(String(y), 10);
+          if (Number.isFinite(yy) && yy >= 1950 && yy <= 2100) year = String(yy);
+        }
       } catch (_) {}
       const idCode = Number(r.id).toString(36).toUpperCase();
       const parts = [makeSlug(r.title || ''), year, idCode].filter(Boolean);
-      const loc = `${domain}/listing/${r.id}-${parts.join('-')}`;
-      return { loc, lastmod: r.created_at || new Date().toISOString() };
+      const rawLoc = `${domain}/listing/${r.id}-${parts.join('-')}`;
+      // Ensure URL-safe and escape for XML
+      const loc = xmlEscape(encodeURI(rawLoc));
+      return { loc, lastmod: safeLastMod(r.created_at) };
     })
   ];
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urls.map(u => `<url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod></url>`).join('\n')}
+${urls.map(u => `<url><loc>${u.loc}</loc><lastmod>${xmlEscape(u.lastmod)}</lastmod></url>`).join('\n')}
 </urlset>`;
   res.type('application/xml').send(xml);
 });
