@@ -568,7 +568,7 @@ export default function AdminPage() {
       fd.append('backup', file)
       const r = await fetch('/api/admin/restore', {
         method: 'POST',
-        headers: { 'X-Admin-Email': adminEmail },
+        headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined },
         body: fd
       })
       const data = await safeJson(r)
