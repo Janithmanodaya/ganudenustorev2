@@ -13,25 +13,7 @@ db.prepare(`
     message TEXT NOT NULL,
     created_at TEXT NOT NULL
   )
-`).run(););
-
-  const configuredAdmin = String(process.env.ADMIN_EMAIL || '').toLowerCase().trim();
-  const user = db.prepare('SELECT id, is_admin FROM users WHERE email = ?').get(email);
-
-  // Allow if user exists and is_admin=1 OR email matches configured ADMIN_EMAIL (dev convenience)
-  if (user && user.is_admin) {
-    req.admin = { id: user.id, email };
-    return next();
-  }
-  if (configuredAdmin && email === configuredAdmin) {
-    const uidRow = db.prepare('SELECT id, is_admin FROM users WHERE email = ?').get(email);
-    const adminId = uidRow ? uidRow.id : null;
-    req.admin = { id: adminId || 0, email };
-    return next();
-  }
-
-  return res.status(403).json({ error: 'Forbidden.' });
-}
+`).run();
 
 // Helper: purge messages older than 7 days
 function purgeOldChats() {
