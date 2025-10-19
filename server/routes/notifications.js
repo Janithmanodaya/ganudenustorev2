@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { db } from '../lib/db.js';
-import { requireUser } from '../lib/auth.js';
 
 const router = Router();
 
