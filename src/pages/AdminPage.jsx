@@ -116,8 +116,8 @@ export default function AdminPage() {
       setEmailOnApprove(!!data.email_on_approve)
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }_code
- new </}
+    }
+  }
 
   async function saveConfig() {
     try {
@@ -125,7 +125,8 @@ export default function AdminPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Admin-Email': adminEmail
+          'X-Admin-Email': adminEmail,
+          'Authorization': authToken ? `Bearer ${authToken}` : undefined
         },
         body: JSON.stringify({ geminiApiKey, bankDetails, whatsappNumber, emailOnApprove })
       })
@@ -655,7 +656,10 @@ export default function AdminPage() {
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load conversations')
       setConversations(Array.isArray(data.results) ? data.results : [])
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
     }
+  }
   async function loadChatMessages(email) {
     try {
       const r = await fetch(`/api/chats/admin/${encodeURIComponent(email)}`, { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
@@ -665,8 +669,8 @@ export default function AdminPage() {
       setChatMessages(Array.isArray(data.results) ? data.results : [])
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }_code
- new </}
+    }
+  }
 
   async function sendAdminReply() {
     const msg = chatInput.trim()
@@ -789,8 +793,7 @@ export default function AdminPage() {
             // ignore transient errors
           }
         })
-        .catch(() =>_code {new}</)
-)
+        .catch(() => {})
     }
     // initial refresh on entering tab
     refresh()
