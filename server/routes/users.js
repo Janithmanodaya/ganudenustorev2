@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db } from '../lib/db.js';
+import { requireUser } from '../lib/auth.js';
 
 const router = Router();
 
@@ -100,16 +101,6 @@ router.get('/profile', (req, res) => {
     return res.status(500).json({ error: 'Failed to load profile' });
   }
 });
-
-// Auth gate via header
-function requireUser(req, res, next) {
-  const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
-  if (!email) return res.status(401).json({ error: 'Missing user email' });
-  const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-  if (!user) return res.status(401).json({ error: 'Invalid user' });
-  req.user = { email, id: user.id };
-  next();
-}
 
 // Upsert profile (owner only)
 router.post('/profile', requireUser, (req, res) => {

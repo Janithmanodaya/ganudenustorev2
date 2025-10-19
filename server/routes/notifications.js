@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { db } from '../lib/db.js';
+import { requireUser } from '../lib/auth.js';
 
 const router = Router();
 
@@ -74,21 +75,6 @@ try {
   db.prepare(`CREATE INDEX IF NOT EXISTS idx_saved_searches_cat ON saved_searches(category)`).run();
   db.prepare(`CREATE INDEX IF NOT EXISTS idx_saved_searches_loc ON saved_searches(location)`).run();
 } catch (_) {}
-
-// Lightweight user gate via header
-function requireUser(req, res, next) {
-  const email = String(req.header('X-User-Email') || '').toLowerCase().trim();
-  if (!email) return res.status(401).json({ error: 'Missing user email' });
-  // Optional: check user exists
-  const user = db.prepare('SELECT id, is_banned, suspended_until FROM users WHERE email = ?').get(email);
-  if (!user) return res.status(401).json({ error: 'Invalid user' });
-  if (user.is_banned) return res.status(403).json({ error: 'Account banned' });
-  if (user.suspended_until && user.suspended_until > new Date().toISOString()) {
-    return res.status(403).json({ error: 'Account suspended' });
-  }
-  req.user = { email, id: user.id };
-  next();
-}
 
 // Get notifications for user (broadcast + targeted), with TTLs:
 // - Read items are shown only for 24h after read
@@ -278,7 +264,7 @@ router.post('/saved-searches/notify-for-listing', (req, res) => {
             VALUES (?, ?, ?, ?, 'saved_search', ?, ?)
           `).run(
             'New listing matches your search',
-            `A new "${listing.title}" matches your saved search.`,
+            `A new \"${listing.title}\" matches your saved search.`,
             s.user_email,
             new Date().toISOString(),
             listing.id,

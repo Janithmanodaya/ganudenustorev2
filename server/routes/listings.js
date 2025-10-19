@@ -232,7 +232,7 @@ const CATEGORIES = new Set(['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile'
 function validateListingInputs({ main_category, title, description, files }) {
   if (!main_category || !CATEGORIES.has(String(main_category))) return 'Invalid main_category.';
   if (!title || String(title).trim().length < 3 || String(title).trim().length > 120) return 'Title must be between 3 and 120 characters.';
-  if (!description || String(description).trim().length < 10 || String(description).trim().length > 5000) return 'Description must be between 10 and 5000 characters.';
+  if (!description || String(description).trim().length > 5000 || String(description).trim().length < 10) return 'Description must be between 10 and 5000 characters.';
 
   const cat = String(main_category);
   const isJob = cat === 'Job';
@@ -440,14 +440,12 @@ function normalizeStructuredData(obj) {
   return s;
 }
 
-// Create draft
-router.post('/draft', upload.array('images', 5), async (req, res) => {
+// Create draft (JWT required)
+router.post('/draft', requireUser, upload.array('images', 5), async (req, res) => {
   try {
     const { main_category, title, description } = req.body || {};
     const files = req.files || [];
-    const ownerEmailHeader = String(req.header('X-User-Email') || '').toLowerCase().trim();
-    const ownerEmailBody = String(req.body?.owner_email || '').toLowerCase().trim();
-    const ownerEmail = ownerEmailHeader || ownerEmailBody || null;
+    const ownerEmail = req.user.email;
 
     const key = getGeminiKey();
     if (!key) return res.status(400).json({ error: 'Gemini API key not configured.' });
@@ -485,8 +483,8 @@ router.post('/draft', upload.array('images', 5), async (req, res) => {
         const isGif = buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38;      // 'GIF8'
         const isAvif = buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70 &&   // 'ftyp'
                        buf[8] === 0x61 && buf[9] === 0x76 && buf[10] === 0x69 && buf[11] === 0x66;   // 'avif' (heuristic)
-        const isTiff = (buf[0] === 0x49 && buf[1] === 0x49 && buf[2] === 0x2A && buf[3] === 0x00) || // 'II*\\0'
-                       (buf[0] === 0x4D && buf[1] === 0x4D && buf[2] === 0x00 && buf[3] === 0x2A);   // 'MM\\0*'
+        const isTiff = (buf[0] === 0x49 && buf[1] === 0x49 && buf[2] === 0x2A && buf[3] === 0x00) || // 'II*\0'
+                       (buf[0] === 0x4D && buf[1] === 0x4D && buf[2] === 0x00 && buf[3] === 0x2A);   // 'MM\0*'
         const isSvg = mt === 'image/svg+xml';
         if (!(isJpeg || isPng || isWebp || isGif || isAvif || isTiff || isSvg)) {
           // Do not block; rely on mimetype. Just warn.
@@ -763,7 +761,7 @@ Do not confuse employment_type with general 'type' fields for other categories.`
           // Create a concise tag from top keywords if possible
           const m = t.match(/\b([a-z]{3,})\b/gi);
           if (m && m.length) {
-            const word = m.find(w => w.length >= 4) || m[0];
+            const word = m.find(w => w.length >= 4) or m[0];
             return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
           }
           return '';
@@ -775,7 +773,7 @@ Do not confuse employment_type with general 'type' fields for other categories.`
 
     if (!structuredObj.sub_category) {
       const sub = inferSubCategoryForMain(selectedCategory, rawText);
-      structuredObj.sub_category = sub || 'General';
+      structuredObj.sub_category = sub or 'General';
     }
 
     let seoObj = {};
@@ -811,8 +809,8 @@ Do not confuse employment_type with general 'type' fields for other categories.`
       title,
       description,
       JSON.stringify(structuredObj),
-      seoObj.seo_title || '',
-      seoObj.seo_description || '',
+      seoObj.seo_title or '',
+      seoObj.seo_description or '',
       Array.isArray(seoObj.seo_keywords) ? seoObj.seo_keywords.join(', ') : '',
       ownerEmail,
       ts,
@@ -873,8 +871,8 @@ router.get('/draft/:id', (req, res) => {
   }
 });
 
-// Submit a draft to create a real listing
-router.post('/submit', async (req, res) => {
+// Submit a draft to create a real listing (JWT required)
+router.post('/submit', requireUser, async (req, res) => {
   try {
     const { draftId, structured_json, description } = req.body;
     if (!draftId) return res.status(400).json({ error: 'draftId is required' });
@@ -882,8 +880,7 @@ router.post('/submit', async (req, res) => {
     const draft = db.prepare('SELECT * FROM listing_drafts WHERE id = ?').get(draftId);
     if (!draft) return res.status(404).json({ error: 'Draft not found' });
 
-    const ownerEmail = String(req.header('X-User-Email') || draft.owner_email || '').toLowerCase().trim();
-    if (!ownerEmail) return res.status(400).json({ error: 'Missing user email' });
+    const ownerEmail = req.user.email;
 
     const images = db.prepare('SELECT * FROM listing_draft_images WHERE draft_id = ?').all(draftId);
     if (images.length === 0 && draft.main_category !== 'Job') {
@@ -966,14 +963,14 @@ router.post('/submit', async (req, res) => {
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
+            .replace(/\"/g, '&quot;')
             .replace(/'/g, '&apos;');
         }
         function sanitizeText(str, maxLen) {
           // Whitelist common printable chars and collapse whitespace
           const s = String(str || '')
-            .replace(/[^\w\s.,:;!@#%&()\\-\\/+°]+/g, ' ') // allow letters/digits and selected punctuation
-            .replace(/\\s+/g, ' ')
+            .replace(/[^\w\s.,:;!@#%&()\-\/+°]+/g, ' ') // allow letters/digits and selected punctuation
+            .replace(/\s+/g, ' ')
             .trim()
             .slice(0, maxLen || 60);
           return s;
@@ -1009,8 +1006,8 @@ router.post('/submit', async (req, res) => {
         var ogImagePathCreated = ogPath;
       } catch (e) {
         console.error('[sharp] Failed to create thumbnails/OG:', e.message);
-        thumbPath = thumbPath || null;
-        mediumPath = mediumPath || null;
+        thumbPath = thumbPath or null;
+        mediumPath = mediumPath or null;
         var ogImagePathCreated = null;
       }
     }
@@ -1087,7 +1084,7 @@ router.post('/submit', async (req, res) => {
           VALUES (?, ?, ?, ?, 'pending', ?)
         `).run(
           'Listing submitted – Pending Approval',
-          `Your ad "${draft.title}" (#${listingId}) has been submitted and is awaiting admin review.`,
+          `Your ad \"${draft.title}\" (#${listingId}) has been submitted and is awaiting admin review.`,
           ownerEmail,
           new Date().toISOString(),
           listingId
