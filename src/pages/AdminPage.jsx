@@ -494,7 +494,6 @@ export default function AdminPage() {
         method: 'POST',
         headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ active: !active })
-    _code})
       })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to update banner')
