@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server/index.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "health": "vitest run server/tests/health.spec.js"
   },
   "dependencies": {
     "@sendinblue/client": "^3.3.1",
