@@ -168,8 +168,9 @@ export default function AuthPage() {
         setSubmitting(false)
       } else if (mode === 'register' && registerStep === 'verify') {
         try {
-          const user = { id: data.userId, email, username: data.username, is_admin: !!data.is_admin }
+          const user = data.user || { id: data.userId, email, username: data.username, is_admin: !!data.is_admin }
           localStorage.setItem('user', JSON.stringify(user))
+          if (data.token) localStorage.setItem('auth_token', data.token)
         } catch (_) {}
         setResult({ ok: true, message: 'Registration successful. Redirecting to home...' })
         setTimeout(() => navigate('/'), 800)
@@ -177,6 +178,7 @@ export default function AuthPage() {
         try {
           const user = data.user
           localStorage.setItem('user', JSON.stringify(user))
+          if (data.token) localStorage.setItem('auth_token', data.token)
         } catch (_) {}
         setResult({ ok: true, message: 'Login successful. Redirecting to home...' })
         setTimeout(() => navigate('/'), 800)

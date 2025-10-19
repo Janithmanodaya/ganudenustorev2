@@ -12,6 +12,7 @@ export default function AdminPage() {
   const [emailOnApprove, setEmailOnApprove] = useState(false)
   const [status, setStatus] = useState(null)
   const [allowed, setAllowed] = useState(false)
+  const [authToken, setAuthToken] = useState('')
 
   // Helper: safely parse JSON; tolerate HTML/plain text without throwing to keep admin dashboard responsive.
   async function safeJson(r) {
@@ -106,7 +107,7 @@ export default function AdminPage() {
 
   async function fetchConfig() {
     try {
-      const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load config')
       setMaskedKey(data.gemini_api_key_masked)
@@ -115,8 +116,8 @@ export default function AdminPage() {
       setEmailOnApprove(!!data.email_on_approve)
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }
-  }
+    }_code
+ new </}
 
   async function saveConfig() {
     try {
@@ -142,7 +143,7 @@ export default function AdminPage() {
     try {
       const r = await fetch('/api/admin/test-gemini', {
         method: 'POST',
-        headers: { 'X-Admin-Email': adminEmail }
+        headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined }
       })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error?.message || data.error || 'Failed to test API key')
@@ -154,7 +155,7 @@ export default function AdminPage() {
 
   async function loadPending() {
     try {
-      const r = await fetch('/api/admin/pending', { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch('/api/admin/pending', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load pending')
       setPending(data.items || [])
@@ -650,26 +651,22 @@ export default function AdminPage() {
   // Chat management (admin)
   async function loadConversations() {
     try {
-      const r = await fetch('/api/chats/admin/conversations', { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch('/api/chats/admin/conversations', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load conversations')
       setConversations(Array.isArray(data.results) ? data.results : [])
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
     }
-  }
-
   async function loadChatMessages(email) {
     try {
-      const r = await fetch(`/api/chats/admin/${encodeURIComponent(email)}`, { headers: { 'X-Admin-Email': adminEmail } })
+      const r = await fetch(`/api/chats/admin/${encodeURIComponent(email)}`, { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load messages')
       setSelectedChatEmail(email)
       setChatMessages(Array.isArray(data.results) ? data.results : [])
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }
-  }
+    }_code
+ new </}
 
   async function sendAdminReply() {
     const msg = chatInput.trim()
@@ -677,7 +674,7 @@ export default function AdminPage() {
     try {
       const r = await fetch(`/api/chats/admin/${encodeURIComponent(selectedChatEmail)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail },
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined },
         body: JSON.stringify({ message: msg })
       })
       const data = await safeJson(r)
@@ -694,15 +691,17 @@ export default function AdminPage() {
     async function init() {
       try {
         const user = JSON.parse(localStorage.getItem('user') || 'null')
+        const token = localStorage.getItem('auth_token') || ''
         const email = user?.email || ''
+        if (token) setAuthToken(token)
         if (!email) {
           setAllowed(false)
           return
         }
-        // Refresh admin status from backend in case localStorage is stale
+        // Refresh admin status from backend with bearer token when available
         try {
           const r = await fetch(`/api/auth/status?t=${Date.now()}`, {
-            headers: { 'X-User-Email': email, 'Cache-Control': 'no-store' },
+            headers: { 'Authorization': token ? `Bearer ${token}` : undefined, 'Cache-Control': 'no-store' },
             cache: 'no-store'
           })
 
@@ -761,7 +760,7 @@ export default function AdminPage() {
       // preload conversations
       loadConversations()
       // initial unread count
-      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail } })
+      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
         .then(async r => {
           try {
             const d = await safeJson(r)
@@ -781,7 +780,7 @@ export default function AdminPage() {
     if (activeTab !== 'notifications') return
     const refresh = () => {
       loadAdminNotifications()
-      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail } })
+      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
         .then(async r => {
           try {
             const d = await safeJson(r)
@@ -790,7 +789,8 @@ export default function AdminPage() {
             // ignore transient errors
           }
         })
-        .catch(() => {})
+        .catch(() =>_code {new}</)
+)
     }
     // initial refresh on entering tab
     refresh()

@@ -58,7 +58,7 @@ app.use(cors(
         origin: true,
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Email', 'X-User-Email'],
         maxAge: 600
       }
     // Production: strict whitelist
@@ -70,7 +70,7 @@ app.use(cors(
         },
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Email', 'X-User-Email'],
         maxAge: 600
       }
 ));
