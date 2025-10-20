@@ -611,18 +611,24 @@ export default function HomePage() {
             .sug-row { display: flex; gap: 16px; min-width: max-content; padding-bottom: 6px; }
             /* Match grid-three card width by using a third of the container minus gap */
             .sug-card { flex: 0 0 calc(33.333% - 12px); max-width: calc(33.333% - 12px); }
-            @media (max-width: 780px) { .sug-card { flex: 0 0 100%; max-width: 100%; } }
+
+            /* Mobile: one ad per view with swipe, no buttons */
+            @media (max-width: 780px) {
+              .sug-wrap .hide-scroll { overscroll-behavior-x: contain; scroll-padding-left: 12px; }
+              .sug-row { scroll-snap-type: x mandatory; }
+              .sug-card { flex: 0 0 100%; max-width: 100%; scroll-snap-align: start; }
+              .sug-nav { display: none; }
+            }
 
             /* Desktop nav buttons */
             .sug-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14)); color: #0a0f1e; border: 1px solid rgba(255,255,255,0.45); outline: none; box-sizing: border-box; cursor: pointer; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45); -webkit-tap-highlight-color: transparent; user-select: none; }
-            /* Prevent \"jump\" on press by locking transform and border on interactive states */
+            /* Prevent "jump" on press by locking transform and border on interactive states */
             .sug-nav:hover,
             .sug-nav:active,
             .sug-nav:focus,
             .sug-nav:focus-visible { transform: translateY(-50%); border-width: 1px; outline: none; }
             .sug-left { left: 8px; }
             .sug-right { right: 8px; }
-            @media (max-width: 780px) { .sug-nav { display: none; } }
           `}</style>
         </div>
 
