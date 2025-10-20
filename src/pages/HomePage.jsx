@@ -1020,7 +1020,7 @@ export default function HomePage() {
                               Urgent
                             </span>
                           )}
-                          {imgs.length > 1 && (
+                          {imgs.length > 1 && !isMobile && (
                             <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
                               <button
                                 className="btn"
