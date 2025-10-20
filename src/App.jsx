@@ -23,6 +23,7 @@ const TermsPage = React.lazy(() => import('./pages/TermsPage.jsx'))
 const PaymentPendingPage = React.lazy(() => import('./pages/PaymentPendingPage.jsx'))
 const SellerProfilePage = React.lazy(() => import('./pages/SellerProfilePage.jsx'))
 const WantedBoardPage = React.lazy(() => import('./pages/WantedBoardPage.jsx'))
+const JobTalentPage = React.lazy(() => import('./pages/JobTalentPage.jsx'))
 
 export default function App() {
   const navigate = useNavigate()
@@ -489,6 +490,7 @@ export default function App() {
             <Route path="/jobs" element={<JobPortalPage />} />
             <Route path="/jobs/search" element={<JobSearchResultsPage />} />
             <Route path="/jobs/post-employee" element={<PostEmployeeAdPage />} />
+            <Route path="/jobs/talent" element={<JobTalentPage />} />
             <Route path="/wanted" element={<WantedBoardPage />} />
             <Route path="/search" element={<SearchResultsPage />} />
             <Route path="/policy" element={<PolicyPage />} />
