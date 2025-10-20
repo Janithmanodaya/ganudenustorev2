@@ -364,6 +364,16 @@ export default function WantedBoardPage() {
     return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25);
   }, [requests, filterCategory, modelQuery]);
 
+  // Job type options derived from Wanted ads (dynamic, independent of backend keys)
+  const jobTypeOptions = useMemo(() => {
+    const fromRequests = Array.from(new Set(
+      (requests || [])
+        .filter(r => (!filterCategory || String(r.category || '') === String(filterCategory)) && String(r.category || '') === 'Job')
+        .flatMap(r => parseArray(r.job_types_json).map(v => String(v).trim()).filter(Boolean))
+    ));
+    return fromRequests;
+  }, [requests, filterCategory]);
+
   function updateBrowseFilter(key, value) {
     setBrowseFilters(prev => ({ ...prev, [key]: value }));
   }
@@ -766,20 +776,20 @@ export default function WantedBoardPage() {
                   </div>
                 )}
 
-                {/* Job sub-category multi-select (from Wanted ads), independent of backend filter keys */}
+                {/* Job type multi-select (from Wanted ads), independent of backend filter keys */}
                 {filterCategory === 'Job' && (
                   <div>
-                    <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Sub-category</div>
+                    <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Job Type</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-                      {subCategorySelected.map((tag, idx) => (
-                        <span key={`subcat-${tag}-${idx}`} className="pill">
+                      {jobTypeSelected.map((tag, idx) => (
+                        <span key={`job-${tag}-${idx}`} className="pill">
                           {tag}
                           <button
                             type="button"
                             className="btn"
                             onClick={() => {
-                              const next = subCategorySelected.filter((t, i) => !(t === tag && i === idx));
-                              updateBrowseFilter('sub_category', next);
+                              const next = jobTypeSelected.filter((t, i) => !(t === tag && i === idx));
+                              updateBrowseFilter('job_type', next);
                             }}
                             aria-label="Remove"
                             style={{ padding: '2px 6px', marginLeft: 6 }}
@@ -793,12 +803,12 @@ export default function WantedBoardPage() {
                         onChange={(val) => {
                           const v = String(val || '').trim();
                           if (!v) return;
-                          const next = Array.from(new Set([...subCategorySelected, v]));
-                          updateBrowseFilter('sub_category', next);
+                          const next = Array.from(new Set([...jobTypeSelected, v]));
+                          updateBrowseFilter('job_type', next);
                         }}
-                        ariaLabel="Add sub-category"
-                        placeholder="Add sub-category..."
-                        options={subCategoryOptions.map(v => ({ value: v, label: v }))}
+                        ariaLabel="Add job type"
+                        placeholder="Add job type..."
+                        options={jobTypeOptions.map(v => ({ value: v, label: v }))}
                         searchable={true}
                         allowCustom={true}
                       />
@@ -889,45 +899,7 @@ export default function WantedBoardPage() {
                       </div>
                     )}
 
-                    {/* Job type multi-select tags */}
-                    {filterCategory === 'Job' && (
-                      <div>
-                        <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Job Type</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-                          {jobTypeSelected.map((tag, idx) => (
-                            <span key={`job-${tag}-${idx}`} className="pill">
-                              {tag}
-                              <button
-                                type="button"
-                                className="btn"
-                                onClick={() => {
-                                  const next = jobTypeSelected.filter((t, i) => !(t === tag && i === idx));
-                                  updateBrowseFilter('job_type', next);
-                                }}
-                                aria-label="Remove"
-                                style={{ padding: '2px 6px', marginLeft: 6 }}
-                              >✕</button>
-                            </span>
-                          ))}
-                        </div>
-                        <div style={{ marginTop: 4 }}>
-                          <CustomSelect
-                            value=""
-                            onChange={(val) => {
-                              const v = String(val || '').trim();
-                              if (!v) return;
-                              const next = Array.from(new Set([...jobTypeSelected, v]));
-                              updateBrowseFilter('job_type', next);
-                            }}
-                            ariaLabel="Add job type"
-                            placeholder="Add job type..."
-                            options={(browseFiltersDef.valuesByKey?.['job_type'] || []).map(v => ({ value: v, label: v }))}
-                            searchable={true}
-                            allowCustom={true}
-                          />
-                        </div>
-                      </div>
-                    )}
+                    
 
                     {/* Other dynamic keys as selects */}
                     {(() => {
