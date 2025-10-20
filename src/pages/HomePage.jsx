@@ -55,6 +55,8 @@ export default function HomePage() {
 
   // Ref for features mini-cards scroller
   const featureRef = useRef(null)
+  // Ref for suggested horizontal scroller
+  const suggestedRef = useRef(null)
 
   // Seamless ad-free experience flag (hides banner slider)
   const AD_FREE = true
@@ -224,7 +226,7 @@ export default function HomePage() {
     async function load() {
       try {
         setSuggestedLoading(true)
-        const res = await getSuggestedListings({ query: term, limit: 12 })
+        const res = await getSuggestedListings({ query: term, limit: 10 })
         if (alive) setSuggested(Array.isArray(res) ? res : [])
       } catch (_) {
         if (alive) setSuggested([])
@@ -538,7 +540,7 @@ export default function HomePage() {
         <div style={{ padding: 18 }}>
           <div className="h2" style={{ marginTop: 0 }}>Suggested for you</div>
           <div className="card sug-wrap">
-            <div className="hide-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <div ref={suggestedRef} className="hide-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <div className="sug-row">
                 {suggestedLoading && Array.from({ length: 8 }).map((_, i) => (
                   <div key={`sk-sug-${i}`} className="skeleton-card sug-card">
@@ -547,7 +549,7 @@ export default function HomePage() {
                     <div className="skeleton skeleton-line" style={{ width: '40%', marginTop: 6 }} />
                   </div>
                 ))}
-                {!suggestedLoading && suggested.map(item => {
+                {!suggestedLoading && suggested.slice(0, 10).map(item => {
                   const imgs = Array.isArray(item.small_images) ? item.small_images : []
                   const hero = imgs.length ? imgs[0] : (item.thumbnail_url || null)
                   function makeSlug(s) {
@@ -589,14 +591,33 @@ export default function HomePage() {
                 })}
               </div>
             </div>
+            {/* Desktop nav buttons for suggested scroller */}
+            <button
+              className="btn sug-nav sug-left"
+              type="button"
+              aria-label="Scroll suggestions left"
+              onClick={() => { const el = suggestedRef.current; if (el) el.scrollBy({ left: -(el.clientWidth * 0.85), behavior: 'smooth' }) }}
+            >‹</button>
+            <button
+              className="btn sug-nav sug-right"
+              type="button"
+              aria-label="Scroll suggestions right"
+              onClick={() => { const el = suggestedRef.current; if (el) el.scrollBy({ left: (el.clientWidth * 0.85), behavior: 'smooth' }) }}
+            >›</button>
           </div>
           {/* Styles for suggested section */}
           <style>{`
-            .sug-wrap { padding: 12px; margin-top: 8px; border: 1px solid var(--border); box-shadow: 0 8px 24px var(--shadow); border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)); }
+            .sug-wrap { position: relative; padding: 12px; margin-top: 8px; border: 1px solid var(--border); box-shadow: 0 8px 24px var(--shadow); border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)); }
             .sug-row { display: flex; gap: 16px; min-width: max-content; padding-bottom: 6px; }
             /* Match grid-three card width by using a third of the container minus gap */
             .sug-card { flex: 0 0 calc(33.333% - 12px); max-width: calc(33.333% - 12px); }
             @media (max-width: 780px) { .sug-card { flex: 0 0 100%; max-width: 100%; } }
+
+            /* Desktop nav buttons */
+            .sug-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14)); color: #0a0f1e; border: 1px solid rgba(255,255,255,0.45); outline: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45); }
+            .sug-left { left: 8px; }
+            .sug-right { right: 8px; }
+            @media (max-width: 780px) { .sug-nav { display: none; } }
           `}</style>
         </div>
 
