@@ -538,9 +538,9 @@ export default function HomePage() {
         <div style={{ padding: 18 }}>
           <div className="h2" style={{ marginTop: 0 }}>Suggested for you</div>
           <div className="hide-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <div style={{ display: 'flex', gap: 16, minWidth: 'max-content', paddingBottom: 6 }}>
+            <div className="sug-row">
               {suggestedLoading && Array.from({ length: 8 }).map((_, i) => (
-                <div key={`sk-sug-${i}`} className="skeleton-card" style={{ minWidth: 316 }}>
+                <div key={`sk-sug-${i}`} className="skeleton-card sug-card">
                   <div className="skeleton skeleton-img" />
                   <div className="skeleton skeleton-line" style={{ width: '60%', marginTop: 8 }} />
                   <div className="skeleton skeleton-line" style={{ width: '40%', marginTop: 6 }} />
@@ -566,7 +566,7 @@ export default function HomePage() {
                   return `/listing/${it.id}-${parts.join('-')}`
                 }
                 return (
-                  <div key={item.id} className="card" style={{ minWidth: 316, cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
+                  <div key={item.id} className="card sug-card" style={{ cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
                     {hero && (
                       <div style={{ position: 'relative', marginBottom: 8 }}>
                         <img src={hero} alt={item.title} loading="lazy" sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw" style={{ width: '100%', height: 180, borderRadius: 8, objectFit: 'cover' }} />
@@ -588,6 +588,12 @@ export default function HomePage() {
               })}
             </div>
           </div>
+          {/* Suggested row sizing to match normal home cards */}
+          <style>{`
+            .sug-row { display: flex; gap: 16px; min-width: max-content; padding-bottom: 6px; }
+            .sug-card { min-width: 316px; }
+            @media (max-width: 780px) { .sug-card { min-width: 100%; } }
+          `}</style>
         </div>
 
         <div style={{ padding: 18 }}>
