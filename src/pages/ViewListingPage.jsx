@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
+import { getSimilarListings, trackView } from '../components/recommendations.js'
 
 export default function ViewListingPage() {
   const { id } = useParams()
@@ -335,6 +336,7 @@ export default function ViewListingPage() {
         const data = await r.json()
         if (!r.ok) throw new Error(data.error || 'Failed to load listing')
         setListing(data)
+        try { trackView(data) } catch (_) {}
         const imgs = Array.isArray(data.images) ? data.images.filter(Boolean) : []
         setImages(imgs)
         setCurrentIndex(0)
@@ -370,44 +372,23 @@ export default function ViewListingPage() {
     load()
   }, [listingId])
 
-  // Fetch similar listings once structured is available
+  // Fetch similar listings using the same cookie-based algorithm
   useEffect(() => {
+    let alive = true
     async function loadSimilar() {
       try {
         if (!listing) return
         setSimilarLoading(true)
-        const params = new URLSearchParams()
-        params.set('limit', '6')
-        params.set('page', '1')
-        params.set('sort', 'latest')
-        if (listing.main_category) params.set('category', listing.main_category)
-        // Build filters from structured fields
-        const f = {}
-        const sub = String(structured?.sub_category || '').trim()
-        const model = String(structured?.model_name || '').trim()
-        const loc = String(listing.location || '').trim()
-        if (sub) f.sub_category = sub
-        if (model) f.model = model
-        // Prefer location match, but only set as query param (not in filters) so server can do LIKE
-        if (loc) params.set('location', loc)
-        if (Object.keys(f).length) params.set('filters', JSON.stringify(f))
-        const url = `/api/listings/search?${params.toString()}`
-        const r = await fetch(url)
-        const data = await r.json().catch(() => ({}))
-        if (r.ok && Array.isArray(data.results)) {
-          const trimmed = data.results.filter(x => Number(x.id) !== Number(listing.id)).slice(0, 6)
-          setSimilar(trimmed)
-        } else {
-          setSimilar([])
-        }
+        const out = await getSimilarListings(listing, 6)
+        if (alive) setSimilar(Array.isArray(out) ? out : [])
       } catch (_) {
-        setSimilar([])
+        if (alive) setSimilar([])
       } finally {
-        setSimilarLoading(false)
+        if (alive) setSimilarLoading(false)
       }
     }
     loadSimilar()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { alive = false }
   }, [listing, structured?.sub_category, structured?.model_name])
 
   // Load favorite status from local storage (client-only favorite)
@@ -1006,7 +987,7 @@ export default function ViewListingPage() {
                     <div
                       key={item.id}
                       className="card"
-                      onClick={() => navigate(permalinkForItem(item))}
+                      onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}
                       style={{ cursor: 'pointer' }}
                     >
                       {hero && (

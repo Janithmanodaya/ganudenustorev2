@@ -6,6 +6,7 @@ import { useI18n } from '../components/i18n.jsx'
 
 import CustomSelect from '../components/CustomSelect.jsx'
 import useSEO from '../components/useSEO.js'
+import { getSuggestedListings, trackSearch, trackView } from '../components/recommendations.js'
 
 export default function HomePage() {
   const [q, setQ] = useState('')
@@ -28,6 +29,8 @@ export default function HomePage() {
   const [locSuggestions, setLocSuggestions] = useState([])
   const [locationOptionsCache, setLocationOptionsCache] = useState([])
   const [sort, setSort] = useState('latest')
+  const [suggested, setSuggested] = useState([])
+  const [suggestedLoading, setSuggestedLoading] = useState(false)
 
   // Site-wide SEO for homepage (via helper)
   useSEO({
@@ -52,6 +55,8 @@ export default function HomePage() {
 
   // Ref for features mini-cards scroller
   const featureRef = useRef(null)
+  // Ref for suggested horizontal scroller
+  const suggestedRef = useRef(null)
 
   // Seamless ad-free experience flag (hides banner slider)
   const AD_FREE = true
@@ -94,6 +99,7 @@ export default function HomePage() {
     e.preventDefault()
     const term = (q || '').trim()
     const path = term ? `/search?q=${encodeURIComponent(term)}` : '/search'
+    try { if (term) trackSearch(term) } catch (_) {}
     try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
     navigate(path)
   }
@@ -212,6 +218,25 @@ export default function HomePage() {
       })
     }
   }, [filtersDef, latest])
+
+  // Suggested ads for you (horizontal grid) using cookie-based profile
+  useEffect(() => {
+    let alive = true
+    const term = (q || '').trim()
+    async function load() {
+      try {
+        setSuggestedLoading(true)
+        const res = await getSuggestedListings({ query: term, limit: 10 })
+        if (alive) setSuggested(Array.isArray(res) ? res : [])
+      } catch (_) {
+        if (alive) setSuggested([])
+      } finally {
+        if (alive) setSuggestedLoading(false)
+      }
+    }
+    load()
+    return () => { alive = false }
+  }, [q, filterCategory, filterLocation, filters, refreshKey])
 
   const [cardSlideIndex, setCardSlideIndex] = useState({})
   function nextImage(item) {
@@ -437,6 +462,7 @@ export default function HomePage() {
                         const v = String(label || '').trim()
                         if (!v) return
                         setQ(v)
+                        try { trackSearch(v) } catch (_) {}
                         // Scroll a bit to keep the search bar visible while navigating
                         try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
                         // Build a smarter search path based on suggestion type
@@ -510,6 +536,109 @@ export default function HomePage() {
         )}
 
         
+        {/* Suggested for you - horizontal grid */}
+        <div style={{ padding: 18 }}>
+          <div className="h2" style={{ marginTop: 0 }}>Suggested for you</div>
+          <div className="card sug-wrap">
+            <div ref={suggestedRef} className="hide-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <div className="sug-row">
+                {suggestedLoading && Array.from({ length: 8 }).map((_, i) => (
+                  <div key={`sk-sug-${i}`} className="skeleton-card sug-card">
+                    <div className="skeleton skeleton-img" />
+                    <div className="skeleton skeleton-line" style={{ width: '60%', marginTop: 8 }} />
+                    <div className="skeleton skeleton-line" style={{ width: '40%', marginTop: 6 }} />
+                  </div>
+                ))}
+                {!suggestedLoading && suggested.slice(0, 10).map(item => {
+                  const imgs = Array.isArray(item.small_images) ? item.small_images : []
+                  const hero = imgs.length ? imgs[0] : (item.thumbnail_url || null)
+                  function makeSlug(s) {
+                    const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+                    return base || 'listing'
+                  }
+                  function permalinkForItem(it) {
+                    const titleSlug = makeSlug(it.title || '')
+                    let year = ''
+                    try {
+                      const sj = JSON.parse(it.structured_json || '{}')
+                      const y = sj.manufacture_year || sj.year || sj.model_year || null
+                      if (y) year = String(y)
+                    } catch (_) {}
+                    const idCode = Number(it.id).toString(36).toUpperCase()
+                    const parts = [titleSlug, year, idCode].filter(Boolean)
+                    return `/listing/${it.id}-${parts.join('-')}`
+                  }
+                  return (
+                    <div key={item.id} className="card sug-card" style={{ cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
+                      {hero && (
+                       <<div style={{ position: 'relative', marginBottom: 8 }}>
+                         <<img
+                            className="sug-img"
+                            src={hero}
+                            alt={item.title}
+                            loading="lazy"
+                            sizes="(max-widthis_urgent || item.urgent) && (
+                            <span className="pill" style={{ position: 'absolute', top: 8, left: 8, background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))', border: '1px solid rgba(239,68,68,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>Urgent</span>
+                          )}
+                        </div>
+                      )}
+                      <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                        <div className="h2" style={{ margin: 0 }}>{item.title}</div>
+                        {item.price != null && (
+                          <div style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>LKR {Number(item.price).toLocaleString('en-US')}</div>
+                        )}
+                      </div>
+                      <div className="text-muted" style={{ marginTop: 4 }}>{item.location ? item.location : ''}{item.pricing_type ? ` • ${item.pricing_type}` : ''}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            {/* Desktop nav buttons for suggested scroller */}
+            <button
+              className="btn sug-nav sug-left"
+              type="button"
+              aria-label="Scroll suggestions left"
+              onClick={() => { const el = suggestedRef.current; if (el) el.scrollBy({ left: -(el.clientWidth * 0.85), behavior: 'smooth' }) }}
+            >‹</button>
+            <button
+              className="btn sug-nav sug-right"
+              type="button"
+              aria-label="Scroll suggestions right"
+              onClick={() => { const el = suggestedRef.current; if (el) el.scrollBy({ left: (el.clientWidth * 0.85), behavior: 'smooth' }) }}
+            >›</button>
+          </div>
+          {/* Styles for suggested section */}
+          <style>{`
+            .sug-wrap { position: relative; padding: 12px; margin-top: 8px; border: 1px solid var(--border); box-shadow: 0 8px 24px var(--shadow); border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)); }
+            .sug-row { display: flex; gap: 16px; min-width: max-content; padding-bottom: 6px; }
+            /* Match grid-three card width by using a third of the container minus gap */
+            .sug-card { flex: 0 0 calc(33.333% - 12px); max-width: calc(33.333% - 12px); }
+            /* Suggested card image default (desktop/tablet) */
+            .sug-img { width: 100%; height: 180px; border-radius: 8px; object-fit: cover; display: block; }
+
+            /* Mobile: one ad per view with swipe, no buttons, adjust image fit */
+            @media (max-width: 780px) {
+              .sug-wrap .hide-scroll { overscroll-behavior-x: contain; scroll-padding-left: 12px; scroll-padding-right: 12px; }
+              .sug-row { scroll-snap-type: x mandatory; gap: 12px; min-width: auto; }
+              .sug-card { flex: 0 0 calc(100% - 12px); max-width: calc(100% - 12px); scroll-snap-align: start; }
+              .sug-nav { display: none; }
+              /* Use aspect-ratio to keep images proportionate across device widths */
+              .sug-img { height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; }
+            }
+
+            /* Desktop nav buttons */
+            .sug-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14)); color: #0a0f1e; border: 1px solid rgba(255,255,255,0.45); outline: none; box-sizing: border-box; cursor: pointer; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45); -webkit-tap-highlight-color: transparent; user-select: none; }
+            /* Prevent "jump" on press by locking transform and border on interactive states */
+            .sug-nav:hover,
+            .sug-nav:active,
+            .sug-nav:focus,
+            .sug-nav:focus-visible { transform: translateY(-50%); border-width: 1px; outline: none; }
+            .sug-left { left: 8px; }
+            .sug-right { right: 8px; }
+          `}</style>
+        </div>
 
         <div style={{ padding: 18 }}>
           <div className="h2" style={{ marginTop: 0 }}>{filterCategory ? `${filterCategory} listings` : 'Latest listings'}</div>
@@ -860,7 +989,7 @@ export default function HomePage() {
                     return `/listing/${it.id}-${parts.join('-')}`;
                   }
                   return (
-                    <div key={item.id} className="card" onClick={() => navigate(permalinkForItem(item))} style={{ cursor: 'pointer' }}>
+                    <div key={item.id} className="card" onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }} style={{ cursor: 'pointer' }}>
                       {/* Small image slider */}
                       {hero && (
                         <div style={{ position: 'relative', marginBottom: 8 }}>
