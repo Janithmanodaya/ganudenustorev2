@@ -1326,7 +1326,7 @@ router.get('/search', (req, res) => {
     const offset = (pg - 1) * lim;
 
     let query = `
-      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, is_urgent
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, is_urgent, views
       FROM listings
       WHERE status = 'Approved'
     `;
@@ -1363,10 +1363,21 @@ router.get('/search', (req, res) => {
 
     // Sorting
     const sortVal = String(sort).toLowerCase();
-    if (sortVal === 'price_asc') query += ' ORDER BY price ASC, created_at DESC';
-    else if (sortVal === 'price_desc') query += ' ORDER BY price DESC, created_at DESC';
-    else if (sortVal === 'random') query += ' ORDER BY RANDOM()';
-    else query += ' ORDER BY created_at DESC';
+    if (sortVal === 'price_asc') {
+      query += ' ORDER BY price ASC, created_at DESC';
+    } else if (sortVal === 'price_desc') {
+      query += ' ORDER BY price DESC, created_at DESC';
+    } else if (sortVal === 'views_desc') {
+      // Most viewed first
+      query += ' ORDER BY views DESC, created_at DESC';
+    } else if (sortVal === 'favorites_desc') {
+      // We do not track global favorites server-side yet; fall back to most viewed
+      query += ' ORDER BY views DESC, created_at DESC';
+    } else if (sortVal === 'random') {
+      query += ' ORDER BY RANDOM()';
+    } else {
+      query += ' ORDER BY created_at DESC';
+    }
 
     query += ' LIMIT ? OFFSET ?';
     params.push(lim, offset);
