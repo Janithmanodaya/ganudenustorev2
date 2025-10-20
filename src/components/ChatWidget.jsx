@@ -11,48 +11,57 @@ export default function ChatWidget() {
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const panelRef = useRef(null);
+  const [token, setToken] = useState('');
 
   useEffect(() => {
     try {
       const user = JSON.parse(localStorage.getItem('user') || 'null');
       setUserEmail(user?.email || '');
+      const t = localStorage.getItem('auth_token') || '';
+      setToken(t || '');
     } catch (_) {
       setUserEmail('');
+      setToken('');
     }
   }, []);
 
   async function loadMessages() {
-    if (!userEmail) return;
+    if (!token) return;
     try {
-      const r = await fetch('/api/chats', { headers: { 'X-User-Email': userEmail } });
-      const data = await r.json();
+      const r = await fetch('/api/chats', { headers: { 'Authorization': `Bearer ${token}` } });
+      const data = await r.json().catch(() => ({}));
       if (r.ok) {
         setMessages(Array.isArray(data.results) ? data.results : []);
         const el = listRef.current;
         if (el) { el.scrollTop = el.scrollHeight; }
+      } else {
+        setStatus((data && data.error) ? String(data.error) : 'Failed to load chat.');
       }
-    } catch (_) {}
+    } catch (e) {
+      setStatus('Network error while loading chat.');
+    }
   }
 
   useEffect(() => {
-    if (!open || !userEmail) return;
+    if (!open || !token) return;
     loadMessages();
     const timer = setInterval(loadMessages, 5000);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+eps
   }, [open, userEmail]);
 
   async function sendMessage() {
     const msg = input.trim();
     if (!msg) return;
-    if (!userEmail) {
+    if (!token) {
       setStatus('Please login to send a message.');
       return;
     }
     try {
       const r = await fetch('/api/chats', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Email': userEmail },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ message: msg })
       });
       const data = await r.json().catch(() => ({}));
@@ -61,6 +70,7 @@ export default function ChatWidget() {
       setMessages(prev => [...prev, { id: Date.now(), sender: 'user', message: msg, created_at: new Date().toISOString() }]);
       const el = listRef.current;
       if (el) { el.scrollTop = el.scrollHeight; }
+      setStatus('');
     } catch (e) {
       setStatus(`Error: ${e.message}`);
     }
@@ -203,7 +213,7 @@ export default function ChatWidget() {
             <button className="btn" onClick={() => setOpen(false)} aria-label="Close">✕</button>
           </div>
 
-          {!userEmail && (
+          {!token && (
             <div className="card" style={{ background: 'rgba(18,22,31,0.9)', borderColor: 'var(--border)' }}>
               <div className="text-muted">Please login to chat with admin.</div>
               <div className="text-muted" style={{ marginTop: 6 }}>Try to contact admin after you log into the website.</div>
@@ -213,7 +223,7 @@ export default function ChatWidget() {
             </div>
           )}
 
-          {userEmail && (
+          {token && (
             <>
               <div ref={listRef} style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
                 {messages.length === 0 && <p className="text-muted">Start a conversation. Messages are kept for 7 days.</p>}
