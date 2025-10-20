@@ -571,7 +571,7 @@ export default function HomePage() {
                   return (
                     <div key={item.id} className="card sug-card" style={{ cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
                       {hero && (
-                        <div style={{ position: 'relative', marginBottom: 8 }}>
+                       <<div style={{ position: 'relative', marginBottom: 8 }}>
                           <img src={hero} alt={item.title} loading="lazy" sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw" style={{ width: '100%', height: 180, borderRadius: 8, objectFit: 'cover' }} />
                           {(item.is_urgent || item.urgent) && (
                             <span className="pill" style={{ position: 'absolute', top: 8, left: 8, background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))', border: '1px solid rgba(239,68,68,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>Urgent</span>
@@ -611,13 +611,17 @@ export default function HomePage() {
             .sug-row { display: flex; gap: 16px; min-width: max-content; padding-bottom: 6px; }
             /* Match grid-three card width by using a third of the container minus gap */
             .sug-card { flex: 0 0 calc(33.333% - 12px); max-width: calc(33.333% - 12px); }
+            /* Suggested card image default (desktop/tablet) */
+            .sug-img { width: 100%; height: 180px; border-radius: 8px; object-fit: cover; display: block; }
 
-            /* Mobile: one ad per view with swipe, no buttons */
+            /* Mobile: one ad per view with swipe, no buttons, adjust image fit */
             @media (max-width: 780px) {
               .sug-wrap .hide-scroll { overscroll-behavior-x: contain; scroll-padding-left: 12px; scroll-padding-right: 12px; }
               .sug-row { scroll-snap-type: x mandatory; gap: 12px; min-width: auto; }
               .sug-card { flex: 0 0 calc(100% - 12px); max-width: calc(100% - 12px); scroll-snap-align: start; }
               .sug-nav { display: none; }
+              /* Use aspect-ratio to keep images proportionate across device widths */
+              .sug-img { height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; }
             }
 
             /* Desktop nav buttons */
