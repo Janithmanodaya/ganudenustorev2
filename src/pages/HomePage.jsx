@@ -537,59 +537,62 @@ export default function HomePage() {
         {/* Suggested for you - horizontal grid */}
         <div style={{ padding: 18 }}>
           <div className="h2" style={{ marginTop: 0 }}>Suggested for you</div>
-          <div className="hide-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <div className="sug-row">
-              {suggestedLoading && Array.from({ length: 8 }).map((_, i) => (
-                <div key={`sk-sug-${i}`} className="skeleton-card sug-card">
-                  <div className="skeleton skeleton-img" />
-                  <div className="skeleton skeleton-line" style={{ width: '60%', marginTop: 8 }} />
-                  <div className="skeleton skeleton-line" style={{ width: '40%', marginTop: 6 }} />
-                </div>
-              ))}
-              {!suggestedLoading && suggested.map(item => {
-                const imgs = Array.isArray(item.small_images) ? item.small_images : []
-                const hero = imgs.length ? imgs[0] : (item.thumbnail_url || null)
-                function makeSlug(s) {
-                  const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-                  return base || 'listing'
-                }
-                function permalinkForItem(it) {
-                  const titleSlug = makeSlug(it.title || '')
-                  let year = ''
-                  try {
-                    const sj = JSON.parse(it.structured_json || '{}')
-                    const y = sj.manufacture_year || sj.year || sj.model_year || null
-                    if (y) year = String(y)
-                  } catch (_) {}
-                  const idCode = Number(it.id).toString(36).toUpperCase()
-                  const parts = [titleSlug, year, idCode].filter(Boolean)
-                  return `/listing/${it.id}-${parts.join('-')}`
-                }
-                return (
-                  <div key={item.id} className="card sug-card" style={{ cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
-                    {hero && (
-                      <div style={{ position: 'relative', marginBottom: 8 }}>
-                        <img src={hero} alt={item.title} loading="lazy" sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw" style={{ width: '100%', height: 180, borderRadius: 8, objectFit: 'cover' }} />
-                        {(item.is_urgent || item.urgent) && (
-                          <span className="pill" style={{ position: 'absolute', top: 8, left: 8, background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))', border: '1px solid rgba(239,68,68,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>Urgent</span>
+          <div className="card sug-wrap">
+            <div className="hide-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <div className="sug-row">
+                {suggestedLoading && Array.from({ length: 8 }).map((_, i) => (
+                  <div key={`sk-sug-${i}`} className="skeleton-card sug-card">
+                    <div className="skeleton skeleton-img" />
+                    <div className="skeleton skeleton-line" style={{ width: '60%', marginTop: 8 }} />
+                    <div className="skeleton skeleton-line" style={{ width: '40%', marginTop: 6 }} />
+                  </div>
+                ))}
+                {!suggestedLoading && suggested.map(item => {
+                  const imgs = Array.isArray(item.small_images) ? item.small_images : []
+                  const hero = imgs.length ? imgs[0] : (item.thumbnail_url || null)
+                  function makeSlug(s) {
+                    const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+                    return base || 'listing'
+                  }
+                  function permalinkForItem(it) {
+                    const titleSlug = makeSlug(it.title || '')
+                    let year = ''
+                    try {
+                      const sj = JSON.parse(it.structured_json || '{}')
+                      const y = sj.manufacture_year || sj.year || sj.model_year || null
+                      if (y) year = String(y)
+                    } catch (_) {}
+                    const idCode = Number(it.id).toString(36).toUpperCase()
+                    const parts = [titleSlug, year, idCode].filter(Boolean)
+                    return `/listing/${it.id}-${parts.join('-')}`
+                  }
+                  return (
+                    <div key={item.id} className="card sug-card" style={{ cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
+                      {hero && (
+                        <div style={{ position: 'relative', marginBottom: 8 }}>
+                          <img src={hero} alt={item.title} loading="lazy" sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw" style={{ width: '100%', height: 180, borderRadius: 8, objectFit: 'cover' }} />
+                          {(item.is_urgent || item.urgent) && (
+                            <span className="pill" style={{ position: 'absolute', top: 8, left: 8, background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))', border: '1px solid rgba(239,68,68,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>Urgent</span>
+                          )}
+                        </div>
+                      )}
+                      <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                        <div className="h2" style={{ margin: 0 }}>{item.title}</div>
+                        {item.price != null && (
+                          <div style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>LKR {Number(item.price).toLocaleString('en-US')}</div>
                         )}
                       </div>
-                    )}
-                    <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                      <div className="h2" style={{ margin: 0 }}>{item.title}</div>
-                      {item.price != null && (
-                        <div style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>LKR {Number(item.price).toLocaleString('en-US')}</div>
-                      )}
+                      <div className="text-muted" style={{ marginTop: 4 }}>{item.location ? item.location : ''}{item.pricing_type ? ` • ${item.pricing_type}` : ''}</div>
                     </div>
-                    <div className="text-muted" style={{ marginTop: 4 }}>{item.location ? item.location : ''}{item.pricing_type ? ` • ${item.pricing_type}` : ''}</div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           </div>
-          {/* Suggested row sizing to match normal home cards */}
+          {/* Styles for suggested section */}
           <style>{`
+            .sug-wrap { padding: 12px; margin-top: 8px; border: 1px solid var(--border); box-shadow: 0 8px 24px var(--shadow); border-radius: 12px; background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)); }
             .sug-row { display: flex; gap: 16px; min-width: max-content; padding-bottom: 6px; }
             /* Match grid-three card width by using a third of the container minus gap */
             .sug-card { flex: 0 0 calc(33.333% - 12px); max-width: calc(33.333% - 12px); }
