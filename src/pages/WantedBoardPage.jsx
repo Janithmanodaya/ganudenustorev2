@@ -645,31 +645,45 @@ export default function WantedBoardPage() {
   }
 
   return (
-    <div className="container">
-      <div className="h1" style={{ marginTop: 0 }}>Wanted Board</div>
-      <p className="text-muted" style={{ marginTop: 6 }}>
-        Buyers post requests for items they’re looking for. When a new ad matches, both sides are notified immediately.
-      </p>
+    <div className="center">
+      {/* Hero header to match HomePage */}
+      <div className="card" style={{ padding: 0 }}>
+        <div
+          style={{
+            padding: '42px 18px',
+            background:
+              'radial-gradient(1000px 300px at 10% -20%, rgba(0,209,255,0.25), transparent 60%), ' +
+              'radial-gradient(1000px 300px at 90% 0%, rgba(108,127,247,0.25), transparent 60%), ' +
+              'linear-gradient(180deg, rgba(18,22,31,0.9), rgba(18,22,31,0.6))'
+          }}
+        >
+          <h1 className="h1" style={{ textAlign: 'center', marginBottom: 8 }}>Wanted Board</h1>
+          <p className="text-muted" style={{ textAlign: 'center', marginTop: 0 }}>
+            Buyers post requests for items they’re looking for. When a new ad matches, both sides are notified immediately.
+          </p>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-        <button className={`btn ${tab === 'browse' ? 'active' : ''}`} onClick={() => setTab('browse')}>Browse Requests</button>
-        <button className={`btn ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Post a Request</button>
-        <button className={`btn ${tab === 'mine' ? 'active' : ''}`} onClick={() => setTab('mine')}>My Requests</button>
-      </div>
-
-      {tab === 'browse' && (
-        <div style={{ marginTop: 16 }}>
           {/* Quick categories (same style as Home) */}
-          <div className="quick-cats" style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="quick-cats" style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
             <button className={`btn ${filterCategory === 'Vehicle' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Vehicle'); setShowFilters(true); }}>🚗 Vehicles</button>
             <button className={`btn ${filterCategory === 'Property' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Property'); setShowFilters(true); }}>🏠 Property</button>
+            
             <button className={`btn ${filterCategory === 'Electronic' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Electronic'); setShowFilters(true); }}>🔌 Electronic</button>
             <button className={`btn ${filterCategory === 'Mobile' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Mobile'); setShowFilters(true); }}>📱 Mobile</button>
             <button className={`btn ${filterCategory === 'Home Garden' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Home Garden'); setShowFilters(true); }}>🏡 Home&nbsp;Garden</button>
             <button className={`btn ${filterCategory === 'Job' ? 'accent' : ''}`} type="button" onClick={() => { setFilterCategory('Job'); setShowFilters(true); }}>💼 Job</button>
           </div>
 
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button className={`btn ${tab === 'browse' ? 'active' : ''}`} onClick={() => setTab('browse')}>Browse Requests</button>
+            <button className={`btn ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Post a Request</button>
+            <button className={`btn ${tab === 'mine' ? 'active' : ''}`} onClick={() => setTab('mine')}>My Requests</button>
+          </div>
+        </div>
+      </div>
+
+      {tab === 'browse' && (
+        <div style={{ padding: 18 }}>
           {/* Filters dropdown toggle */}
           <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
             <div>
@@ -859,48 +873,6 @@ export default function WantedBoardPage() {
                       </div>
                     )}
 
-                    {/* Model multi-select tags */}
-                    {(filterCategory === 'Vehicle' || filterCategory === 'Mobile' || filterCategory === 'Electronic' || filterCategory === 'Home Garden') && (
-                      <div>
-                        <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Model</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-                          {modelSelected.map((tag, idx) => (
-                            <span key={`model-${tag}-${idx}`} className="pill">
-                              {tag}
-                              <button
-                                type="button"
-                                className="btn"
-                                onClick={() => {
-                                  const next = modelSelected.filter((t, i) => !(t === tag && i === idx));
-                                  updateBrowseFilter('model', next);
-                                }}
-                                aria-label="Remove"
-                                style={{ padding: '2px 6px', marginLeft: 6 }}
-                              >✕</button>
-                            </span>
-                          ))}
-                        </div>
-                        <div style={{ marginTop: 4 }}>
-                          <CustomSelect
-                            value=""
-                            onChange={(val) => {
-                              const v = String(val || '').trim();
-                              if (!v) return;
-                              const next = Array.from(new Set([...modelSelected, v]));
-                              updateBrowseFilter('model', next);
-                            }}
-                            ariaLabel="Add model"
-                            placeholder="Add model..."
-                            options={modelOptions.map(v => ({ value: v, label: v }))}
-                            searchable={true}
-                            allowCustom={true}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    
-
                     {/* Other dynamic keys as selects */}
                     {(() => {
                       const pretty = (k) => {
@@ -951,112 +923,118 @@ export default function WantedBoardPage() {
             <p className="text-muted">No open requests match your filters.</p>
           )}
 
-          {!loading && filteredRequests.map(r => {
-            const locs = parseArray(r.locations_json);
-            const modelsArr = parseArray(r.models_json);
-            const filtersObj = parseFilters(r.filters_json);
-            const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model', 'job_type'].includes(String(k)));
-            const jobTypesArr = parseArray(r.job_types_json);
-            // Age label from created_at: minutes in first hour, then hours, then days (same as homepage)
-            let ageStr = '';
-            try {
-              if (r.created_at) {
-                const created = new Date(r.created_at);
-                const diffMs = Date.now() - created.getTime();
-                const mins = Math.max(0, Math.floor(diffMs / 60000));
-                if (mins < 60) {
-                  ageStr = `${mins} min${mins === 1 ? '' : 's'} ago`;
-                } else {
-                  const hours = Math.floor(mins / 60);
-                  if (hours < 24) {
-                    ageStr = `${hours} hour${hours === 1 ? '' : 's'} ago`;
-                  } else {
-                    const days = Math.floor(hours / 24);
-                    ageStr = `${days} day${days === 1 ? '' : 's'} ago`;
+          {/* Redesigned cards to match HomePage grid and style */}
+          {!loading && (
+            <div className="grid three">
+              {filteredRequests.map(r => {
+                const locs = parseArray(r.locations_json);
+                const modelsArr = parseArray(r.models_json);
+                const filtersObj = parseFilters(r.filters_json);
+                const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model', 'job_type'].includes(String(k)));
+                const jobTypesArr = parseArray(r.job_types_json);
+                // Age label from created_at: minutes in first hour, then hours, then days (same as homepage)
+                let ageStr = '';
+                try {
+                  if (r.created_at) {
+                    const created = new Date(r.created_at);
+                    const diffMs = Date.now() - created.getTime();
+                    const mins = Math.max(0, Math.floor(diffMs / 60000));
+                    if (mins < 60) {
+                      ageStr = `${mins} min${mins === 1 ? '' : 's'} ago`;
+                    } else {
+                      const hours = Math.floor(mins / 60);
+                      if (hours < 24) {
+                        ageStr = `${hours} hour${hours === 1 ? '' : 's'} ago`;
+                      } else {
+                        const days = Math.floor(hours / 24);
+                        ageStr = `${days} day${days === 1 ? '' : 's'} ago`;
+                      }
+                    }
                   }
-                }
-              }
-            } catch (_) {}
-            return (
-              <div key={r.id} className="card" style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong>{r.title}</strong>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    {r.price_not_matter ? (
-                      <span className="pill">Price not a constraint</span>
-                    ) : (
-                      (r.price_min != null || r.price_max != null) && (
-                        <span className="pill">
-                          Budget: {r.price_min != null ? `LKR ${Number(r.price_min).toLocaleString('en-US')}` : 'Any'} - {r.price_max != null ? `LKR ${Number(r.price_max).toLocaleString('en-US')}` : 'Any'}
-                        </span>
-                      )
+                } catch (_) {}
+                return (
+                  <div key={r.id} className="card" style={{ cursor: 'default' }}>
+                    <div className="text-muted" style={{ marginBottom: 6 }}>{r.category || 'Any'}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                      <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{r.title}</div>
+                      {r.price_not_matter ? (
+                        <span className="pill">No budget cap</span>
+                      ) : (
+                        (r.price_min != null || r.price_max != null) && (
+                          <div style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
+                            {`LKR ${r.price_min != null ? Number(r.price_min).toLocaleString('en-US') : 'Any'} - ${r.price_max != null ? Number(r.price_max).toLocaleString('en-US') : 'Any'}`}
+                          </div>
+                        )
+                      )}
+                    </div>
+                    <div className="text-muted" style={{ marginBottom: 6, marginTop: 4 }}>
+                      {(() => {
+                        const parts = [];
+                        const allLocs = [...locs, r.location].filter(Boolean);
+                        if (allLocs.length) parts.push(`Locations: ${Array.from(new Set(allLocs)).join(', ')}`);
+                        if (r.category === 'Vehicle' && (r.year_min || r.year_max)) parts.push(`Year: ${r.year_min || 'Any'} - ${r.year_max || 'Any'}`);
+                        if (ageStr) parts.push(ageStr);
+                        return parts.join(' • ');
+                      })()}
+                    </div>
+                    {(r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && modelsArr.length > 0 && (
+                      <div className="text-muted" style={{ marginTop: 6 }}>
+                        Models: {modelsArr.join(', ')}
+                      </div>
                     )}
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={() => {
-                        const catParam = r.category ? `?category=${encodeURIComponent(r.category)}&tagWantedId=${encodeURIComponent(r.id)}` : `?tagWantedId=${encodeURIComponent(r.id)}`;
-                        navigate(`/new${catParam}`);
-                      }}
-                      title="Post a new ad for this request"
-                      aria-label="Post a new ad for this request"
-                    >
-                      Post Ad
-                    </button>
-                  </div>
-                </div>
-                <div className="text-muted" style={{ marginTop: 6 }}>
-                  {r.category ? <span>Category: {r.category}</span> : <span>Category: Any</span>}
-                  {(locs.length || r.location) ? <span> • Locations: {[...locs, r.location].filter(Boolean).join(', ')}</span> : null}
-                  {r.category === 'Vehicle' && (r.year_min || r.year_max) ? (
-                    <span> • Year: {r.year_min || 'Any'} - {r.year_max || 'Any'}</span>
-                  ) : null}
-                  {ageStr ? <span> • {ageStr}</span> : null}
-                </div>
-                {modelsArr.length > 0 && (r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && (
-                  <div className="text-muted" style={{ marginTop: 6 }}>
-                    Models: {modelsArr.join(', ')}
-                  </div>
-                )}
-                {r.category === 'Job' && jobTypesArr.length > 0 && (
-                  <div className="text-muted" style={{ marginTop: 6 }}>
-                    Job Types: {jobTypesArr.join(', ')}
-                  </div>
-                )}
-                {filterEntries.length > 0 && (
-                  <div className="text-muted" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {filterEntries.map(([k, v]) => (
-                      <span key={k} className="pill">{k}: {Array.isArray(v) ? v.join(', ') : String(v)}</span>
-                    ))}
-                  </div>
-                )}
-                {r.description && <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{r.description}</div>}
-
-                {canOffer && (
-                  <div style={{ marginTop: 10 }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <select
-                        className="select"
-                        value={offerSelections[r.id] || ''}
-                        onChange={e => setOfferSelections(prev => ({ ...prev, [r.id]: Number(e.target.value) || '' }))}
-                        style={{ minWidth: 220 }}
-                      >
-                        <option value="">Select one of your ads</option>
-                        {myListings.map(l => (
-                          <option key={l.id} value={l.id}>
-                            {l.title} {typeof l.price === 'number' ? `• LKR ${Number(l.price).toLocaleString('en-US')}` : ''}
-                          </option>
+                    {r.category === 'Job' && jobTypesArr.length > 0 && (
+                      <div className="text-muted" style={{ marginTop: 6 }}>
+                        Job Types: {jobTypesArr.join(', ')}
+                      </div>
+                    )}
+                    {filterEntries.length > 0 && (
+                      <div className="text-muted" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {filterEntries.map(([k, v]) => (
+                          <span key={k} className="pill">{k}: {Array.isArray(v) ? v.join(', ') : String(v)}</span>
                         ))}
-                      </select>
-                      <button className="btn" onClick={() => sendOffer(r.id)} disabled={!offerSelections[r.id] || offerSending[r.id]}>
-                        {offerSending[r.id] ? 'Sending...' : 'Offer this ad'}
+                      </div>
+                    )}
+                    {r.description && <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{r.description}</div>}
+
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={() => {
+                          const catParam = r.category ? `?category=${encodeURIComponent(r.category)}&tagWantedId=${encodeURIComponent(r.id)}` : `?tagWantedId=${encodeURIComponent(r.id)}`;
+                          navigate(`/new${catParam}`);
+                        }}
+                        title="Post a new ad for this request"
+                        aria-label="Post a new ad for this request"
+                      >
+                        Post Ad
                       </button>
+                      {canOffer && (
+                        <>
+                          <select
+                            className="select"
+                            value={offerSelections[r.id] || ''}
+                            onChange={e => setOfferSelections(prev => ({ ...prev, [r.id]: Number(e.target.value) || '' }))}
+                            style={{ minWidth: 220 }}
+                          >
+                            <option value="">Offer one of your ads</option>
+                            {myListings.map(l => (
+                              <option key={l.id} value={l.id}>
+                                {l.title} {typeof l.price === 'number' ? `• LKR ${Number(l.price).toLocaleString('en-US')}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <button className="btn" onClick={() => sendOffer(r.id)} disabled={!offerSelections[r.id] || offerSending[r.id]}>
+                            {offerSending[r.id] ? 'Sending...' : 'Offer this ad'}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1297,13 +1275,14 @@ export default function WantedBoardPage() {
       )}
 
       {tab === 'mine' && (
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 16, padding: 18 }}>
           {!userEmail && <p className="text-muted">Login to view your requests.</p>}
           {userEmail && (
             <>
               {myRequests.length === 0 && (
                 <p className="text-muted">You have not posted any requests yet.</p>
               )}
+              {/* Keep My Requests vertically stacked for clarity */}
               {myRequests.map(r => {
                 const locs = parseArray(r.locations_json);
                 const modelsArr = parseArray(r.models_json);
