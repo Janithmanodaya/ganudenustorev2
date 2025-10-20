@@ -937,10 +937,13 @@ export default function HomePage() {
                 placeholder="Sort"
                 options={[
                   { value: 'latest', label: 'Latest' },
+                  { value: 'views_desc', label: 'Most Viewed' },
+                  { value: 'favorites_desc', label: 'Most Favorites' },
                   { value: 'price_desc', label: 'Price: High to Low' },
                   { value: 'price_asc', label: 'Price: Low to High' },
                 ]}
-              />
+            _code  new/</>
+>
             </div>
           </div>
 
