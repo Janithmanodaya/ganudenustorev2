@@ -122,7 +122,6 @@ export default function WantedBoardPage() {
   // Load dynamic filters for BROWSE derived from Wanted ads (not listings)
   useEffect(() => {
     try {
-      // Build keys and values from wanted requests by selected category (or all if none)
       const valuesByKey = {};
       const seenKeys = new Set();
 
@@ -131,8 +130,8 @@ export default function WantedBoardPage() {
       });
 
       for (const r of relevant) {
+        // Parse filters_json from wanted requests
         const f = (() => { try { return JSON.parse(String(r.filters_json || '{}')) || {}; } catch (_) { return {}; } })();
-        // Merge keys
         for (const [k, v] of Object.entries(f)) {
           const key = String(k).trim();
           if (!key) continue;
@@ -145,7 +144,7 @@ export default function WantedBoardPage() {
             if (!valuesByKey[key].includes(s)) valuesByKey[key].push(s);
           }
         }
-        // Also include model and job_type derived arrays separately for completeness
+        // Include models_json and job_types_json explicitly
         const modelsArr = (() => { try { return JSON.parse(String(r.models_json || '[]')) || []; } catch (_) { return []; } })();
         if (Array.isArray(modelsArr) && modelsArr.length) {
           const key = 'model';
