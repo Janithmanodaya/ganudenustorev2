@@ -3,73 +3,31 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { db } from '../lib/db.js';
-import fetch from 'node-fetch';
 
 const router = Router();
 
+// Store resume images (uncompressed originals) to preserve readability
 const resumesDir = path.resolve(process.cwd(), 'data', 'resumes');
 if (!fs.existsSync(resumesDir)) fs.mkdirSync(resumesDir, { recursive: true });
 
 const upload = multer({
   dest: resumesDir,
-  limits: { fileSize: 5 * 1024 * 1024, files: 1 }
+  limits: { files: 2, fileSize: 4 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const mt = String(file.mimetype || '');
+    if (!mt.startsWith('image/')) return cb(new Error('Only images are allowed'));
+    cb(null, true);
+  }
 });
 
-import { getSecret } from '../lib/secure-config.js';
-
-function getGeminiKey() {
-  const fromCfg = getSecret('gemini_api_key');
-  const key = fromCfg ? String(fromCfg).trim() : null;
-  return key || null;
-}
-function getPrompt(type) {
-  const row = db.prepare('SELECT content FROM prompts WHERE type = ?').get(type);
-  return row?.content || '';
-}
-
-function detectMime(filename) {
-  const ext = path.extname(String(filename)).toLowerCase();
-  if (ext === '.pdf') return 'application/pdf';
-  if (ext === '.docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  return null;
-}
-
-async function callGeminiWithFile(key, rolePrompt, userText, filePath, mimeType) {
-  const fileBuffer = fs.readFileSync(filePath);
-  const b64 = fileBuffer.toString('base64');
-
-  const model = 'models/gemini-2.5-flash-lite';
-  const url = `https://generativelanguage.googleapis.com/v1/${model}:generateContent?key=${encodeURIComponent(key)}`;
-  const body = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: `${rolePrompt}\n\nUser Context:\n${userText}` },
-          { inlineData: { mimeType, data: b64 } }
-        ]
-      }
-    ]
-  };
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  const data = await resp.json();
-  if (!resp.ok) {
-    throw new Error(data?.error?.message || 'Gemini API error');
-  }
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  return text;
-}
-
-// Reuse listing_drafts for employee posts (category Job, store resume path)
-router.post('/employee/draft', upload.single('resume'), async (req, res) => {
+// Reuse listing_drafts for employee posts (category Job, store owner and mark is_talent)
+router.post('/employee/draft', upload.array('images', 2), async (req, res) => {
   try {
-    const file = req.file;
+    const files = req.files || [];
     const { name, target_title, summary } = req.body || {};
-    if (!file) return res.status(400).json({ error: 'Resume file is required.' });
+    const ownerEmail = String(req.header('X-User-Email') || '').toLowerCase().trim();
+
+    if (!ownerEmail) return res.status(400).json({ error: 'User email is required' });
     if (!name || !target_title || !summary) {
       return res.status(400).json({ error: 'name, target_title, and summary are required.' });
     }
@@ -79,62 +37,59 @@ router.post('/employee/draft', upload.single('resume'), async (req, res) => {
     if (String(summary).length < 10 || String(summary).length > 5000) {
       return res.status(400).json({ error: 'Summary must be between 10 and 5000 characters.' });
     }
-    const mime = detectMime(file.originalname);
-    if (!mime) return res.status(400).json({ error: 'Only PDF or DOCX resumes are supported.' });
+    if (files.length < 1) return res.status(400).json({ error: 'At least 1 image is required.' });
 
-    const key = getGeminiKey();
-    if (!key) return res.status(400).json({ error: 'Gemini API key not configured.' });
-
-    const resumePrompt = getPrompt('resume_extraction');
-    const userContext = `Name: ${name}\nTarget Title: ${target_title}\nSummary/Pitch:\n${summary}`;
-
-    let analysisText = '';
-    try {
-      analysisText = await callGeminiWithFile(key, resumePrompt, userContext, file.path, mime);
-    } catch (e) {
-      return res.status(502).json({ error: 'Gemini resume_extraction failed', details: String(e && e.message ? e.message : e) });
+    // Enforce max 1 talent profile per email (active listings or pending)
+    const exists = db.prepare(`
+      SELECT id FROM listings
+      WHERE main_category = 'Job' AND is_talent = 1 AND LOWER(owner_email) = LOWER(?)
+        AND status != 'Archived'
+      LIMIT 1
+    `).get(ownerEmail);
+    if (exists) {
+      // Cleanup uploaded files since we won't keep the draft
+      for (const f of files) { try { fs.unlinkSync(f.path) } catch (_) {} }
+      return res.status(400).json({ error: 'You already have an active employee profile.' });
     }
 
-    // Parse to structured and SEO
-    let structuredJSON = analysisText;
-    let seoTitle = `${name} - ${target_title}`.slice(0, 60);
-    let seoDescription = summary.slice(0, 160);
-    let seoKeywords = `${target_title}, resume, ${name}`;
-    let seoJsonBlob = null;
+    // Minimal structured JSON embedding is_talent marker for downstream logic
+    const structured = {
+      is_talent: true,
+      skills: [],
+      employment_type: '',
+      company: ''
+    };
 
-    try {
-      const parsed = JSON.parse(analysisText);
-      // Expect both internal structured data and external SEO metadata keys
-      if (parsed.structured) {
-        structuredJSON = JSON.stringify(parsed.structured, null, 2);
-      } else {
-        structuredJSON = JSON.stringify(parsed, null, 2);
-      }
-      const seoSrc = parsed.seo || parsed;
-      seoTitle = String(seoSrc.seo_title || seoTitle).slice(0, 60);
-      seoDescription = String(seoSrc.meta_description || seoDescription).slice(0, 160);
-      seoKeywords = Array.isArray(seoSrc.seo_keywords) ? seoSrc.seo_keywords.join(', ') : String(seoSrc.seo_keywords || seoKeywords);
-      seoJsonBlob = JSON.stringify({ seo_title: seoTitle, meta_description: seoDescription, seo_keywords: seoKeywords }, null, 2);
-    } catch (_) {
-      seoJsonBlob = JSON.stringify({ seo_title: seoTitle, meta_description: seoDescription, seo_keywords: seoKeywords }, null, 2);
-    }
+    // Basic SEO from inputs
+    const seoTitle = `${name} - ${target_title}`.slice(0, 60);
+    const seoDescription = String(summary).slice(0, 160);
+    const seoKeywords = `${target_title}, resume, ${name}`;
+    const seoJsonBlob = JSON.stringify({ seo_title: seoTitle, meta_description: seoDescription, seo_keywords: seoKeywords }, null, 2);
 
     const info = db.prepare(`
-      INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, seo_json, resume_file_url, created_at)
+      INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, seo_json, owner_email, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       'Job',
       `${name} • ${target_title}`,
       summary,
-      structuredJSON,
+      JSON.stringify(structured, null, 2),
       seoTitle,
       seoDescription,
       seoKeywords,
       seoJsonBlob,
-      file.path, // store local path; could be moved to object storage in production
+      ownerEmail,
       new Date().toISOString()
     );
     const draftId = info.lastInsertRowid;
+
+    // Attach up to 2 images to this draft (keep originals; no heavy compression at this stage)
+    const stmt = db.prepare('INSERT INTO listing_draft_images (draft_id, path, original_name) VALUES (?, ?, ?)');
+    for (const f of files.slice(0, 2)) {
+      try {
+        stmt.run(draftId, f.path, f.originalname);
+      } catch (_) {}
+    }
 
     res.json({ ok: true, draftId });
   } catch (e) {

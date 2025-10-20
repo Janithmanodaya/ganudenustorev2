@@ -207,6 +207,7 @@ ensureColumn('listings', 'is_urgent', 'INTEGER DEFAULT 0');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
 ensureColumn('listing_images', 'medium_path', 'TEXT');
 ensureColumn('listing_drafts', 'wanted_tags_json', 'TEXT');
+ensureColumn('listings', 'is_talent', 'INTEGER DEFAULT 0');
 
 try {
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)").run();
@@ -896,6 +897,7 @@ router.post('/submit', async (req, res) => {
 
     const { location, price, pricing_type, phone, model_name, manufacture_year } = finalStruct;
     const mainCat = String(draft.main_category || '');
+    const isTalent = !!finalStruct.is_talent;
 
     // Common required fields
     if (!location) {
@@ -917,13 +919,23 @@ router.post('/submit', async (req, res) => {
         return res.status(400).json({ error: 'Manufacture year must be a valid year between 1950 and 2100' });
       }
     } else if (mainCat === 'Job') {
-      // For Job listings, salary is optional. Ensure sub_category exists so users can browse properly.
-      if (!finalStruct.sub_category || String(finalStruct.sub_category).trim() === '') {
-        return res.status(400).json({ error: 'Please specify a Job sub-category (e.g., Driver, IT/Software, Sales/Marketing)' });
-      }
-      // If salary present without pricing type, default to Negotiable
-      if (price != null && !pricing_type) {
-        finalStruct.pricing_type = 'Negotiable';
+      if (isTalent) {
+        // Talent profile: no salary required and no sub_category requirement
+        // Enforce one per email (active or pending)
+        const existing = db.prepare(`
+          SELECT id FROM listings WHERE main_category = 'Job' AND is_talent = 1 AND LOWER(owner_email) = LOWER(?) AND status != 'Archived' LIMIT 1
+        `).get(ownerEmail);
+        if (existing) {
+          return res.status(400).json({ error: 'You already have an employee profile.' });
+        }
+      } else {
+        // Vacancy: salary optional, require sub_category for browsing
+        if (!finalStruct.sub_category || String(finalStruct.sub_category).trim() === '') {
+          return res.status(400).json({ error: 'Please specify a Job sub-category (e.g., Driver, IT/Software, Sales/Marketing)' });
+        }
+        if (price != null && !pricing_type) {
+          finalStruct.pricing_type = 'Negotiable';
+        }
       }
     } else {
       // Other categories require price/pricing type but not vehicle model/year
@@ -939,7 +951,9 @@ router.post('/submit', async (req, res) => {
     }
 
     const ts = new Date().toISOString();
-    const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const validUntil = isTalent
+      ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     let thumbPath = null;
     let mediumPath = null;
@@ -964,16 +978,16 @@ router.post('/submit', async (req, res) => {
         function xmlEscape(str) {
           return String(str || '')
             .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
+            .replace(/<//g, '&lt;')
             .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
+            .replace(/\"/g, '&quot;')
             .replace(/'/g, '&apos;');
         }
         function sanitizeText(str, maxLen) {
           // Whitelist common printable chars and collapse whitespace
           const s = String(str || '')
-            .replace(/[^\w\s.,:;!@#%&()\\-\\/+°]+/g, ' ') // allow letters/digits and selected punctuation
-            .replace(/\\s+/g, ' ')
+            .replace(/[^\w\s.,:;!@#%&()\-\+\/+°]+/g, ' ') // allow letters/digits and selected punctuation
+            .replace(/\s+/g, ' ')
             .trim()
             .slice(0, maxLen || 60);
           return s;
@@ -1030,11 +1044,11 @@ router.post('/submit', async (req, res) => {
 
     const result = db.prepare(
       'INSERT INTO listings (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, ' +
-      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, og_image_path, valid_until, status, created_at, model_name, manufacture_year, remark_number) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, og_image_path, valid_until, status, created_at, model_name, manufacture_year, remark_number, is_talent) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       draft.main_category, draft.title, userDescription, JSON.stringify(finalStruct), draft.seo_title, draft.seo_description, draft.seo_keywords,
-      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, ogImagePathCreated, validUntil, 'Pending Approval', ts, model_name, manufacture_year, remark
+      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, ogImagePathCreated, validUntil, 'Pending Approval', ts, model_name, manufacture_year, remark, isTalent ? 1 : 0
     );
     const listingId = result.lastInsertRowid;
 

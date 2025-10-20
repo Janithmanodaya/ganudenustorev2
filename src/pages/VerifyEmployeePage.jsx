@@ -33,9 +33,12 @@ export default function VerifyEmployeePage() {
 
   async function submitPost() {
     try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null')
+      const headers = { 'Content-Type': 'application/json' }
+      if (user?.email) headers['X-User-Email'] = user.email
       const r = await fetch('/api/listings/submit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           draftId,
           structured_json: structuredJSON,
