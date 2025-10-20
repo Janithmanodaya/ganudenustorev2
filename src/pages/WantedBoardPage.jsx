@@ -1012,8 +1012,7 @@ export default function WantedBoardPage() {
           {/* Redesigned cards to match HomePage grid and style */}
           {!loading && (
            <<div className="grid three">
-              {filteredRequests.map(r => {
-                const locs = parseArray(r.locations_json);
+              {filteredRequests.map(r _code                const locs = parseArray(r.locations_json);
                 const modelsArr = parseArray(r.models_json);
                 const filtersObj = parseFilters(r.filters_json);
                 const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model', 'job_type'].includes(String(k)));
