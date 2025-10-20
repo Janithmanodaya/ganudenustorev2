@@ -872,7 +872,7 @@ export default function HomePage() {
                         return String(k).replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
                       };
                       return filtersDef.keys
-                        .filter(k => !['location','pricing_type','price','sub_category','model','model_name'].includes(k))
+                        .filter(k => !['location','pricing_type','price','sub_category','model','model_name','mileage_km'].includes(k))
                         .map(key => {
                           const values = (filtersDef.valuesByKey[key] || []).map(v => String(v));
                           const opts = [{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))];
