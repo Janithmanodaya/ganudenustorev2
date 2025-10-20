@@ -12,6 +12,11 @@ export default function PostEmployeeAdPage() {
   const pendingIndexRef = useRef(null)
   const [showAuthPrompt, setShowAuthPrompt] = useState(false)
 
+  // LinkedIn-like extras
+  const [school, setSchool] = useState('')
+  const [university, setUniversity] = useState('')
+  const [profileUrl, setProfileUrl] = useState('')
+
   useEffect(() => {
     try {
       const user = JSON.parse(localStorage.getItem('user') || 'null')
@@ -78,6 +83,9 @@ export default function PostEmployeeAdPage() {
       fd.append('name', name.trim())
       fd.append('target_title', targetTitle.trim())
       fd.append('summary', summary.trim())
+      if (school.trim()) fd.append('school', school.trim())
+      if (university.trim()) fd.append('university', university.trim())
+      if (profileUrl.trim()) fd.append('profile_url', profileUrl.trim())
       for (const img of chosen) fd.append('images', img)
       const r = await fetch('/api/jobs/employee/draft', {
         method: 'POST',
@@ -153,12 +161,15 @@ export default function PostEmployeeAdPage() {
         <div className="h1">Post Employee Profile</div>
         <p className="text-muted">
           Upload 1–2 clear images of your resume. Avoid heavy compression so text remains readable.
-          This feature is completely free. One profile per email, expiring after 3 months.
+          This feature is completely free. One profile per email.
         </p>
         <form onSubmit={submit} className="grid two">
           <input className="input" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} />
           <input className="input" placeholder="Target Job Title" value={targetTitle} onChange={e => setTargetTitle(e.target.value)} />
           <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
+          <input className="input" placeholder="School / College (optional)" value={school} onChange={e => setSchool(e.target.value)} />
+          <input className="input" placeholder="University (optional)" value={university} onChange={e => setUniversity(e.target.value)} />
+          <input className="input" placeholder="Personal Website or Profile URL (optional)" value={profileUrl} onChange={e => setProfileUrl(e.target.value)} />
           <div>
             <div className="h2" style={{ marginTop: 0 }}>Resume Images (1–2)</div>
             <ImageSlots />

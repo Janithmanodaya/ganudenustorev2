@@ -951,9 +951,7 @@ router.post('/submit', async (req, res) => {
     }
 
     const ts = new Date().toISOString();
-    const validUntil = isTalent
-      ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
-      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     let thumbPath = null;
     let mediumPath = null;

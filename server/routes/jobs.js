@@ -52,12 +52,26 @@ router.post('/employee/draft', upload.array('images', 2), async (req, res) => {
       return res.status(400).json({ error: 'You already have an active employee profile.' });
     }
 
-    // Minimal structured JSON embedding is_talent marker for downstream logic
+    // LinkedIn-like extras
+    const school = String(req.body?.school || '').trim().slice(0, 120);
+    const university = String(req.body?.university || '').trim().slice(0, 120);
+    let profile_url = String(req.body?.profile_url || '').trim();
+    if (profile_url && !/^https?:\/\//i.test(profile_url)) {
+      profile_url = 'http://' + profile_url;
+    }
+    if (profile_url.length > 300) profile_url = profile_url.slice(0, 300);
+
+    // Minimal structured JSON embedding is_talent marker and profile extras for downstream logic
     const structured = {
       is_talent: true,
       skills: [],
       employment_type: '',
-      company: ''
+      company: '',
+      education: {
+        school,
+        university
+      },
+      profile_url
     };
 
     // Basic SEO from inputs
