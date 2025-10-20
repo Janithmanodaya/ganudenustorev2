@@ -260,7 +260,18 @@ export async function getSuggestedListings(context = {}) {
   if (sub) filters.sub_category = sub;
   if (model) filters.model = model;
 
-  const pool = await fetchPool({ category, location, filters, limit: 80 });
+  // Try a focused pool first
+  let pool = await fetchPool({ category, location, filters, limit: 80 });
+
+  // Fallback: if no data found for focused query, fetch a broad random pool
+  if (!pool.length) {
+    try {
+      pool = await fetchPool({ limit: 100 });
+    } catch (_) {
+      pool = [];
+    }
+  }
+
   if (!pool.length) return [];
 
   const scored = pool
@@ -277,6 +288,19 @@ export async function getSuggestedListings(context = {}) {
     uniq.push(s.item);
     if (uniq.length >= (context.limit || 12)) break;
   }
+
+  // Final fallback: if scoring produced no items (e.g., all invalid ids), return a few random ones
+  if (!uniq.length) {
+    const out = [];
+    for (const it of pool) {
+      const id = Number(it.id);
+      if (!Number.isFinite(id)) continue;
+      out.push(it);
+      if (out.length >= (context.limit || 12)) break;
+    }
+    return out;
+  }
+
   return uniq;
 }
 

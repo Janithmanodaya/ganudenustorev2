@@ -45,35 +45,46 @@ if (isProd) {
   app.use(compression());
 }
 
-// Strict CORS whitelist
+// Strict CORS whitelist with sensible defaults for ganudenu.store subdomains
 const corsWhitelist = (() => {
-  const envList = String(process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || process.env.PUBLIC_ORIGIN || '').trim();
+  const envList = String(process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '').trim();
   if (!envList) return [];
   return envList.split(',').map(s => s.trim()).filter(Boolean);
 })();
-app.use(cors(
-  corsWhitelist.length === 0
-    // Development: allow all origins when no whitelist provided
-    ? {
-        origin: true,
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Email', 'X-User-Email'],
-        maxAge: 600
-      }
-    // Production: strict whitelist
-    : {
-        origin: function (origin, callback) {
-          if (!origin) return callback(null, true);
-          if (corsWhitelist.includes(origin)) return callback(null, true);
-          return callback(new Error('CORS not allowed for origin: ' + origin), false);
-        },
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Email', 'X-User-Email'],
-        maxAge: 600
-      }
-));
+
+function isOriginAllowed(origin) {
+  try {
+    if (!origin) return true; // allow same-origin, curl, etc.
+    const o = String(origin).trim();
+    if (corsWhitelist.includes(o)) return true;
+
+    // Allow configured PUBLIC_ORIGIN/PUBLIC_DOMAIN host implicitly
+    const pub = String(process.env.PUBLIC_ORIGIN || process.env.PUBLIC_DOMAIN || 'https://ganudenu.store').trim();
+    const pubHost = (() => { try { return new URL(pub).hostname } catch (_) { return '' } })();
+    const host = new URL(o).hostname;
+
+    // Permit ganudenu.store and its subdomains (e.g., test.ganudenu.store) by default
+    if (host === 'ganudenu.store' || host.endsWith('.ganudenu.store')) return true;
+
+    // Also allow exact PUBLIC_ORIGIN/PUBLIC_DOMAIN host if provided
+    if (pubHost && host === pubHost) return true;
+
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (isOriginAllowed(origin)) return callback(null, true);
+    return callback(new Error('CORS not allowed for origin: ' + origin), false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Email', 'X-User-Email'],
+  maxAge: 600
+}));
 
 app.use(express.json());
 

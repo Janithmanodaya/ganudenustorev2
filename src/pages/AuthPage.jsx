@@ -33,46 +33,63 @@ export default function AuthPage() {
     canonical: 'https://ganudenu.store/auth'
   })
 
-  // Helper to safely parse JSON with graceful fallbacks for non-JSON responses.
-  // Avoids falsely reporting that the backend is down when a proxy returns HTML.
+  // Helper to safely parse JSON with graceful fallbacks for non-JSON responses
   async function safeJson(r) {
     if (!r) throw new Error('No response')
     const ctRaw = r.headers && typeof r.headers.get === 'function' ? r.headers.get('content-type') : ''
     const ct = String(ctRaw || '').toLowerCase()
 
-    // If server indicates JSON, parse it directly
     if (ct.includes('application/json')) {
       try {
         return await r.json()
       } catch (_) {
-        // Invalid JSON — treat as empty object so callers can still read r.ok
         return {}
       }
     }
 
-    // Otherwise read text and try to be resilient
     let text = ''
     try { text = await r.text() } catch (_) {}
     const trimmed = String(text || '').trim()
 
-    // Empty or 204: treat as success with no payload
     if (!trimmed || r.status === 204) {
       return {}
     }
 
-    // Attempt JSON parse even if content-type is missing
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       try { return JSON.parse(trimmed) } catch (_) {}
     }
 
-    // If it's HTML (often dev index.html), don't claim backend is down; surface a generic message
     const isHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.includes('<html')
     if (isHtml) {
-      throw new Error('Unexpected server response. Please refresh and ensure API proxy is configured.')
+      // Return a recognizable object so callers can decide how to fallback/retry
+      return { _html: true, error: 'Unexpected server response. Please refresh and ensure API proxy is configured.' }
     }
 
-    // Plain text: return as a simple object
     return { message: trimmed }
+  }
+
+  // Centralized API fetch with proxy fallback:
+  // 1) Try relative /api (through Vite proxy in dev or same-origin in prod)
+  // 2) If response looks like HTML (likely index.html due to proxy miss), retry directly against backend dev URL
+  async function apiFetch(path, options) {
+    const rel = await fetch(path, options).catch(() => null)
+    if (!rel) return { resp: null, data: { error: 'Network error' } }
+    const relData = await safeJson(rel)
+    const isHtml = relData && relData._html === true
+
+    // If HTML was returned (proxy misconfig), try dev backend directly
+    if (isHtml || (!rel.ok && (rel.status === 200))) {
+      try {
+        const backend = 'http://localhost:5174'
+        const absUrl = backend + path
+        const retryResp = await fetch(absUrl, options)
+        const retryData = await safeJson(retryResp)
+        return { resp: retryResp, data: retryData }
+      } catch (_) {
+        // Fall through and return original
+      }
+    }
+    return { resp: rel, data: relData }
   }
 
   async function submit(e) {
@@ -109,16 +126,14 @@ export default function AuthPage() {
       } else if (mode === 'forgot') {
         if (forgotStep === 'request') {
           // Pre-check: only send OTP if the user exists
-          const check = await fetch(`/api/auth/user-exists?email=${encodeURIComponent(email)}`)
-          let checkData = {}
-          try {
-            checkData = await safeJson(check)
-          } catch (err) {
-            setResult({ ok: false, message: err.message || 'Network error. Please try again.' })
+          const { resp: checkResp, data: checkData } = await apiFetch(`/api/auth/user-exists?email=${encodeURIComponent(email)}`)
+          if (!checkResp || !checkResp.ok) {
+            const msg = (checkData && checkData.error) || 'Network error. Please try again.'
+            setResult({ ok: false, message: msg })
             setSubmitting(false)
             return
           }
-          if (!check.ok || !checkData.exists) {
+          if (!checkData.exists) {
             setResult({ ok: false, message: 'No account found for this email. Please register first.' })
             setSubmitting(false)
             return
@@ -131,24 +146,14 @@ export default function AuthPage() {
         }
       }
 
-      const r = await fetch(url, {
+      const { resp: r, data } = await apiFetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify(body)
       })
 
-      // Parse JSON with backend-down guard
-      let data = {}
-      try {
-        data = await safeJson(r)
-      } catch (err) {
-        setResult({ ok: false, message: err.message || 'Network error. Please try again.' })
-        setSubmitting(false)
-        return
-      }
-
-      if (!r.ok) {
-        const errMsg = (data && data.error) || 'Request failed.'
+      if (!r || !r.ok) {
+        const errMsg = (data && data.error) || (data && data.message) || 'Request failed.'
         setResult({ ok: false, message: errMsg })
         setSubmitting(false)
         return
@@ -164,7 +169,7 @@ export default function AuthPage() {
 
       if (mode === 'register' && registerStep === 'request') {
         setRegisterStep('verify')
-        setResult({ ok: true, message: 'OTP sent. Please check your email and enter the OTP.' })
+        setResult({ ok: true, message: data.message || 'OTP sent. Please check your email and enter the OTP.' })
         setSubmitting(false)
       } else if (mode === 'register' && registerStep === 'verify') {
         try {
@@ -184,10 +189,10 @@ export default function AuthPage() {
         setTimeout(() => navigate('/'), 800)
       } else if (mode === 'forgot' && forgotStep === 'request') {
         setForgotStep('reset')
-        setResult({ ok: true, message: 'OTP sent. Please enter the OTP and your new password.' })
+        setResult({ ok: true, message: data.message || 'OTP sent. Please enter the OTP and your new password.' })
         setSubmitting(false)
       } else if (mode === 'forgot' && forgotStep === 'reset') {
-        setResult({ ok: true, message: 'Password reset successful. Redirecting to home...' })
+        setResult({ ok: true, message: data.message || 'Password reset successful. Redirecting to home...' })
         setTimeout(() => navigate('/'), 800)
         setPassword('')
         setOtp('')
