@@ -538,9 +538,9 @@ export default function HomePage() {
         <div style={{ padding: 18 }}>
           <div className="h2" style={{ marginTop: 0 }}>Suggested for you</div>
           <div className="hide-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <div style={{ display: 'flex', gap: 12, minWidth: 'max-content', paddingBottom: 6 }}>
+            <div style={{ display: 'flex', gap: 16, minWidth: 'max-content', paddingBottom: 6 }}>
               {suggestedLoading && Array.from({ length: 8 }).map((_, i) => (
-                <div key={`sk-sug-${i}`} className="skeleton-card" style={{ minWidth: 260 }}>
+                <div key={`sk-sug-${i}`} className="skeleton-card" style={{ minWidth: 316 }}>
                   <div className="skeleton skeleton-img" />
                   <div className="skeleton skeleton-line" style={{ width: '60%', marginTop: 8 }} />
                   <div className="skeleton skeleton-line" style={{ width: '40%', marginTop: 6 }} />
@@ -566,10 +566,10 @@ export default function HomePage() {
                   return `/listing/${it.id}-${parts.join('-')}`
                 }
                 return (
-                  <div key={item.id} className="card" style={{ minWidth: 260, cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
+                  <div key={item.id} className="card" style={{ minWidth: 316, cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
                     {hero && (
                       <div style={{ position: 'relative', marginBottom: 8 }}>
-                        <img src={hero} alt={item.title} loading="lazy" style={{ width: '100%', height: 160, borderRadius: 8, objectFit: 'cover' }} />
+                        <img src={hero} alt={item.title} loading="lazy" sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw" style={{ width: '100%', height: 180, borderRadius: 8, objectFit: 'cover' }} />
                         {(item.is_urgent || item.urgent) && (
                           <span className="pill" style={{ position: 'absolute', top: 8, left: 8, background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))', border: '1px solid rgba(239,68,68,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>Urgent</span>
                         )}
