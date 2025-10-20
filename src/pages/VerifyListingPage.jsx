@@ -682,20 +682,63 @@ export default function VerifyListingPage() {
                     </select>
 
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
-                    {subCategory ? (
-                      <select className="select" value={subCategory} disabled>
-                        <option value="">{subCategory}</option>
+                    <div className="grid two">
+                      <select
+                        className="select"
+                        value={subCategory || ''}
+                        onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                      >
+                        <option value="">
+                          {isMobile ? 'Select mobile sub-category' : isElectronic ? 'Select electronic sub-category' : 'Select home & garden sub-category'}
+                        </option>
+                        {/* Mobile options */}
+                        {isMobile && (
+                          <>
+                            <option value="Smartphone">Smartphone</option>
+                            <option value="Feature Phone">Feature Phone</option>
+                            <option value="Tablet">Tablet</option>
+                            <option value="Smartwatch">Smartwatch</option>
+                            <option value="Accessories">Accessories</option>
+                          </>
+                        )}
+                        {/* Electronic options */}
+                        {isElectronic && (
+                          <>
+                            <option value="Laptop">Laptop</option>
+                            <option value="Desktop">Desktop</option>
+                            <option value="TV">TV</option>
+                            <option value="Camera">Camera</option>
+                            <option value="Audio">Audio</option>
+                            <option value="Appliances">Appliances</option>
+                            <option value="Accessories">Accessories</option>
+                          </>
+                        )}
+                        {/* Home & Garden options */}
+                        {isHomeGarden && (
+                          <>
+                            <option value="Furniture">Furniture</option>
+                            <option value="Kitchen">Kitchen</option>
+                            <option value="Garden Tools">Garden Tools</option>
+                            <option value="Decor">Decor</option>
+                            <option value="Appliances">Appliances</option>
+                            <option value="Other">Other</option>
+                          </>
+                        )}
+                        {/* Fallback other for any */}
+                        {!isHomeGarden && !isMobile && !isElectronic && <option value="Other">Other</option>}
                       </select>
-                    ) : (
-                      <>
-                        <input
-                          className="input"
-                          placeholder="Enter sub-category (e.g., Smartphone, Laptop)"
-                          value={subCategory}
-                          onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
-                        />
-                        <small className="text-muted">AI couldn't detect a sub-category. Please provide one.</small>
-                      </>
+                      <input
+                        className="input"
+                        placeholder="Or type a custom sub-category"
+                        value={subCategory}
+                        onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                      />
+                    </div>
+                    {!subCategory && (
+                      <small className="text-muted">Pick a suggested option or type your own sub-category.</small>
+                    )}
+                    {subCategory && (
+                      <small className="text-muted">You can edit the sub-category if needed.</small>
                     )}
                   </>
                 )}
@@ -731,20 +774,17 @@ export default function VerifyListingPage() {
                     />
 
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
-                    {subCategory ? (
-                      <select className="select" value={subCategory} disabled>
-                        <option value="">{subCategory}</option>
-                      </select>
-                    ) : (
-                      <>
-                        <input
-                          className="input"
-                          placeholder="Enter sub-category"
-                          value={subCategory}
-                          onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
-                        />
-                        <small className="text-muted">AI couldn't detect a sub-category. Please provide one.</small>
-                      </>
+                    <input
+                      className="input"
+                      placeholder="Enter sub-category"
+                      value={subCategory}
+                      onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                    />
+                    {!subCategory && (
+                      <small className="text-muted">AI couldn't detect a sub-category. Please provide one.</small>
+                    )}
+                    {subCategory && (
+                      <small className="text-muted">You can edit the sub-category if needed.</small>
                     )}
                   </>
                 )}

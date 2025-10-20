@@ -481,9 +481,9 @@ export default function HomePage() {
                         if (type === 'location') {
                           params.set('location', v)
                         } else if (type === 'sub_category') {
-                          params.set('filters', JSON.stringify({ sub_category: v }))
+                          params.set('filters', JSON.stringify({ sub_category: [v] }))
                         } else if (type === 'model') {
-                          params.set('filters', JSON.stringify({ model: v }))
+                          params.set('filters', JSON.stringify({ model: [v] }))
                         } else {
                           // default: keyword search
                           params.set('q', v)

@@ -276,6 +276,9 @@ app.use('/api/notifications', notificationsLimiter, notificationsRouter);
 const usersLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
 app.use('/api/users', usersLimiter, usersRouter);
 
+const chatsLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 240, standardHeaders: true, legacyHeaders: false });
+app.use('/api/chats', chatsLimiter, chatsRouter);
+
 const wantedLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
 app.use('/api/wanted', wantedLimiter, wantedRouter);
 

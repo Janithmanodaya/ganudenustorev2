@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { db } from './db.js';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * Auth utilities: JWT issuing and verification.
@@ -8,11 +10,29 @@ import { db } from './db.js';
  * - Default expiry: 7 days
  */
 
-const JWT_SECRET = process.env.JWT_SECRET || (() => {
-  // ephemeral secret per process if none provided (tokens invalidated on restart)
-  const rnd = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-  return 'dev-secret-' + rnd;
-})();
+function loadJwtSecret() {
+  const env = process.env.JWT_SECRET;
+  if (env) return env;
+  try {
+    const p = path.resolve(process.cwd(), 'data', 'jwt-secret.txt');
+    if (fs.existsSync(p)) {
+      const v = fs.readFileSync(p, 'utf8').trim();
+      if (v) return v;
+    }
+    const rnd = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    const val = 'dev-secret-' + rnd;
+    try {
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, val, { encoding: 'utf8' });
+    } catch (_) {}
+    return val;
+  } catch (_) {
+    const rnd = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    return 'dev-secret-' + rnd;
+  }
+}
+
+const JWT_SECRET = loadJwtSecret();
 
 const DEFAULT_EXP = process.env.JWT_EXPIRES_IN || '7d';
 

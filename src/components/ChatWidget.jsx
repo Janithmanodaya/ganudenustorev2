@@ -11,58 +11,126 @@ export default function ChatWidget() {
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const panelRef = useRef(null);
+  const [token, setToken] = useState('');
 
   useEffect(() => {
     try {
       const user = JSON.parse(localStorage.getItem('user') || 'null');
       setUserEmail(user?.email || '');
+      const t = localStorage.getItem('auth_token') || '';
+      setToken(t || '');
     } catch (_) {
       setUserEmail('');
+      setToken('');
     }
   }, []);
 
+  // Helpers to robustly parse server responses and retry direct backend if proxy returns HTML
+  async function safeJson(r) {
+    if (!r) return {};
+    const ct = String((r.headers && r.headers.get && r.headers.get('content-type')) || '').toLowerCase();
+    if (ct.includes('application/json')) {
+      try {
+        return await r.json();
+      } catch (_) {
+        return {};
+      }
+    }
+    let text = '';
+    try { text = await r.text(); } catch (_) {}
+    const trimmed = String(text || '').trim();
+    if (!trimmed || r.status === 204) return {};
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try { return JSON.parse(trimmed); } catch (_) { return {}; }
+    }
+    const isHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.includes('<html');
+    if (isHtml) return { _html: true, error: 'Proxy returned HTML' };
+    return { message: trimmed };
+  }
+
+  // Prefer explicit API base if provided, else fallback to localhost dev backend
+  const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) ? String(import.meta.env.VITE_API_BASE) : 'http://localhost:5174';
+
+  async function apiFetch(path, options) {
+    const rel = await fetch(path, options).catch(() => null);
+    if (!rel) return { resp: null, data: { error: 'Network error' } };
+    const relData = await safeJson(rel);
+    const looksHtml = relData && relData._html === true;
+    if (looksHtml || (!rel.ok && rel.status === 200)) {
+      try {
+        const retryResp = await fetch(API_BASE + path, options);
+        const retryData = await safeJson(retryResp);
+        return { resp: retryResp, data: retryData };
+      } catch (_) {
+        // fall through to return original
+      }
+    }
+    return { resp: rel, data: relData };
+  }
+
   async function loadMessages() {
-    if (!userEmail) return;
+    if (!token) return;
     try {
-      const r = await fetch('/api/chats', { headers: { 'X-User-Email': userEmail } });
-      const data = await r.json();
-      if (r.ok) {
+      const { resp: r, data } = await apiFetch('/api/chats', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+      });
+      if (r && r.ok) {
         setMessages(Array.isArray(data.results) ? data.results : []);
         const el = listRef.current;
         if (el) { el.scrollTop = el.scrollHeight; }
+        setStatus('');
+      } else {
+        const msg = (data && data.error) || (data && data.message) || 'Failed to load chat.';
+        setStatus(String(msg));
       }
-    } catch (_) {}
+    } catch (e) {
+      setStatus('Network error while loading chat.');
+    }
   }
 
   useEffect(() => {
-    if (!open || !userEmail) return;
+    if (!open || !token) return;
     loadMessages();
     const timer = setInterval(loadMessages, 5000);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+eps
   }, [open, userEmail]);
 
   async function sendMessage() {
     const msg = input.trim();
     if (!msg) return;
-    if (!userEmail) {
+    if (!token) {
       setStatus('Please login to send a message.');
       return;
     }
     try {
-      const r = await fetch('/api/chats', {
+      const { resp: r, data } = await apiFetch('/api/chats', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Email': userEmail },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
         body: JSON.stringify({ message: msg })
       });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.error || 'Failed to send');
+      if (!r || !r.ok) {
+        const code = r ? r.status : 0;
+        const errMsg = (data && data.error) || (data && data.message) || 'Failed to send';
+        // If unauthorized, hint user to re-login (token may be missing/expired)
+        if (code === 401) {
+          setStatus('Please login again to continue the chat.');
+        } else {
+          setStatus(`Error: ${String(errMsg)}`);
+        }
+        return;
+      }
       setInput('');
+      // Optimistically append and then refresh from server
       setMessages(prev => [...prev, { id: Date.now(), sender: 'user', message: msg, created_at: new Date().toISOString() }]);
       const el = listRef.current;
       if (el) { el.scrollTop = el.scrollHeight; }
+      setStatus('');
+      // Refresh to reflect any server processing
+      loadMessages();
     } catch (e) {
-      setStatus(`Error: ${e.message}`);
+      setStatus('Network error. Please try again.');
     }
   }
 
@@ -203,7 +271,7 @@ export default function ChatWidget() {
             <button className="btn" onClick={() => setOpen(false)} aria-label="Close">✕</button>
           </div>
 
-          {!userEmail && (
+          {!token && (
             <div className="card" style={{ background: 'rgba(18,22,31,0.9)', borderColor: 'var(--border)' }}>
               <div className="text-muted">Please login to chat with admin.</div>
               <div className="text-muted" style={{ marginTop: 6 }}>Try to contact admin after you log into the website.</div>
@@ -213,7 +281,7 @@ export default function ChatWidget() {
             </div>
           )}
 
-          {userEmail && (
+          {token && (
             <>
               <div ref={listRef} style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
                 {messages.length === 0 && <p className="text-muted">Start a conversation. Messages are kept for 7 days.</p>}
