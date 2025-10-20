@@ -686,12 +686,16 @@ export default function ViewListingPage() {
     }
   }
 
-  function prevImage() {
-    setCurrentIndex(i => {
-      const n = images.length
-      return n ? (i - 1 + n) % n : 0
-    })
-  }
+  async function onShare() {
+    try {
+      const url = window.location.href
+      await navigator.clipboard.writeText(url)
+      setStatus('Link copied to clipboard')
+      setTimeout(() => setStatus(null), 1500)
+    } catch (_) {
+      setStatus('Failed to copy link')
+      setTimeout(() => setStatus(null), 2000)
+    }
   function nextImage() {
     setCurrentIndex(i => {
       const n = images.length
@@ -768,6 +772,15 @@ export default function ViewListingPage() {
               {typeof listing?.price !== 'undefined' && listing?.price !== null && (
                 <div className="price-chip large">LKR {formatPrice(listing.price)}</div>
               )}
+              <button
+                className="btn"
+                onClick={onShare}
+                aria-label="Share listing link"
+                title="Share"
+                type="button"
+              >
+                🔗
+              </button>
               <button
                 className={`btn fav-btn ${favorited ? 'active' : ''} ${favPulse ? 'pulse' : ''}`}
                 onClick={onToggleFavorite}
@@ -1204,6 +1217,15 @@ export default function ViewListingPage() {
           <div className="price-chip">LKR {formatPrice(listing.price)}</div>
         ) : <span />}
         <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className="btn"
+            onClick={onShare}
+            aria-label="Share listing link"
+            title="Share"
+            type="button"
+          >
+            🔗
+          </button>
           {listing?.phone && (
             <a
               className="btn accent"
