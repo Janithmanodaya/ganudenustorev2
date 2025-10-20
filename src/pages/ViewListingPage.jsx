@@ -1255,14 +1255,18 @@ export default function ViewListingPage() {
           className="pill"
           style={{
             position: 'fixed',
-            bottom: 16,
-            right: 16,
+            bottom: 20,
             zIndex: 3000,
-            background: 'rgba(18,22,31,0.9)',
+            background: 'rgba(18,22,31,0.92)',
             color: '#fff',
-            padding: '8px 12px',
+            padding: isMobile ? '14px 20px' : '12px 18px',
             borderRadius: 999,
-            boxShadow: '0 6px 20px rgba(0,0,0,0.35)'
+            fontSize: isMobile ? 17 : 15,
+            fontWeight: 700,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+            ...(isMobile
+              ? { left: '50%', transform: 'translateX(-50%)' }
+              : { right: 20 })
           }}
         >
           Link copied
