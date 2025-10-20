@@ -698,6 +698,12 @@ export default function ViewListingPage() {
     }
   }
 
+  function prevImage() {
+    setCurrentIndex(i => {
+      const n = images.length
+      return n ? (i - 1 + n) % n : 0
+    })
+  }
   function nextImage() {
     setCurrentIndex(i => {
       const n = images.length
