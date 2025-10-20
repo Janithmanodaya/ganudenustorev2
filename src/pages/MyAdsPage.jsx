@@ -37,9 +37,11 @@ export default function MyAdsPage() {
         return
       }
       if (!silent) setStatus(null)
-      const r = await fetch('/api/listings/my', {
-        headers: { 'X-User-Email': user.email }
-      })
+      const token = localStorage.getItem('auth_token')
+      const headers = token
+        ? { 'Authorization': `Bearer ${token}` }
+        : { 'X-User-Email': user.email }
+      const r = await fetch('/api/listings/my', { headers })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error || 'Failed to load')
       setItems(data.results || [])
