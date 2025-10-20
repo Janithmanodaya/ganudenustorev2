@@ -62,6 +62,9 @@ router.post('/employee/draft', upload.array('images', 2), async (req, res) => {
     if (profile_url.length > 300) profile_url = profile_url.slice(0, 300);
 
     // Minimal structured JSON embedding is_talent marker and profile extras for downstream logic
+    const qualifications = String(req.body?.qualifications || '').trim().slice(0, 5000);
+    const experience = String(req.body?.experience || '').trim().slice(0, 5000);
+
     const structured = {
       is_talent: true,
       skills: [],
@@ -71,6 +74,8 @@ router.post('/employee/draft', upload.array('images', 2), async (req, res) => {
         school,
         university
       },
+      qualifications,
+      experience,
       profile_url
     };
 

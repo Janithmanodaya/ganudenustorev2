@@ -15,6 +15,8 @@ export default function PostEmployeeAdPage() {
   // LinkedIn-like extras
   const [school, setSchool] = useState('')
   const [university, setUniversity] = useState('')
+  const [qualifications, setQualifications] = useState('')
+  const [experience, setExperience] = useState('')
   const [profileUrl, setProfileUrl] = useState('')
 
   useEffect(() => {
@@ -85,6 +87,8 @@ export default function PostEmployeeAdPage() {
       fd.append('summary', summary.trim())
       if (school.trim()) fd.append('school', school.trim())
       if (university.trim()) fd.append('university', university.trim())
+      if (qualifications.trim()) fd.append('qualifications', qualifications.trim())
+      if (experience.trim()) fd.append('experience', experience.trim())
       if (profileUrl.trim()) fd.append('profile_url', profileUrl.trim())
       for (const img of chosen) fd.append('images', img)
       const r = await fetch('/api/jobs/employee/draft', {
@@ -169,6 +173,8 @@ export default function PostEmployeeAdPage() {
           <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
           <input className="input" placeholder="School / College (optional)" value={school} onChange={e => setSchool(e.target.value)} />
           <input className="input" placeholder="University (optional)" value={university} onChange={e => setUniversity(e.target.value)} />
+          <textarea className="textarea" placeholder="Other qualifications (optional)" value={qualifications} onChange={e => setQualifications(e.target.value)} />
+          <textarea className="textarea" placeholder="Experience (optional)" value={experience} onChange={e => setExperience(e.target.value)} />
           <input className="input" placeholder="Personal Website or Profile URL (optional)" value={profileUrl} onChange={e => setProfileUrl(e.target.value)} />
           <div>
             <div className="h2" style={{ marginTop: 0 }}>Resume Images (1–2)</div>

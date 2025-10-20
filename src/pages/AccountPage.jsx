@@ -18,6 +18,9 @@ export default function AccountPage() {
   const [profile, setProfile] = useState({ bio: '', verified_email: false, verified_phone: false })
   const [profileStatus, setProfileStatus] = useState(null)
 
+  // Talent profile (employee profile)
+  const [talent, setTalent] = useState(null)
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem('user')
@@ -39,6 +42,23 @@ export default function AccountPage() {
       navigate('/auth', { replace: true })
     }
   }, [navigate])
+
+  // Load user's talent profile (if exists)
+  useEffect(() => {
+    async function loadTalent(u) {
+      try {
+        const token = localStorage.getItem('auth_token') || ''
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : { 'X-User-Email': u.email }
+        const r = await fetch('/api/listings/my', { headers })
+        const data = await r.json()
+        if (!r.ok) return
+        const items = Array.isArray(data.results) ? data.results : []
+        const tp = items.find(x => x.is_talent)
+        setTalent(tp || null)
+      } catch (_) {}
+    }
+    if (user?.email) loadTalent(user)
+  }, [user])
 
   async function loadSellerProfile(u) {
     try {
@@ -308,6 +328,49 @@ export default function AccountPage() {
                 </div>
               </form>
               {profileStatus && <small className="text-muted">{profileStatus}</small>}
+            </div>
+
+            {/* My Talent Profile */}
+            <div className="card" style={{ marginTop: 12 }}>
+              <div className="h2" style={{ marginTop: 0 }}>My Talent Profile</div>
+              {!talent ? (
+                <>
+                  <p className="text-muted">Create a beautiful profile page with your resume images, education, qualifications and experience. This is free.</p>
+                  <Link className="btn primary" to="/jobs/post-employee">Create Profile</Link>
+                </>
+              ) : (
+                <>
+                  <p className="text-muted">Your profile URL:</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <a className="btn" href={`/${encodeURIComponent(talent.talent_handle || '')}`} target="_blank" rel="noreferrer">
+                      /{talent.talent_handle || '(pending)'}
+                    </a>
+                    <Link className="btn" to={`/profile/edit?listingId=${talent.id}`}>Edit</Link>
+                    <button
+                      className="btn"
+                      onClick={async () => {
+                        const sure = window.confirm('Delete your talent profile? This cannot be undone.')
+                        if (!sure) return
+                        try {
+                          const token = localStorage.getItem('auth_token') || ''
+                          if (!token) { alert('Please login again.'); return }
+                          const r = await fetch(`/api/listings/${talent.id}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                          })
+                          const data = await r.json().catch(() => ({}))
+                          if (!r.ok) throw new Error(data.error || 'Delete failed')
+                          setTalent(null)
+                        } catch (e) {
+                          alert(e.message)
+                        }
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

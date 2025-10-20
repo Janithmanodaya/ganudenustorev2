@@ -23,6 +23,8 @@ const TermsPage = React.lazy(() => import('./pages/TermsPage.jsx'))
 const PaymentPendingPage = React.lazy(() => import('./pages/PaymentPendingPage.jsx'))
 const SellerProfilePage = React.lazy(() => import('./pages/SellerProfilePage.jsx'))
 const WantedBoardPage = React.lazy(() => import('./pages/WantedBoardPage.jsx'))
+const TalentProfilePage = React.lazy(() => import('./pages/TalentProfilePage.jsx'))
+const EditTalentProfilePage = React.lazy(() => import('./pages/EditTalentProfilePage.jsx'))
 
 export default function App() {
   const navigate = useNavigate()
@@ -495,6 +497,9 @@ export default function App() {
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/payment/:id" element={<PaymentPendingPage />} />
             <Route path="/seller/:username" element={<SellerProfilePage />} />
+            <Route path="/profile/edit" element={<EditTalentProfilePage />} />
+            {/* Vanity handle must be after specific routes */}
+            <Route path="/:handle" element={<TalentProfilePage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

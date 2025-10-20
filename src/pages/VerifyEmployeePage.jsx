@@ -11,6 +11,7 @@ export default function VerifyEmployeePage() {
   const [seoKeywords, setSeoKeywords] = useState('')
   const [status, setStatus] = useState(null)
   const [submitted, setSubmitted] = useState(null)
+  const [talentHandle, setTalentHandle] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -24,6 +25,13 @@ export default function VerifyEmployeePage() {
         setSeoTitle(data.draft.seo_title || '')
         setSeoDescription(data.draft.seo_description || '')
         setSeoKeywords(data.draft.seo_keywords || '')
+        // Pre-fill handle suggestion from title or email local part
+        try {
+          const user = JSON.parse(localStorage.getItem('user') || 'null')
+          const base = (user?.email || '').split('@')[0] || ''
+          const suggestion = String(base).toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '')
+          setTalentHandle(suggestion || '')
+        } catch (_) {}
       } catch (e) {
         setStatus(`Error: ${e.message}`)
       }
@@ -44,7 +52,8 @@ export default function VerifyEmployeePage() {
           structured_json: structuredJSON,
           seo_title: seoTitle,
           seo_description: seoDescription,
-          seo_keywords: seoKeywords
+          seo_keywords: seoKeywords,
+          talent_handle: talentHandle
         })
       })
       const data = await r.json()
@@ -75,6 +84,14 @@ export default function VerifyEmployeePage() {
                 <input className="input" placeholder="SEO Title (max 60 chars)" value={seoTitle} onChange={e => setSeoTitle(e.target.value.slice(0,60))} />
                 <input className="input" placeholder="Meta Description (max 160 chars)" value={seoDescription} onChange={e => setSeoDescription(e.target.value.slice(0,160))} style={{ marginTop: 8 }} />
                 <input className="input" placeholder="SEO Keywords (comma-separated)" value={seoKeywords} onChange={e => setSeoKeywords(e.target.value)} style={{ marginTop: 8 }} />
+                <div className="h2" style={{ marginTop: 12 }}>Profile URL</div>
+                <input
+                  className="input"
+                  placeholder="Choose your profile handle (e.g., janith_manodya)"
+                  value={talentHandle}
+                  onChange={e => setTalentHandle(e.target.value)}
+                />
+                <small className="text-muted">Your profile will be visible at: https://ganudenu.store/{talentHandle || 'your_name'}</small>
               </div>
             </div>
 

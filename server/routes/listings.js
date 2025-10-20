@@ -208,6 +208,7 @@ ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
 ensureColumn('listing_images', 'medium_path', 'TEXT');
 ensureColumn('listing_drafts', 'wanted_tags_json', 'TEXT');
 ensureColumn('listings', 'is_talent', 'INTEGER DEFAULT 0');
+ensureColumn('listings', 'talent_handle', 'TEXT');
 
 try {
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)").run();
@@ -953,6 +954,36 @@ router.post('/submit', async (req, res) => {
     const ts = new Date().toISOString();
     const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
+    // Validate/normalize talent handle when isTalent
+    let talentHandle = null;
+    if (isTalent) {
+      function normalizeHandle(raw) {
+        let s = String(raw || '').trim().toLowerCase();
+        s = s.replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '_');
+        s = s.replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+        return s;
+      }
+      const reserved = new Set([
+        '', 'listing', 'listings', 'new', 'verify', 'verify-employee', 'auth', 'account', 'my-ads', 'jobs',
+        'wanted', 'search', 'policy', 'terms', 'payment', 'seller', 'api', 'admin', 'static', 'uploads',
+        'privacy', 'about', 'contact'
+      ]);
+      let raw = String(req.body?.talent_handle || '').trim();
+      if (!raw) {
+        // Derive a default from email local-part
+        raw = String(ownerEmail.split('@')[0] || '').replace(/\./g, '_');
+      }
+      const h = normalizeHandle(raw);
+      if (!h || h.length < 3 || h.length > 32 || reserved.has(h)) {
+        return res.status(400).json({ error: 'Please choose a valid profile URL handle (3–32 characters, letters/numbers/underscore, not reserved).' });
+      }
+      const dup = db.prepare('SELECT id FROM listings WHERE is_talent = 1 AND LOWER(talent_handle) = LOWER(?) LIMIT 1').get(h);
+      if (dup) {
+        return res.status(400).json({ error: 'This profile URL is already taken. Please choose another.' });
+      }
+      talentHandle = h;
+    }
+
     let thumbPath = null;
     let mediumPath = null;
 
@@ -976,7 +1007,7 @@ router.post('/submit', async (req, res) => {
         function xmlEscape(str) {
           return String(str || '')
             .replace(/&/g, '&amp;')
-            .replace(/<//g, '&lt;')
+            .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/\"/g, '&quot;')
             .replace(/'/g, '&apos;');
@@ -1042,11 +1073,11 @@ router.post('/submit', async (req, res) => {
 
     const result = db.prepare(
       'INSERT INTO listings (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, ' +
-      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, og_image_path, valid_until, status, created_at, model_name, manufacture_year, remark_number, is_talent) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, og_image_path, valid_until, status, created_at, model_name, manufacture_year, remark_number, is_talent, talent_handle) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       draft.main_category, draft.title, userDescription, JSON.stringify(finalStruct), draft.seo_title, draft.seo_description, draft.seo_keywords,
-      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, ogImagePathCreated, validUntil, 'Pending Approval', ts, model_name, manufacture_year, remark, isTalent ? 1 : 0
+      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, ogImagePathCreated, validUntil, 'Pending Approval', ts, model_name, manufacture_year, remark, isTalent ? 1 : 0, talentHandle
     );
     const listingId = result.lastInsertRowid;
 
@@ -1680,7 +1711,7 @@ router.get('/my', requireUser, (req, res) => {
     const email = req.user.email;
 
     const rows = db.prepare(`
-      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views, is_urgent
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views, is_urgent, is_talent, talent_handle
       FROM listings
       WHERE LOWER(owner_email) = LOWER(?)
       ORDER BY created_at DESC
@@ -1809,6 +1840,106 @@ router.post('/:id/report', (req, res) => {
   } catch (e) {
     console.error('[listings] /:id/report error:', e.message);
     res.status(500).json({ error: 'Failed to submit report' });
+  }
+});
+
+/**
+ * Public talent profile by handle
+ * - If listing is Approved, it is public for everyone.
+ * - If not Approved, only the owner (via X-User-Email) may view it.
+ */
+router.get('/talent/by-handle/:handle', (req, res) => {
+  try {
+    const handle = String(req.params.handle || '').toLowerCase().trim();
+    if (!handle) return res.status(400).json({ error: 'Invalid handle' });
+
+    const row = db.prepare(`SELECT * FROM listings WHERE is_talent = 1 AND LOWER(talent_handle) = LOWER(?) LIMIT 1`).get(handle);
+    if (!row) return res.status(404).json({ error: 'Talent profile not found' });
+
+    // Allow only approved profiles unless viewer is the owner
+    const ownerEmail = String(row.owner_email || '').toLowerCase().trim();
+    const viewerEmail = String(req.header('X-User-Email') || '').toLowerCase().trim();
+    if (String(row.status || '') !== 'Approved' && (!viewerEmail || viewerEmail !== ownerEmail)) {
+      return res.status(403).json({ error: 'Profile is not public yet' });
+    }
+
+    const imagesRows = db.prepare('SELECT id, path, original_name, medium_path FROM listing_images WHERE listing_id = ?').all(row.id);
+    const images = imagesRows.map(img => ({
+      id: img.id,
+      original_name: img.original_name,
+      url: filePathToUrl(img.path),
+      medium_url: filePathToUrl(img.medium_path)
+    }));
+    const thumbnail_url = filePathToUrl(row.thumbnail_path);
+    const medium_url = filePathToUrl(row.medium_path);
+    const og_image_url = filePathToUrl(row.og_image_path);
+
+    res.json({ ok: true, profile: { ...row, thumbnail_url, medium_url, og_image_url, images } });
+  } catch (e) {
+    console.error('[listings] /talent/by-handle error:', e && e.message ? e.message : e);
+    res.status(500).json({ error: 'Failed to load profile' });
+  }
+});
+
+/**
+ * Edit a talent profile (owner only)
+ * Accepts: { title?, description?, structured_json?, talent_handle? }
+ */
+router.patch('/talent/:id', requireUser, (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
+    const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
+    if (!listing) return res.status(404).json({ error: 'Not found' });
+    const email = req.user.email;
+    if (String(listing.owner_email || '').toLowerCase().trim() !== email) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    if (!listing.is_talent) return res.status(400).json({ error: 'Not a talent profile' });
+
+    let title = typeof req.body?.title === 'string' ? String(req.body.title) : listing.title;
+    if (title && title.length > 120) title = title.slice(0, 120);
+    let description = typeof req.body?.description === 'string' ? String(req.body.description) : listing.description;
+
+    let struct = {};
+    try { struct = req.body?.structured_json ? JSON.parse(String(req.body.structured_json)) : JSON.parse(listing.structured_json || '{}'); } catch (_) { struct = {}; }
+    struct = normalizeStructuredData(struct);
+
+    // Optional handle change
+    let th = req.body?.talent_handle != null ? String(req.body.talent_handle) : (listing.talent_handle || '');
+    function normalizeHandle(raw) {
+      let s = String(raw || '').trim().toLowerCase();
+      s = s.replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '_');
+      s = s.replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+      return s;
+    }
+    if (req.body?.talent_handle != null) {
+      const reserved = new Set([
+        '', 'listing', 'listings', 'new', 'verify', 'verify-employee', 'auth', 'account', 'my-ads', 'jobs',
+        'wanted', 'search', 'policy', 'terms', 'payment', 'seller', 'api', 'admin', 'static', 'uploads',
+        'privacy', 'about', 'contact'
+      ]);
+      const nh = normalizeHandle(th);
+      if (!nh || nh.length < 3 || nh.length > 32 || reserved.has(nh)) {
+        return res.status(400).json({ error: 'Invalid profile URL handle' });
+      }
+      const dup = db.prepare('SELECT id FROM listings WHERE is_talent = 1 AND LOWER(talent_handle) = LOWER(?) AND id != ? LIMIT 1').get(nh, id);
+      if (dup) return res.status(400).json({ error: 'This profile URL is already taken.' });
+      th = nh;
+    }
+
+    db.prepare(`
+      UPDATE listings
+      SET title = ?, description = ?, structured_json = ?, talent_handle = ?
+      WHERE id = ?
+    `).run(
+      title, description, JSON.stringify(struct), th || listing.talent_handle || null, id
+    );
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[listings] PATCH /talent/:id error:', e && e.message ? e.message : e);
+    res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
