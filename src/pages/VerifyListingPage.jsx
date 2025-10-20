@@ -682,20 +682,17 @@ export default function VerifyListingPage() {
                     </select>
 
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
-                    {subCategory ? (
-                      <select className="select" value={subCategory} disabled>
-                        <option value="">{subCategory}</option>
-                      </select>
-                    ) : (
-                      <>
-                        <input
-                          className="input"
-                          placeholder="Enter sub-category (e.g., Smartphone, Laptop)"
-                          value={subCategory}
-                          onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
-                        />
-                        <small className="text-muted">AI couldn't detect a sub-category. Please provide one.</small>
-                      </>
+                    <input
+                      className="input"
+                      placeholder="Enter sub-category (e.g., Smartphone, Laptop)"
+                      value={subCategory}
+                      onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                    />
+                    {!subCategory && (
+                      <small className="text-muted">AI couldn't detect a sub-category. Please provide one.</small>
+                    )}
+                    {subCategory && (
+                      <small className="text-muted">Detected by AI. You can edit this if it's incorrect.</small>
                     )}
                   </>
                 )}
@@ -730,10 +727,11 @@ export default function VerifyListingPage() {
                       onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
                     />
 
-                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
-                    {subCategory ? (
-                      <select className="select" value={subCategory} disabled>
-                        <option value="">{subCategory}</option>
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-catego</</label>
+                   <{input
+                      className="input"
+                      placeholder="Enter sub-category"
+                      value={sub"">{subCategory}</option>
                       </select>
                     ) : (
                       <>
