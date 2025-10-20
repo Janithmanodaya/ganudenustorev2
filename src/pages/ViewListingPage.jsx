@@ -696,6 +696,8 @@ export default function ViewListingPage() {
       setStatus('Failed to copy link')
       setTimeout(() => setStatus(null), 2000)
     }
+  }
+
   function nextImage() {
     setCurrentIndex(i => {
       const n = images.length
