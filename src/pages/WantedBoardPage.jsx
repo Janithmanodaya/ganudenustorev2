@@ -588,7 +588,6 @@ export default function WantedBoardPage() {
       setMyRequests(Array.isArray(data.results) ? data.results : []);
     } catch (_) {
       setMyRequests([]);
-    }_code
     }
   }
 
@@ -619,7 +618,6 @@ export default function WantedBoardPage() {
       alert('Failed to send offer');
     } finally {
       setOfferSending(prev => ({ ...prev, [wantedId]: false }));
-    }_codeev, [wantedId]: false }));
     }
   }
 
