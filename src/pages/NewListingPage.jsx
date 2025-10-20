@@ -340,7 +340,11 @@ export default function NewListingPage() {
           {/* Tag buyer requests (optional) */}
           <div className="card" style={{ marginTop: 8 }}>
             <div className="h2" style={{ marginTop: 0 }}>Talent Requests (optional)</div>
-            <p className="text-muted">Select up to 3 Wanted requests so buyers get notified after admin approval.</p>
+            {mainCategory === 'Job' ? (
+              <p className="text-muted">Select up to 3 Talent requests so candidates get notified after admin approval.</p>
+            ) : (
+              <p className="text-muted">Select up to 3 Wanted requests so buyers get notified after admin approval.</p>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <input
                 className="input"
