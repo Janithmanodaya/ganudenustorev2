@@ -478,8 +478,7 @@ export default function HomePage() {
                           params.set('q', v)
                         }
                         navigate(`/search?${params.toString()}`)
-                    _code  new}</}
-    }}
+                      }}
                       style={{
                         padding: '8px 10px',
                         borderRadius: 8,
