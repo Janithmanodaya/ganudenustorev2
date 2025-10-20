@@ -18,6 +18,17 @@ export default function HomePage() {
   const [slide, setSlide] = useState(0)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  // Prevent accidental double navigations from rapid clicks/touches
+  const navLockRef = useRef({ locked: false, t: null })
+  function navigateOnce(path, itemForTrack = null) {
+    const ref = navLockRef.current
+    if (ref.locked) return
+    try { if (itemForTrack) trackView(itemForTrack) } catch (_) {}
+    ref.locked = true
+    navigate(path)
+    try { if (ref.t) clearTimeout(ref.t) } catch (_) {}
+    ref.t = setTimeout(() => { ref.locked = false; ref.t = null }, 800)
+  }
   const [showFilters, setShowFilters] = useState(false)
   const [filterCategory, setFilterCategory] = useState('')
   const [filterLocation, setFilterLocation] = useState('')
@@ -570,7 +581,7 @@ export default function HomePage() {
                     return `/listing/${it.id}-${parts.join('-')}`
                   }
                   return (
-                    <div key={item.id} className="card sug-card" style={{ cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
+                    <div key={item.id} className="card sug-card" style={{ cursor: 'pointer' }} onClick={() => navigateOnce(permalinkForItem(item), item)}>
                       {hero && (
                         <div style={{ position: 'relative', marginBottom: 8 }}>
                           <img
@@ -1015,7 +1026,7 @@ export default function HomePage() {
                     return `/listing/${it.id}-${parts.join('-')}`;
                   }
                   return (
-                    <div key={item.id} className="card" onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }} style={{ cursor: 'pointer' }}>
+                    <div key={item.id} className="card" onClick={() => navigateOnce(permalinkForItem(item), item)} style={{ cursor: 'pointer' }}>
                       {/* Small image slider */}
                       {hero && (
                         <div style={{ position: 'relative', marginBottom: 8 }}>
