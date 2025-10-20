@@ -207,6 +207,9 @@ ensureColumn('listings', 'is_urgent', 'INTEGER DEFAULT 0');
 ensureColumn('listing_drafts', 'enhanced_description', 'TEXT');
 ensureColumn('listing_images', 'medium_path', 'TEXT');
 ensureColumn('listing_drafts', 'wanted_tags_json', 'TEXT');
+// New: employee profile markers
+ensureColumn('listing_drafts', 'employee_profile', 'INTEGER DEFAULT 0');
+ensureColumn('listings', 'employee_profile', 'INTEGER DEFAULT 0');
 
 try {
   db.prepare("CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status)").run();
@@ -939,7 +942,8 @@ router.post('/submit', async (req, res) => {
     }
 
     const ts = new Date().toISOString();
-    const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    // Employee profiles expire after 90 days; others after 30 days
+    const validUntil = new Date(Date.now() + (Number(draft.employee_profile) === 1 ? 90 : 30) * 24 * 60 * 60 * 1000).toISOString();
 
     let thumbPath = null;
     let mediumPath = null;
@@ -1030,11 +1034,11 @@ router.post('/submit', async (req, res) => {
 
     const result = db.prepare(
       'INSERT INTO listings (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, ' +
-      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, og_image_path, valid_until, status, created_at, model_name, manufacture_year, remark_number) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'location, price, pricing_type, phone, owner_email, thumbnail_path, medium_path, og_image_path, valid_until, status, created_at, model_name, manufacture_year, remark_number, employee_profile) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       draft.main_category, draft.title, userDescription, JSON.stringify(finalStruct), draft.seo_title, draft.seo_description, draft.seo_keywords,
-      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, ogImagePathCreated, validUntil, 'Pending Approval', ts, model_name, manufacture_year, remark
+      location, price, pricing_type, phone, ownerEmail, thumbPath, mediumPath, ogImagePathCreated, validUntil, 'Pending Approval', ts, model_name, manufacture_year, remark, Number(draft.employee_profile) === 1 ? 1 : 0
     );
     const listingId = result.lastInsertRowid;
 
