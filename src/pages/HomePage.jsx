@@ -53,9 +53,7 @@ export default function HomePage() {
   // Global search suggestions
   const [searchSuggestions, setSearchSuggestions] = useState([])
 
-  // Autocomplete queries for sub_category and model
-  const [subCategoryQuery, setSubCategoryQuery] = useState('')
-  const [modelQuery, setModelQuery] = useState('')
+  // Selected tag arrays for multi-select fields
   const subCategorySelected = Array.isArray(filters.sub_category) ? filters.sub_category : []
   const modelSelected = Array.isArray(filters.model) ? filters.model : []
 
@@ -73,19 +71,13 @@ export default function HomePage() {
   const AD_FREE = true
 
 
-  // Suggestions derived from filtersDef values
+  // Suggestions derived from filtersDef values (full set; filtering happens inside the dropdown)
   const subCategoryOptions = useMemo(() => {
-    const arr = (filtersDef.valuesByKey['sub_category'] || []).map(v => String(v))
-    const q = (subCategoryQuery || '').toLowerCase().trim()
-    if (!q) return arr.slice(0, 25)
-    return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25)
-  }, [filtersDef, subCategoryQuery])
+    return (filtersDef.valuesByKey['sub_category'] || []).map(v => String(v))
+  }, [filtersDef])
   const modelOptions = useMemo(() => {
-    const arr = (filtersDef.valuesByKey['model'] || []).map(v => String(v))
-    const q = (modelQuery || '').toLowerCase().trim()
-    if (!q) return arr.slice(0, 25)
-    return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25)
-  }, [filtersDef, modelQuery])
+    return (filtersDef.valuesByKey['model'] || []).map(v => String(v))
+  }, [filtersDef])
 
   // Mobile detection for UX tweaks (keyboard-safe dropdown)
   const [isMobile, setIsMobile] = useState(false)
@@ -757,6 +749,8 @@ export default function HomePage() {
                     })()}
                     searchable={true}
                     allowCustom={true}
+                    virtualized={true}
+                    maxDropdownHeight={420}
                   />
                   {/* Geolocation button to auto-fill nearest district */}
                   <div style={{ marginTop: 6 }}>
@@ -844,6 +838,8 @@ export default function HomePage() {
                           options={subCategoryOptions.map(v => ({ value: v, label: v }))}
                           searchable={true}
                           allowCustom={true}
+                          virtualized={true}
+                          maxDropdownHeight={420}
                         />
                       </div>
                     </div>
@@ -882,6 +878,8 @@ export default function HomePage() {
                           options={modelOptions.map(v => ({ value: v, label: v }))}
                           searchable={true}
                           allowCustom={true}
+                          virtualized={true}
+                          maxDropdownHeight={420}
                         />
                       </div>
                     </div>
@@ -911,6 +909,9 @@ export default function HomePage() {
                                 ariaLabel={key}
                                 placeholder={pretty(key)}
                                 options={opts}
+                                searchable={true}
+                                virtualized={true}
+                                maxDropdownHeight={420}
                               />
                             </div>
                           );
