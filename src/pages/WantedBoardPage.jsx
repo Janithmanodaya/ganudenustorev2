@@ -510,6 +510,16 @@ export default function WantedBoardPage() {
               if (!targetArr.includes(String(x).toLowerCase())) { structuredOk = false; break; }
             }
             if (!structuredOk) break;
+          } else if (key === 'location') {
+            // Each selected location must exist in either main location or locations_json
+            const arr = Array.isArray(val) ? val : [val];
+            const targetSingle = String(r.location || '').toLowerCase();
+            const targetArr = locs.map(x => String(x).toLowerCase());
+            for (const x of arr) {
+              const needle = String(x || '').toLowerCase();
+              if (!(targetSingle.includes(needle) || targetArr.some(t => t.includes(needle)))) { structuredOk = false; break; }
+            }
+            if (!structuredOk) break;
           } else {
             const target = filtersObj[key];
             if (Array.isArray(val)) {
@@ -768,22 +778,60 @@ export default function WantedBoardPage() {
                 </div>
                 <div>
                   <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Location</div>
+                  {/* Multi-location tags */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                    {(Array.isArray(browseFilters.location) ? browseFilters.location : []).map((tag, idx) => (
+                      <span key={`loc-${tag}-${idx}`} className="pill">
+                        {tag}
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={() => {
+                            const cur = Array.isArray(browseFilters.location) ? browseFilters.location : [];
+                            const next = cur.filter((t, i) => !(t === tag && i === idx));
+                            updateBrowseFilter('location', next);
+                          }}
+                          aria-label="Remove"
+                          style={{ padding: '2px 6px', marginLeft: 6 }}
+                        >✕</button>
+                      </span>
+                    ))}
+                  </div>
+                  {/* Add location via CustomSelect (keeps single-select control, appends to tags) */}
                   <CustomSelect
-                    value={filterLocation}
-                    onChange={v => setFilterLocation(v)}
-                    ariaLabel="Location"
-                    placeholder="Location"
+                    value=""
+                    onChange={(val) => {
+                      const v = String(val || '').trim();
+                      if (!v) return;
+                      const cur = Array.isArray(browseFilters.location) ? browseFilters.location : [];
+                      const next = Array.from(new Set([...cur, v]));
+                      updateBrowseFilter('location', next);
+                    }}
+                    ariaLabel="Add location"
+                    placeholder="Add location..."
                     options={(() => {
                       const cached = Array.from(new Set((locationOptionsCache || []).map(v => String(v).trim()).filter(Boolean)));
                       const fromSuggest = Array.from(new Set((locSuggestions || []).map(v => String(v).trim()).filter(Boolean)))
                         .filter(v => !cached.includes(v));
                       const merged = [...cached, ...fromSuggest];
                       const opts = merged.map(v => ({ value: v, label: v }));
-                      return [{ value: '', label: 'Any' }, ...opts];
+                      return opts;
                     })()}
                     searchable={true}
                     allowCustom={true}
                   />
+                  {/* Simple single location quick filter preserved (optional) */}
+                  <div style={{ marginTop: 6 }}>
+                    <CustomSelect
+                      value={filterLocation}
+                      onChange={v => setFilterLocation(v)}
+                      ariaLabel="Quick location"
+                      placeholder="Quick location (optional)"
+                      options={[{ value: '', label: 'Any' }, ...Array.from(new Set([...(locationOptionsCache || []), ...(locSuggestions || [])].map(v => String(v).trim()).filter(Boolean))).map(v => ({ value: v, label: v }))]}
+                      searchable={true}
+                      allowCustom={true}
+                    />
+                  </div>
                 </div>
                 <input className="input" type="number" placeholder="Min budget (LKR)" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
                 <input className="input" type="number" placeholder="Max budget (LKR)" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
@@ -958,12 +1006,12 @@ export default function WantedBoardPage() {
 
           {loading && <div className="pill">Loading...</div>}
           {!loading && filteredRequests.length === 0 && (
-            <p className="text-muted">No open requests match your filters.</p>
+           <<p className="text-muted">No open requests match your filte.</</p>
           )}
 
           {/* Redesigned cards to match HomePage grid and style */}
           {!loading && (
-            <div className="grid three">
+           <<div className="grid three">
               {filteredRequests.map(r => {
                 const locs = parseArray(r.locations_json);
                 const modelsArr = parseArray(r.models_json);
@@ -1320,77 +1368,82 @@ export default function WantedBoardPage() {
               {myRequests.length === 0 && (
                 <p className="text-muted">You have not posted any requests yet.</p>
               )}
-              {/* Keep My Requests vertically stacked for clarity */}
-              {myRequests.map(r => {
-                const locs = parseArray(r.locations_json);
-                const modelsArr = parseArray(r.models_json);
-                const filtersObj = parseFilters(r.filters_json);
-                const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model', 'job_type'].includes(String(k)));
-                const jobTypesArr = parseArray(r.job_types_json);
-                // Age label from created_at (same as homepage)
-                let ageStr = '';
-                try {
-                  if (r.created_at) {
-                    const created = new Date(r.created_at);
-                    const diffMs = Date.now() - created.getTime();
-                    const mins = Math.max(0, Math.floor(diffMs / 60000));
-                    if (mins < 60) {
-                      ageStr = `${mins} min${mins === 1 ? '' : 's'} ago`;
-                    } else {
-                      const hours = Math.floor(mins / 60);
-                      if (hours < 24) {
-                        ageStr = `${hours} hour${hours === 1 ? '' : 's'} ago`;
+              {/* Redesigned My Requests into grid (three) to match HomePage cards */}
+              <div className="grid three">
+                {myRequests.map(r => {
+                  const locs = parseArray(r.locations_json);
+                  const modelsArr = parseArray(r.models_json);
+                  const filtersObj = parseFilters(r.filters_json);
+                  const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model', 'job_type'].includes(String(k)));
+                  const jobTypesArr = parseArray(r.job_types_json);
+                  // Age label from created_at (same as homepage)
+                  let ageStr = '';
+                  try {
+                    if (r.created_at) {
+                      const created = new Date(r.created_at);
+                      const diffMs = Date.now() - created.getTime();
+                      const mins = Math.max(0, Math.floor(diffMs / 60000));
+                      if (mins < 60) {
+                        ageStr = `${mins} min${mins === 1 ? '' : 's'} ago`;
                       } else {
-                        const days = Math.floor(hours / 24);
-                        ageStr = `${days} day${days === 1 ? '' : 's'} ago`;
+                        const hours = Math.floor(mins / 60);
+                        if (hours < 24) {
+                          ageStr = `${hours} hour${hours === 1 ? '' : 's'} ago`;
+                        } else {
+                          const days = Math.floor(hours / 24);
+                          ageStr = `${days} day${days === 1 ? '' : 's'} ago`;
+                        }
                       }
                     }
-                  }
-                } catch (_) {}
-                return (
-                  <div key={r.id} className="card" style={{ marginBottom: 10 }}>
-                    <strong>{r.title}</strong>
-                    <div className="text-muted" style={{ marginTop: 6 }}>
-                      {r.category ? <span>Category: {r.category}</span> : <span>Category: Any</span>}
-                      {(locs.length || r.location) ? <span> • Locations: {[...locs, r.location].filter(Boolean).join(', ')}</span> : null}
-                      {r.category === 'Vehicle' && (r.year_min || r.year_max) ? (
-                        <span> • Year: {r.year_min || 'Any'} - {r.year_max || 'Any'}</span>
-                      ) : null}
-                      {ageStr ? <span> • {ageStr}</span> : null}
-                    </div>
-                    {modelsArr.length > 0 && (r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && (
+                  } catch (_) {}
+                  return (
+                    <div key={r.id} className="card" style={{ cursor: 'default' }}>
+                      <div className="text-muted" style={{ marginBottom: 6 }}>{r.category || 'Any'}</div>
+                      <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{r.title}</div>
+                      <div className="text-muted" style={{ marginBottom: 6, marginTop: 4 }}>
+                        {(() => {
+                          const parts = [];
+                          const allLocs = [...locs, r.location].filter(Boolean);
+                          if (allLocs.length) parts.push(`Locations: ${Array.from(new Set(allLocs)).join(', ')}`);
+                          if (r.category === 'Vehicle' && (r.year_min || r.year_max)) parts.push(`Year: ${r.year_min || 'Any'} - ${r.year_max || 'Any'}`);
+                          if (ageStr) parts.push(ageStr);
+                          return parts.join(' • ');
+                        })()}
+                      </div>
+                      {(r.category === 'Vehicle' || r.category === 'Mobile' || r.category === 'Electronic') && modelsArr.length > 0 && (
+                        <div className="text-muted" style={{ marginTop: 6 }}>
+                          Models: {modelsArr.join(', ')}
+                        </div>
+                      )}
+                      {r.category === 'Job' && jobTypesArr.length > 0 && (
+                        <div className="text-muted" style={{ marginTop: 6 }}>
+                          Job Types: {jobTypesArr.join(', ')}
+                        </div>
+                      )}
+                      {filterEntries.length > 0 && (
+                        <div className="text-muted" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {filterEntries.map(([k, v]) => (
+                            <span key={k} className="pill">{k}: {Array.isArray(v) ? v.join(', ') : String(v)}</span>
+                          ))}
+                        </div>
+                      )}
                       <div className="text-muted" style={{ marginTop: 6 }}>
-                        Models: {modelsArr.join(', ')}
+                        {r.price_not_matter ? 'Price not a constraint' : (
+                          (r.price_min != null || r.price_max != null) ? `Budget: ${r.price_min != null ? `LKR ${Number(r.price_min).toLocaleString('en-US')}` : 'Any'} - ${r.price_max != null ? `LKR ${Number(r.price_max).toLocaleString('en-US')}` : 'Any'}` : 'Budget: Any'
+                        )}
                       </div>
-                    )}
-                    {r.category === 'Job' && jobTypesArr.length > 0 && (
-                      <div className="text-muted" style={{ marginTop: 6 }}>
-                        Job Types: {jobTypesArr.join(', ')}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        {r.status === 'open' && (
+                          <button className="btn" onClick={() => closeRequest(r.id)}>Close</button>
+                        )}
+                        {r.status !== 'open' && (
+                          <button className="btn" onClick={() => alert('This request is closed.')}>Closed</button>
+                        )}
                       </div>
-                    )}
-                    {filterEntries.length > 0 && (
-                      <div className="text-muted" style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {filterEntries.map(([k, v]) => (
-                          <span key={k} className="pill">{k}: {Array.isArray(v) ? v.join(', ') : String(v)}</span>
-                        ))}
-                      </div>
-                    )}
-                    <div className="text-muted" style={{ marginTop: 6 }}>
-                      {r.price_not_matter ? 'Price not a constraint' : (
-                        (r.price_min != null || r.price_max != null) ? `Budget: ${r.price_min != null ? `LKR ${Number(r.price_min).toLocaleString('en-US')}` : 'Any'} - ${r.price_max != null ? `LKR ${Number(r.price_max).toLocaleString('en-US')}` : 'Any'}` : 'Budget: Any'
-                      )}
                     </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                      {r.status === 'open' && (
-                        <button className="btn" onClick={() => closeRequest(r.id)}>Close</button>
-                      )}
-                      {r.status !== 'open' && (
-                        <button className="btn" onClick={() => alert('This request is closed.')}>Closed</button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </>
           )}
         </div>
