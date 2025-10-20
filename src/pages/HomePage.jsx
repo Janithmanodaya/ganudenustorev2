@@ -466,7 +466,7 @@ export default function HomePage() {
                         // Scroll a bit to keep the search bar visible while navigating
                         try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
                         // Build a smarter search path based on suggestion type
-
+                        const params = new URLSearchParams()
                         if (type === 'location') {
                           params.set('location', v)
                         } else if (type === 'sub_category') {
@@ -478,7 +478,8 @@ export default function HomePage() {
                           params.set('q', v)
                         }
                         navigate(`/search?${params.toString()}`)
-                      }}
+                    _code  new}</}
+    }}
                       style={{
                         padding: '8px 10px',
                         borderRadius: 8,
