@@ -362,8 +362,7 @@ export default function SearchResultsPage() {
                             allowCustom={true}
                             virtualized={true}
                             maxDropdownHeight={420}
-                        
->
+                          />
                         </div>
                       );
                     });
