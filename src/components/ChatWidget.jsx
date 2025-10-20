@@ -48,6 +48,9 @@ export default function ChatWidget() {
     return { message: trimmed };
   }
 
+  // Prefer explicit API base if provided, else fallback to localhost dev backend
+  const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE) ? String(import.meta.env.VITE_API_BASE) : 'http://localhost:5174';
+
   async function apiFetch(path, options) {
     const rel = await fetch(path, options).catch(() => null);
     if (!rel) return { resp: null, data: { error: 'Network error' } };
@@ -55,12 +58,11 @@ export default function ChatWidget() {
     const looksHtml = relData && relData._html === true;
     if (looksHtml || (!rel.ok && rel.status === 200)) {
       try {
-        const backend = 'http://localhost:5174';
-        const retryResp = await fetch(backend + path, options);
+        const retryResp = await fetch(API_BASE + path, options);
         const retryData = await safeJson(retryResp);
         return { resp: retryResp, data: retryData };
       } catch (_) {
-        // fall through
+        // fall through to return original
       }
     }
     return { resp: rel, data: relData };
