@@ -25,17 +25,61 @@ export default function ChatWidget() {
     }
   }, []);
 
+  // Helpers to robustly parse server responses and retry direct backend if proxy returns HTML
+  async function safeJson(r) {
+    if (!r) return {};
+    const ct = String((r.headers && r.headers.get && r.headers.get('content-type')) || '').toLowerCase();
+    if (ct.includes('application/json')) {
+      try {
+        return await r.json();
+      } catch (_) {
+        return {};
+      }
+    }
+    let text = '';
+    try { text = await r.text(); } catch (_) {}
+    const trimmed = String(text || '').trim();
+    if (!trimmed || r.status === 204) return {};
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try { return JSON.parse(trimmed); } catch (_) { return {}; }
+    }
+    const isHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.includes('<html');
+    if (isHtml) return { _html: true, error: 'Proxy returned HTML' };
+    return { message: trimmed };
+  }
+
+  async function apiFetch(path, options) {
+    const rel = await fetch(path, options).catch(() => null);
+    if (!rel) return { resp: null, data: { error: 'Network error' } };
+    const relData = await safeJson(rel);
+    const looksHtml = relData && relData._html === true;
+    if (looksHtml || (!rel.ok && rel.status === 200)) {
+      try {
+        const backend = 'http://localhost:5174';
+        const retryResp = await fetch(backend + path, options);
+        const retryData = await safeJson(retryResp);
+        return { resp: retryResp, data: retryData };
+      } catch (_) {
+        // fall through
+      }
+    }
+    return { resp: rel, data: relData };
+  }
+
   async function loadMessages() {
     if (!token) return;
     try {
-      const r = await fetch('/api/chats', { headers: { 'Authorization': `Bearer ${token}` } });
-      const data = await r.json().catch(() => ({}));
-      if (r.ok) {
+      const { resp: r, data } = await apiFetch('/api/chats', {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+      });
+      if (r && r.ok) {
         setMessages(Array.isArray(data.results) ? data.results : []);
         const el = listRef.current;
         if (el) { el.scrollTop = el.scrollHeight; }
+        setStatus('');
       } else {
-        setStatus((data && data.error) ? String(data.error) : 'Failed to load chat.');
+        const msg = (data && data.error) || (data && data.message) || 'Failed to load chat.';
+        setStatus(String(msg));
       }
     } catch (e) {
       setStatus('Network error while loading chat.');
@@ -59,20 +103,32 @@ eps
       return;
     }
     try {
-      const r = await fetch('/api/chats', {
+      const { resp: r, data } = await apiFetch('/api/chats', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
         body: JSON.stringify({ message: msg })
       });
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.error || 'Failed to send');
+      if (!r || !r.ok) {
+        const code = r ? r.status : 0;
+        const errMsg = (data && data.error) || (data && data.message) || 'Failed to send';
+        // If unauthorized, hint user to re-login (token may be missing/expired)
+        if (code === 401) {
+          setStatus('Please login again to continue the chat.');
+        } else {
+          setStatus(`Error: ${String(errMsg)}`);
+        }
+        return;
+      }
       setInput('');
+      // Optimistically append and then refresh from server
       setMessages(prev => [...prev, { id: Date.now(), sender: 'user', message: msg, created_at: new Date().toISOString() }]);
       const el = listRef.current;
       if (el) { el.scrollTop = el.scrollHeight; }
       setStatus('');
+      // Refresh to reflect any server processing
+      loadMessages();
     } catch (e) {
-      setStatus(`Error: ${e.message}`);
+      setStatus('Network error. Please try again.');
     }
   }
 
