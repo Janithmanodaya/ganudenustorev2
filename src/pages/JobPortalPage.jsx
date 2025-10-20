@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import CustomSelect from '../components/CustomSelect.jsx'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
@@ -8,6 +8,10 @@ export default function JobPortalPage() {
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   // Dynamic job filters
+
+  // NEW: search mode toggle for Vacancies vs Talent
+  // 'vacancy' = search job openings, 'talent' = search candidate profiles
+  const [searchMode, setSearchMode] = useState('vacancy')
 
   // SEO for job portal via helper
   useSEO({
@@ -58,6 +62,31 @@ export default function JobPortalPage() {
     setPage(1)
     runPortalSearch(extra, term)
   }
+
+  // Heuristic to detect whether a listing looks like a candidate profile
+  function isTalentProfile(item) {
+    try {
+      // Name • Target Title pattern created from resume flow
+      if (String(item.title || '').includes(' • ')) return true
+      const sj = JSON.parse(item.structured_json || '{}')
+      const hasSkills = !!(sj.skills && ((Array.isArray(sj.skills) && sj.skills.length) || (typeof sj.skills === 'string' && sj.skills.trim())))
+      const hasCompany = !!(sj.company && String(sj.company).trim())
+      const hasEmploymentType = !!(sj.employment_type && String(sj.employment_type).trim())
+      // Candidate profiles often have skills but no company/employment_type
+      if (hasSkills && !hasCompany && !hasEmploymentType) return true
+      // If explicitly tagged by backend at some point
+      if (sj.is_talent === true || sj.type === 'candidate') return true
+    } catch (_) {}
+    return false
+  }
+
+  // Apply client-side filtering based on searchMode without changing API
+  const visibleResults = useMemo(() => {
+    if (!Array.isArray(results) || results.length === 0) return []
+    if (searchMode === 'talent') return results.filter(isTalentProfile)
+    if (searchMode === 'vacancy') return results.filter(r => !isTalentProfile(r))
+    return results
+  }, [results, searchMode])
 
   async function runPortalSearch(extraFilters = {}, queryOverride = null) {
     try {
@@ -155,6 +184,12 @@ export default function JobPortalPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page])
 
+  // If user switches between modes, keep page at 1 for UX
+  useEffect(() => {
+    setPage(1)
+    // Do not refetch; we filter client-side
+  }, [searchMode])
+
   function applyJobFilters() {
     // Refresh results within the Job Portal (no navigation)
     setPage(1)
@@ -181,6 +216,10 @@ export default function JobPortalPage() {
     return !!(q || salaryMin || salaryMax || Object.keys(filters || {}).length)
   }, [q, salaryMin, salaryMax, filters])
 
+  const searchPlaceholder = searchMode === 'talent'
+    ? 'Search talent (e.g., React developer, 5 years, skills)...'
+    : 'Search jobs (e.g., React developer, accountant, remote)...'
+
   return (
     <>
     <div className="center">
@@ -191,16 +230,40 @@ export default function JobPortalPage() {
           padding: '36px 18px',
           ...white
         }}>
-          <div className="h1" style={{ textAlign: 'center', marginBottom: 8, ...white }}>Find your next role or list your vacancy</div>
+          <div className="h1" style={{ textAlign: 'center', marginBottom: 8, ...white }}>
+            {searchMode === 'talent' ? 'Find great talent or list your profile' : 'Find your next role or list your vacancy'}
+          </div>
           <p style={{ textAlign: 'center', marginTop: 0, ...white }}>
-            Explore opportunities or publish openings in minutes.
+            {searchMode === 'talent'
+              ? 'Search candidate profiles or publish your own in minutes.'
+              : 'Explore opportunities or publish openings in minutes.'}
           </p>
 
-          <form onSubmit={onSearch} className="searchbar" style={{ margin: '16px auto 0', maxWidth: 720 }}>
+          {/* Mode toggle: Search Vacancies vs Search Talent */}
+          <div className="grid two" style={{ margin: '8px auto 0', maxWidth: 720 }}>
+            <button
+              className={`btn ${searchMode === 'vacancy' ? 'primary' : ''}`}
+              type="button"
+              onClick={() => setSearchMode('vacancy')}
+              title="Search job vacancies"
+            >
+              🔎 Search Vacancies
+            </button>
+            <button
+              className={`btn ${searchMode === 'talent' ? 'primary' : ''}`}
+              type="button"
+              onClick={() => setSearchMode('talent')}
+              title="Search candidate profiles"
+            >
+              🔎 Search Talent
+            </button>
+          </div>
+
+          <form onSubmit={onSearch} className="searchbar" style={{ margin: '12px auto 0', maxWidth: 720 }}>
             <input
               className="input"
               list="job-suggest"
-              placeholder="Search jobs (e.g., React developer, accountant, remote)..."
+              placeholder={searchPlaceholder}
               value={q}
               onChange={e => setQ(e.target.value)}
             />
@@ -329,7 +392,7 @@ export default function JobPortalPage() {
 
           <div className="h2" style={{ marginTop: 12, ...white }}>Results</div>
           <div className="grid three">
-            {results.map(item => {
+            {visibleResults.map(item => {
               const imgs = Array.isArray(item.small_images) ? item.small_images : []
               const idx = cardSlideIndex[item.id] || 0
               const hero = imgs.length ? imgs[idx % imgs.length] : (item.thumbnail_url || null)
@@ -350,6 +413,7 @@ export default function JobPortalPage() {
                 const parts = [titleSlug, year, idCode].filter(Boolean);
                 return `/listing/${it.id}-${parts.join('-')}`;
               }
+              const talent = isTalentProfile(item)
               return (
                 <div
                   key={item.id}
@@ -382,11 +446,18 @@ export default function JobPortalPage() {
                           >›</button>
                         </div>
                       )}
+                      {talent && (
+                        <div style={{ position: 'absolute', left: 8, top: 8 }}>
+                          <span className="badge" style={{ background: '#0ea5e9', color: '#fff', padding: '4px 8px', borderRadius: 6, fontSize: 12 }}>
+                            Talent
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                     <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{item.title}</div>
-                    {item.price != null && (
+                    {!talent && item.price != null && (
                       <div style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
                         {`LKR ${Number(item.price).toLocaleString('en-US')}`}
                       </div>
@@ -394,12 +465,12 @@ export default function JobPortalPage() {
                   </div>
                   <div className="text-muted" style={{ marginBottom: 6, marginTop: 4 }}>
                     {item.location ? item.location : ''}
-                    {item.pricing_type ? ` • ${item.pricing_type}` : ''}
+                    {!talent && item.pricing_type ? ` • ${item.pricing_type}` : ''}
                   </div>
                 </div>
               )
             })}
-            {results.length === 0 && <p className="text-muted">No jobs found.</p>}
+            {visibleResults.length === 0 && <p className="text-muted">No {searchMode === 'talent' ? 'talent profiles' : 'job vacancies'} found.</p>}
           </div>
 
           {/* Pagination */}
