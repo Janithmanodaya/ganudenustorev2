@@ -184,10 +184,11 @@ export default function JobPortalPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page])
 
-  // If user switches between modes, keep page at 1 for UX
+  // If user switches between modes, keep page at 1 and refresh search
   useEffect(() => {
     setPage(1)
-    // Do not refetch; we filter client-side
+    runPortalSearch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchMode])
 
   function applyJobFilters() {
@@ -304,66 +305,81 @@ export default function JobPortalPage() {
             <button className="btn" onClick={() => quick('Internship')} style={white}>🎓 Internship</button>
           </div>
 
-          {/* In-page filters: Title, Salary Type, Salary range, and other job-specific keys (no Category, Sub Category, Model, or Description) */}
+          {/* In-page filters: adapt to Vacancies vs Talent */}
           <div ref={filtersCardRef} className="card" style={{ padding: 12, marginTop: 12, ...white }}>
             <div className="grid two">
-              {/* Title selector (searchable, allows custom) */}
+              {/* Title/Skill selector (searchable, allows custom) */}
               <div>
-                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Title</div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
+                  {searchMode === 'talent' ? 'Skill / Keyword' : 'Title'}
+                </div>
                 <CustomSelect
                   value={q}
                   onChange={val => setQ(val)}
-                  ariaLabel="Title"
-                  placeholder="Title"
+                  ariaLabel={searchMode === 'talent' ? 'Skill' : 'Title'}
+                  placeholder={searchMode === 'talent' ? 'Skill / Keyword' : 'Title'}
                   options={[
                     { value: '', label: 'Any' },
-                    ...Array.from(new Set((filtersDef.valuesByKey['sub_category'] || []).map(v => String(v))))
-                      .map(v => ({ value: v, label: v }))
+                    ...(searchMode === 'talent'
+                      ? Array.from(new Set((filtersDef.valuesByKey['skills'] || []).map(v => String(v))))
+                          .map(v => ({ value: v, label: v }))
+                      : Array.from(new Set((filtersDef.valuesByKey['sub_category'] || []).map(v => String(v))))
+                          .map(v => ({ value: v, label: v })))
                   ]}
                   searchable={true}
                   allowCustom={true}
                 />
               </div>
 
-              {/* Salary Type (normalized: pricing_type) */}
-              <div>
-                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Salary Type</div>
-                <CustomSelect
-                  value={filters['pricing_type'] || ''}
-                  onChange={val => updateFilter('pricing_type', val)}
-                  ariaLabel="Salary Type"
-                  placeholder="Salary Type"
-                  options={[
-                    { value: '', label: 'Any' },
-                    ...((filtersDef.valuesByKey['pricing_type'] || []).map(v => ({ value: String(v), label: String(v) })))
-                  ]}
-                  searchable={true}
-                />
-              </div>
+              {/* Salary Type (normalized: pricing_type) - vacancies only */}
+              {searchMode === 'vacancy' && (
+                <div>
+                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Salary Type</div>
+                  <CustomSelect
+                    value={filters['pricing_type'] || ''}
+                    onChange={val => updateFilter('pricing_type', val)}
+                    ariaLabel="Salary Type"
+                    placeholder="Salary Type"
+                    options={[
+                      { value: '', label: 'Any' },
+                      ...((filtersDef.valuesByKey['pricing_type'] || []).map(v => ({ value: String(v), label: String(v) })))
+                    ]}
+                    searchable={true}
+                  />
+                </div>
+              )}
 
-              {/* Salary range (normalized: price_min / price_max) */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <input
-                  className="input"
-                  type="number"
-                  placeholder="Min salary"
-                  value={salaryMin}
-                  onChange={e => setSalaryMin(e.target.value)}
-                  style={{ width: 160 }}
-                />
-                <input
-                  className="input"
-                  type="number"
-                  placeholder="Max salary"
-                  value={salaryMax}
-                  onChange={e => setSalaryMax(e.target.value)}
-                  style={{ width: 160 }}
-                />
-              </div>
+              {/* Salary range (normalized: price_min / price_max) - vacancies only */}
+              {searchMode === 'vacancy' && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    className="input"
+                    type="number"
+                    placeholder="Min salary"
+                    value={salaryMin}
+                    onChange={e => setSalaryMin(e.target.value)}
+                    style={{ width: 160 }}
+                  />
+                  <input
+                    className="input"
+                    type="number"
+                    placeholder="Max salary"
+                    value={salaryMax}
+                    onChange={e => setSalaryMax(e.target.value)}
+                    style={{ width: 160 }}
+                  />
+                </div>
+              )}
 
               {/* Other dynamic keys from backend (excluding duplicates and hidden fields) */}
               {filtersDef.keys
-                .filter(k => !['location','pricing_type','price','description','enhanced_description','sub_category','model','model_name','title','category'].includes(k))
+                .filter(k => {
+                  // Hide job-irrelevant or base fields
+                  if (['location','price','description','enhanced_description','sub_category','model','model_name','title','category'].includes(k)) return false
+                  // Hide pricing_type when in talent mode (already handled above for vacancy)
+                  if (searchMode === 'talent' && k === 'pricing_type') return false
+                  return true
+                })
                 .map(key => (
                   <div key={key}>
                     <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>
