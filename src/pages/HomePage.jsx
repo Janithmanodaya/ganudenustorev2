@@ -1066,7 +1066,8 @@ export default function HomePage() {
                             width={320}
                             height={170}
                             onLoad={(e) => { try { e.currentTarget.style.opacity = '1' } catch (_) {} }}
-                          />
+                        _code  new/</>
+ />
                           {(item.is_urgent || item.urgent) && (
                             <span
                               className="pill"
