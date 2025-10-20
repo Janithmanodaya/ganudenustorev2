@@ -342,11 +342,17 @@ export default function WantedBoardPage() {
     return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25);
   }, [browseFiltersDef, subCategoryQuery]);
   const modelOptions = useMemo(() => {
-    const arr = (browseFiltersDef.valuesByKey['model'] || []).map(v => String(v));
     const q = (modelQuery || '').toLowerCase().trim();
+    // Build dynamic model list from Wanted ads instead of homepage/listings filters
+    const fromRequests = Array.from(new Set(
+      (requests || [])
+        .filter(r => !filterCategory || String(r.category || '') === String(filterCategory))
+        .flatMap(r => parseArray(r.models_json).map(v => String(v).trim()).filter(Boolean))
+    ));
+    const arr = fromRequests;
     if (!q) return arr.slice(0, 25);
     return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25);
-  }, [browseFiltersDef, modelQuery]);
+  }, [requests, filterCategory, modelQuery]);
 
   function updateBrowseFilter(key, value) {
     setBrowseFilters(prev => ({ ...prev, [key]: value }));
