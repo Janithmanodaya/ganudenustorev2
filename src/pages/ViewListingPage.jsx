@@ -1246,8 +1246,10 @@ export default function ViewListingPage() {
             </a>
           )}
         </div>
+      </div>
+
       {copiedToast && (
-       < div
+        <div
           role="status"
           aria-live="polite"
           className="pill"
@@ -1264,6 +1266,8 @@ export default function ViewListingPage() {
           }}
         >
           Link copied
-      </  div>
+        </div>
+      )}
+    </div>
   )
 }
