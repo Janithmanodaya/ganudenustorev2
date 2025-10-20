@@ -238,10 +238,20 @@ export default function WantedBoardPage() {
     }
   }
 
+  function buildAuthHeaders(extra = {}) {
+    let headers = { ...extra };
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    } catch (_) {}
+    if (userEmail) headers['X-User-Email'] = userEmail;
+    return headers;
+  }
+
   async function loadMyListings() {
     if (!userEmail) return;
     try {
-      const r = await fetch('/api/listings/my', { headers: { 'X-User-Email': userEmail } });
+      const r = await fetch('/api/listings/my', { headers: buildAuthHeaders() });
       const data = await r.json();
       const rows = Array.isArray(data.results) ? data.results : [];
       setMyListings(rows);
@@ -573,11 +583,13 @@ export default function WantedBoardPage() {
   async function loadMyRequests() {
     if (!userEmail) { setMyRequests([]); return; }
     try {
-      const r = await fetch('/api/wanted/my', { headers: { 'X-User-Email': userEmail } });
+      const r = await fetch('/api/wanted/my', { headers: buildAuthHeaders() });
       const data = await r.json();
       setMyRequests(Array.isArray(data.results) ? data.results : []);
     } catch (_) {
       setMyRequests([]);
+    }
+  </
     }
   }
 
@@ -595,10 +607,7 @@ export default function WantedBoardPage() {
     try {
       const r = await fetch('/api/wanted/respond', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': userEmail
-        },
+        headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ wanted_id: wantedId, listing_id: lid, message: '' })
       });
       const data = await r.json();
@@ -611,6 +620,7 @@ export default function WantedBoardPage() {
       alert('Failed to send offer');
     } finally {
       setOfferSending(prev => ({ ...prev, [wantedId]: false }));
+    }_codeev, [wantedId]: false }));
     }
   }
 
@@ -655,10 +665,7 @@ export default function WantedBoardPage() {
       };
       const r = await fetch('/api/wanted', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Email': userEmail || ''
-        },
+        headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
       const data = await r.json();
