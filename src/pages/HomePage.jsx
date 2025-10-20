@@ -551,7 +551,8 @@ export default function HomePage() {
                 ))}
                 {!suggestedLoading && suggested.slice(0, 10).map(item => {
                   const imgs = Array.isArray(item.small_images) ? item.small_images : []
-                  const hero = imgs.length ? imgs[0] : (item.thumbnail_url || null)
+                  const idx = cardSlideIndex[item.id] || 0
+                  const hero = imgs.length ? imgs[idx % imgs.length] : (item.thumbnail_url || null)
                   function makeSlug(s) {
                     const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
                     return base || 'listing'
@@ -582,6 +583,22 @@ export default function HomePage() {
                           {(item.is_urgent || item.urgent) && (
                             <span className="pill" style={{ position: 'absolute', top: 8, left: 8, background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))', border: '1px solid rgba(239,68,68,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>Urgent</span>
                           )}
+                          <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, zIndex: 5 }}>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); prevImage(item) }}
+                              aria-label="Previous image"
+                              disabled={!(Array.isArray(imgs) && imgs.length > 1)}
+                            >‹</button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); nextImage(item) }}
+                              aria-label="Next image"
+                              disabled={!(Array.isArray(imgs) && imgs.length > 1)}
+                            >›</button>
+                          </div>
                         </div>
                       )}
                       <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
