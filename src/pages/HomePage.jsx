@@ -598,18 +598,22 @@ export default function HomePage() {
               </div>
             </div>
             {/* Desktop nav buttons for suggested scroller */}
-            <button
-              className="btn sug-nav sug-left"
-              type="button"
-              aria-label="Scroll suggestions left"
-              onClick={() => { const el = suggestedRef.current; if (el) el.scrollBy({ left: -(el.clientWidth * 0.85), behavior: 'smooth' }) }}
-            >‹</button>
-            <button
-              className="btn sug-nav sug-right"
-              type="button"
-              aria-label="Scroll suggestions right"
-              onClick={() => { const el = suggestedRef.current; if (el) el.scrollBy({ left: (el.clientWidth * 0.85), behavior: 'smooth' }) }}
-            >›</button>
+            {!isMobile && (
+              <>
+                <button
+                  className="btn sug-nav sug-left"
+                  type="button"
+                  aria-label="Scroll suggestions left"
+                  onClick={() => { const el = suggestedRef.current; if (el) el.scrollBy({ left: -(el.clientWidth * 0.85), behavior: 'smooth' }) }}
+                >‹</button>
+                <button
+                  className="btn sug-nav sug-right"
+                  type="button"
+                  aria-label="Scroll suggestions right"
+                  onClick={() => { const el = suggestedRef.current; if (el) el.scrollBy({ left: (el.clientWidth * 0.85), behavior: 'smooth' }) }}
+                >›</button>
+              </>
+            )}
           </div>
           {/* Styles for suggested section */}
           <style>{`
@@ -1020,24 +1024,22 @@ export default function HomePage() {
                               Urgent
                             </span>
                           )}
-                          {imgs.length > 1 && (
-                            <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); prevImage(item) }}
-                                aria-label="Previous image"
-                              >‹</button>
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); nextImage(item) }}
-                                aria-label="Next image"
-                              >›</button>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                          <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, zIndex: 5 }}>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); prevImage(item) }}
+                              aria-label="Previous image"
+                              disabled={!(Array.isArray(imgs) && imgs.length > 1)}
+                            >‹</button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); nextImage(item) }}
+                              aria-label="Next image"
+                              disabled={!(Array.isArray(imgs) && imgs.length > 1)}
+                            >›</button>
+                          </div>
                       <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                         <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{item.title}</div>
@@ -1172,60 +1174,64 @@ export default function HomePage() {
           </div>
 
           {/* Glass-morphism sliding buttons */}
-          <button
-            className="btn feature-nav"
-            type="button"
-            aria-label="Scroll features left"
-            onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: -300, behavior: 'smooth' }) }}
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: 10,
-              transform: 'translateY(-50%)',
-              borderRadius: '50%',
-              width: 44,
-              height: 44,
-              display: 'grid',
-              placeItems: 'center',
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14))',
-              color: '#0a0f1e',
-              border: '1px solid rgba(255,255,255,0.45)',
-              outline: '1px solid rgba(255,255,255,0.15)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)',
-              transition: 'transform 150ms ease, box-shadow 150ms ease, background 150ms ease'
-            }}
-            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
-            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
-          >‹</button>
-          <button
-            className="btn feature-nav"
-            type="button"
-            aria-label="Scroll features right"
-            onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: 300, behavior: 'smooth' }) }}
-            style={{
-              position: 'absolute',
-              top: '50%',
-              right: 10,
-              transform: 'translateY(-50%)',
-              borderRadius: '50%',
-              width: 44,
-              height: 44,
-              display: 'grid',
-              placeItems: 'center',
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14))',
-              color: '#0a0f1e',
-              border: '1px solid rgba(255,255,255,0.45)',
-              outline: '1px solid rgba(255,255,255,0.15)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)',
-              transition: 'transform 150ms ease, box-shadow 150ms ease, background 150ms ease'
-            }}
-            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
-            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
-          >›</button>
+          {!isMobile && (
+            <>
+              <button
+                className="btn feature-nav"
+                type="button"
+                aria-label="Scroll features left"
+                onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: -300, behavior: 'smooth' }) }}
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: 10,
+                  transform: 'translateY(-50%)',
+                  borderRadius: '50%',
+                  width: 44,
+                  height: 44,
+                  display: 'grid',
+                  placeItems: 'center',
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14))',
+                  color: '#0a0f1e',
+                  border: '1px solid rgba(255,255,255,0.45)',
+                  outline: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)',
+                  transition: 'transform 150ms ease, box-shadow 150ms ease, background 150ms ease'
+                }}
+                onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
+              >‹</button>
+              <button
+                className="btn feature-nav"
+                type="button"
+                aria-label="Scroll features right"
+                onClick={() => { const el = featureRef.current; if (el) el.scrollBy({ left: 300, behavior: 'smooth' }) }}
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  right: 10,
+                  transform: 'translateY(-50%)',
+                  borderRadius: '50%',
+                  width: 44,
+                  height: 44,
+                  display: 'grid',
+                  placeItems: 'center',
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.30), rgba(255,255,255,0.14))',
+                  color: '#0a0f1e',
+                  border: '1px solid rgba(255,255,255,0.45)',
+                  outline: '1px solid rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)',
+                  transition: 'transform 150ms ease, box-shadow 150ms ease, background 150ms ease'
+                }}
+                onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(0.96)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
+                onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.28), inset 0 1px 1px rgba(255,255,255,0.45)'; }}
+              >›</button>
+            </>
+          )}
 
           {/* Hide scrollbar styling */}
           <style>{`
