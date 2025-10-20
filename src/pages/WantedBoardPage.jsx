@@ -758,7 +758,7 @@ export default function WantedBoardPage() {
                     </div>
 
                     {/* Model multi-select tags */}
-                    {(filterCategory === 'Vehicle' || filterCategory === 'Mobile' || filterCategory === 'Electronic') && (
+                    {(filterCategory === 'Vehicle' || filterCategory === 'Mobile' || filterCategory === 'Electronic' || filterCategory === 'Home Garden') && (
                       <div>
                         <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Model</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
