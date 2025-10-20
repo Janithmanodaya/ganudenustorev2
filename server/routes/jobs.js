@@ -7,12 +7,18 @@ import fetch from 'node-fetch';
 
 const router = Router();
 
-const resumesDir = path.resolve(process.cwd(), 'data', 'resumes');
-if (!fs.existsSync(resumesDir)) fs.mkdirSync(resumesDir, { recursive: true });
+const uploadsDir = path.resolve(process.cwd(), 'data', 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const upload = multer({
-  dest: resumesDir,
-  limits: { fileSize: 5 * 1024 * 1024, files: 1 }
+  dest: uploadsDir,
+  limits: { fileSize: 5 * 1024 * 1024, files: 2 },
+  fileFilter: (req, file, cb) => {
+    const mt = String(file.mimetype || '');
+    if (!mt.startsWith('image/')) return cb(new Error('Only images are allowed'));
+    if (mt === 'image/svg+xml') return cb(new Error('SVG images are not allowed'));
+    cb(null, true);
+  }
 });
 
 import { getSecret } from '../lib/secure-config.js';
@@ -25,13 +31,6 @@ function getGeminiKey() {
 function getPrompt(type) {
   const row = db.prepare('SELECT content FROM prompts WHERE type = ?').get(type);
   return row?.content || '';
-}
-
-function detectMime(filename) {
-  const ext = path.extname(String(filename)).toLowerCase();
-  if (ext === '.pdf') return 'application/pdf';
-  if (ext === '.docx') return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  return null;
 }
 
 async function callGeminiWithFile(key, rolePrompt, userText, filePath, mimeType) {
@@ -49,7 +48,8 @@ async function callGeminiWithFile(key, rolePrompt, userText, filePath, mimeType)
           { inlineData: { mimeType, data: b64 } }
         ]
       }
-    ]
+    ],
+    generationConfig: { temperature: 0, topK: 1, topP: 1, maxOutputTokens: 2048 }
   };
   const resp = await fetch(url, {
     method: 'POST',
@@ -64,12 +64,27 @@ async function callGeminiWithFile(key, rolePrompt, userText, filePath, mimeType)
   return text;
 }
 
-// Reuse listing_drafts for employee posts (category Job, store resume path)
-router.post('/employee/draft', upload.single('resume'), async (req, res) => {
+// Ensure schema columns for employee profiles
+try {
+  const colsDraft = db.prepare('PRAGMA table_info(listing_drafts)').all();
+  if (!colsDraft.find(c => c.name === 'employee_profile')) {
+    db.prepare('ALTER TABLE listing_drafts ADD COLUMN employee_profile INTEGER DEFAULT 0').run();
+  }
+  const colsList = db.prepare('PRAGMA table_info(listings)').all();
+  if (!colsList.find(c => c.name === 'employee_profile')) {
+    db.prepare('ALTER TABLE listings ADD COLUMN employee_profile INTEGER DEFAULT 0').run();
+  }
+} catch (_) {}
+
+// Post Employee Profile draft from 1–2 resume images
+router.post('/employee/draft', upload.array('images', 2), async (req, res) => {
   try {
-    const file = req.file;
+    const files = req.files || [];
     const { name, target_title, summary } = req.body || {};
-    if (!file) return res.status(400).json({ error: 'Resume file is required.' });
+    const ownerEmail = String(req.header('X-User-Email') || '').toLowerCase().trim();
+
+    if (!ownerEmail) return res.status(400).json({ error: 'Missing user email' });
+    if (files.length < 1) return res.status(400).json({ error: 'At least 1 resume image is required.' });
     if (!name || !target_title || !summary) {
       return res.status(400).json({ error: 'name, target_title, and summary are required.' });
     }
@@ -79,18 +94,59 @@ router.post('/employee/draft', upload.single('resume'), async (req, res) => {
     if (String(summary).length < 10 || String(summary).length > 5000) {
       return res.status(400).json({ error: 'Summary must be between 10 and 5000 characters.' });
     }
-    const mime = detectMime(file.originalname);
-    if (!mime) return res.status(400).json({ error: 'Only PDF or DOCX resumes are supported.' });
+
+    // Enforce one active employee profile per email (either existing approved or pending)
+    const nowIso = new Date().toISOString();
+    const existingActive = db.prepare(`
+      SELECT 1 FROM listings
+      WHERE LOWER(owner_email) = LOWER(?) AND employee_profile = 1
+        AND status != 'Archived' AND (valid_until IS NULL OR valid_until > ?)
+      LIMIT 1
+    `).get(ownerEmail, nowIso);
+    const existingDraft = db.prepare(`
+      SELECT 1 FROM listing_drafts
+      WHERE LOWER(owner_email) = LOWER(?) AND employee_profile = 1
+      LIMIT 1
+    `).get(ownerEmail);
+    if (existingActive || existingDraft) {
+      return res.status(400).json({ error: 'You can upload a maximum of 1 Employee Profile per email.' });
+    }
 
     const key = getGeminiKey();
     if (!key) return res.status(400).json({ error: 'Gemini API key not configured.' });
 
-    const resumePrompt = getPrompt('resume_extraction');
-    const userContext = `Name: ${name}\nTarget Title: ${target_title}\nSummary/Pitch:\n${summary}`;
+    // Light optimization: keep high quality to preserve text readability
+    let sharp = null;
+    try { sharp = (await import('sharp')).default; } catch (_) { sharp = null; }
+    if (sharp) {
+      for (const f of files) {
+        try {
+          const outDir = path.dirname(f.path);
+          const baseName = path.basename(f.path, path.extname(f.path));
+          const webpPath = path.join(outDir, `${baseName}-resume.webp`);
+          await sharp(f.path)
+            .resize({ width: 2000, withoutEnlargement: true }) // keep readable text
+            .webp({ quality: 90 }) // avoid heavy compression
+            .toFile(webpPath);
+          try { fs.unlinkSync(f.path); } catch (_) {}
+          f.path = webpPath;
+          try {
+            const nameBase = path.basename(f.originalname, path.extname(f.originalname));
+            f.originalname = `${nameBase}.webp`;
+          } catch (_) {}
+        } catch (e) {
+          // Keep original file on failure
+        }
+      }
+    }
 
+    // Use the first image for AI extraction
+    const first = files[0];
+    const resumePrompt = getPrompt('resume_extraction') || 'Extract structured resume data and minimal SEO metadata. Return JSON.';
+    const userContext = `Name: ${name}\nTarget Title: ${target_title}\nSummary/Pitch:\n${summary}`;
     let analysisText = '';
     try {
-      analysisText = await callGeminiWithFile(key, resumePrompt, userContext, file.path, mime);
+      analysisText = await callGeminiWithFile(key, resumePrompt, userContext, first.path, first.mimetype || 'image/png');
     } catch (e) {
       return res.status(502).json({ error: 'Gemini resume_extraction failed', details: String(e && e.message ? e.message : e) });
     }
@@ -104,7 +160,6 @@ router.post('/employee/draft', upload.single('resume'), async (req, res) => {
 
     try {
       const parsed = JSON.parse(analysisText);
-      // Expect both internal structured data and external SEO metadata keys
       if (parsed.structured) {
         structuredJSON = JSON.stringify(parsed.structured, null, 2);
       } else {
@@ -119,9 +174,10 @@ router.post('/employee/draft', upload.single('resume'), async (req, res) => {
       seoJsonBlob = JSON.stringify({ seo_title: seoTitle, meta_description: seoDescription, seo_keywords: seoKeywords }, null, 2);
     }
 
+    const ts = new Date().toISOString();
     const info = db.prepare(`
-      INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, seo_json, resume_file_url, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO listing_drafts (main_category, title, description, structured_json, seo_title, seo_description, seo_keywords, seo_json, resume_file_url, owner_email, created_at, employee_profile)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     `).run(
       'Job',
       `${name} • ${target_title}`,
@@ -131,10 +187,28 @@ router.post('/employee/draft', upload.single('resume'), async (req, res) => {
       seoDescription,
       seoKeywords,
       seoJsonBlob,
-      file.path, // store local path; could be moved to object storage in production
-      new Date().toISOString()
+      first.path,
+      ownerEmail,
+      ts
     );
     const draftId = info.lastInsertRowid;
+
+    // Store both images into listing_draft_images for preview/submit flow
+    try {
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS listing_draft_images (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          draft_id INTEGER NOT NULL,
+          path TEXT NOT NULL,
+          original_name TEXT NOT NULL,
+          FOREIGN KEY(draft_id) REFERENCES listing_drafts(id) ON DELETE CASCADE
+        )
+      `).run();
+      const ins = db.prepare('INSERT INTO listing_draft_images (draft_id, path, original_name) VALUES (?, ?, ?)');
+      for (const f of files) {
+        try { ins.run(draftId, f.path, f.originalname || path.basename(f.path)); } catch (_) {}
+      }
+    } catch (_) {}
 
     res.json({ ok: true, draftId });
   } catch (e) {
