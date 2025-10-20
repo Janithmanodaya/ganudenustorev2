@@ -614,9 +614,9 @@ export default function HomePage() {
 
             /* Mobile: one ad per view with swipe, no buttons */
             @media (max-width: 780px) {
-              .sug-wrap .hide-scroll { overscroll-behavior-x: contain; scroll-padding-left: 12px; }
-              .sug-row { scroll-snap-type: x mandatory; }
-              .sug-card { flex: 0 0 100%; max-width: 100%; scroll-snap-align: start; }
+              .sug-wrap .hide-scroll { overscroll-behavior-x: contain; scroll-padding-left: 12px; scroll-padding-right: 12px; }
+              .sug-row { scroll-snap-type: x mandatory; gap: 12px; min-width: auto; }
+              .sug-card { flex: 0 0 calc(100% - 12px); max-width: calc(100% - 12px); scroll-snap-align: start; }
               .sug-nav { display: none; }
             }
 
