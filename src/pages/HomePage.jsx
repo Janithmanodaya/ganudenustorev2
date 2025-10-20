@@ -1024,22 +1024,22 @@ export default function HomePage() {
                               Urgent
                             </span>
                           )}
-                          {imgs.length > 1 && !isMobile && (
-                            <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
-                              <button
+                          {imgs.length > 1 && (
+                           < div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
+                             < button
                                 className="btn"
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); prevImage(item) }}
                                 aria-label="Previous image"
-                              >‹</button>
-                              <button
+                              </  button>
+                             < button
                                 className="btn"
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); nextImage(item) }}
                                 aria-label="Next image"
-                              >›</button>
-                            </div>
-                          )}
+                              </  button>
+                          </  div>
+                        _code          )}
                         </div>
                       )}
                       <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
