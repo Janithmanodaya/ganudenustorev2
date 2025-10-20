@@ -6,6 +6,7 @@ import { useI18n } from '../components/i18n.jsx'
 
 import CustomSelect from '../components/CustomSelect.jsx'
 import useSEO from '../components/useSEO.js'
+import { getSuggestedListings, trackSearch, trackView } from '../components/recommendations.js'
 
 export default function HomePage() {
   const [q, setQ] = useState('')
@@ -28,6 +29,8 @@ export default function HomePage() {
   const [locSuggestions, setLocSuggestions] = useState([])
   const [locationOptionsCache, setLocationOptionsCache] = useState([])
   const [sort, setSort] = useState('latest')
+  const [suggested, setSuggested] = useState([])
+  const [suggestedLoading, setSuggestedLoading] = useState(false)
 
   // Site-wide SEO for homepage (via helper)
   useSEO({
@@ -94,6 +97,7 @@ export default function HomePage() {
     e.preventDefault()
     const term = (q || '').trim()
     const path = term ? `/search?q=${encodeURIComponent(term)}` : '/search'
+    try { if (term) trackSearch(term) } catch (_) {}
     try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
     navigate(path)
   }
@@ -212,6 +216,25 @@ export default function HomePage() {
       })
     }
   }, [filtersDef, latest])
+
+  // Suggested ads for you (horizontal grid) using cookie-based profile
+  useEffect(() => {
+    let alive = true
+    const term = (q || '').trim()
+    async function load() {
+      try {
+        setSuggestedLoading(true)
+        const res = await getSuggestedListings({ query: term, limit: 12 })
+        if (alive) setSuggested(Array.isArray(res) ? res : [])
+      } catch (_) {
+        if (alive) setSuggested([])
+      } finally {
+        if (alive) setSuggestedLoading(false)
+      }
+    }
+    load()
+    return () => { alive = false }
+  }, [q, filterCategory, filterLocation, filters, refreshKey])
 
   const [cardSlideIndex, setCardSlideIndex] = useState({})
   function nextImage(item) {
@@ -437,10 +460,11 @@ export default function HomePage() {
                         const v = String(label || '').trim()
                         if (!v) return
                         setQ(v)
+                        try { trackSearch(v) } catch (_) {}
                         // Scroll a bit to keep the search bar visible while navigating
                         try { window.scrollTo({ top: 0, behavior: 'smooth' }) } catch (_) {}
                         // Build a smarter search path based on suggestion type
-                        const params = new URLSearchParams()
+
                         if (type === 'location') {
                           params.set('location', v)
                         } else if (type === 'sub_category') {
@@ -510,6 +534,61 @@ export default function HomePage() {
         )}
 
         
+        {/* Suggested for you - horizontal grid */}
+        <div style={{ padding: 18 }}>
+          <div className="h2" style={{ marginTop: 0 }}>Suggested for you</div>
+          <div className="hide-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <div style={{ display: 'flex', gap: 12, minWidth: 'max-content', paddingBottom: 6 }}>
+              {suggestedLoading && Array.from({ length: 8 }).map((_, i) => (
+                <div key={`sk-sug-${i}`} className="skeleton-card" style={{ minWidth: 260 }}>
+                  <div className="skeleton skeleton-img" />
+                  <div className="skeleton skeleton-line" style={{ width: '60%', marginTop: 8 }} />
+                  <div className="skeleton skeleton-line" style={{ width: '40%', marginTop: 6 }} />
+                </div>
+              ))}
+              {!suggestedLoading && suggested.map(item => {
+                const imgs = Array.isArray(item.small_images) ? item.small_images : []
+                const hero = imgs.length ? imgs[0] : (item.thumbnail_url || null)
+                function makeSlug(s) {
+                  const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+                  return base || 'listing'
+                }
+                function permalinkForItem(it) {
+                  const titleSlug = makeSlug(it.title || '')
+                  let year = ''
+                  try {
+                    const sj = JSON.parse(it.structured_json || '{}')
+                    const y = sj.manufacture_year || sj.year || sj.model_year || null
+                    if (y) year = String(y)
+                  } catch (_) {}
+                  const idCode = Number(it.id).toString(36).toUpperCase()
+                  const parts = [titleSlug, year, idCode].filter(Boolean)
+                  return `/listing/${it.id}-${parts.join('-')}`
+                }
+                return (
+                  <div key={item.id} className="card" style={{ minWidth: 260, cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
+                    {hero && (
+                      <div style={{ position: 'relative', marginBottom: 8 }}>
+                        <img src={hero} alt={item.title} loading="lazy" style={{ width: '100%', height: 160, borderRadius: 8, objectFit: 'cover' }} />
+                        {(item.is_urgent || item.urgent) && (
+                          <span className="pill" style={{ position: 'absolute', top: 8, left: 8, background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))', border: '1px solid rgba(239,68,68,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>Urgent</span>
+                        )}
+                      </div>
+                    )}
+                    <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                      <div className="h2" style={{ margin: 0 }}>{item.title}</div>
+                      {item.price != null && (
+                        <div style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>LKR {Number(item.price).toLocaleString('en-US')}</div>
+                      )}
+                    </div>
+                    <div className="text-muted" style={{ marginTop: 4 }}>{item.location ? item.location : ''}{item.pricing_type ? ` • ${item.pricing_type}` : ''}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
 
         <div style={{ padding: 18 }}>
           <div className="h2" style={{ marginTop: 0 }}>{filterCategory ? `${filterCategory} listings` : 'Latest listings'}</div>
@@ -860,7 +939,7 @@ export default function HomePage() {
                     return `/listing/${it.id}-${parts.join('-')}`;
                   }
                   return (
-                    <div key={item.id} className="card" onClick={() => navigate(permalinkForItem(item))} style={{ cursor: 'pointer' }}>
+                    <div key={item.id} className="card" onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }} style={{ cursor: 'pointer' }}>
                       {/* Small image slider */}
                       {hero && (
                         <div style={{ position: 'relative', marginBottom: 8 }}>
