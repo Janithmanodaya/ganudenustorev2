@@ -908,7 +908,7 @@ export default function WantedBoardPage() {
                       ))}
                     </div>
                     <div style={{ marginTop: 4 }}>
-                     <CustomSe_code
+                      <CustomSelect
                         value=""
                         onChange={(val) => {
                           const v = String(val || '').trim();
@@ -923,7 +923,7 @@ export default function WantedBoardPage() {
                         allowCustom={true}
                         virtualized={true}
                         maxDropdownHeight={420}
-                    />
+                      />
                     </div>
                   </div>
                 )}
@@ -1001,8 +1001,7 @@ export default function WantedBoardPage() {
                                 searchable={true}
                                 virtualized={true}
                                 maxDropdownHeight={420}
-                            
->
+                              />
                             </div>
                           );
                         });
@@ -1116,17 +1115,25 @@ export default function WantedBoardPage() {
                       {canOffer && (
                         <>
                           <div style={{ minWidth: 220, flex: '0 0 220px' }}>
-                           < CustomSelect
+                            <CustomSelect
                               value={offerSelections[r.id] || ''}
                               onChange={v => setOfferSelections(prev => ({ ...prev, [r.id]: v ? Number(v) : '' }))}
                               ariaLabel="Offer one of your ads"
                               placeholder="Offer one of your ads"
-                              options={myListings.map(l => ({
-                                value: String(l.id),
-                                label: `${l.title}${typeof l.price === 'number' ? ` • LKR ${.toLocaleString('en-US')}` : ''}
-                              </option>
-                            ))}
-                          </select>
+                              options={myListings.map(l => {
+                                const priceLabel = (typeof l.price === 'number')
+                                  ? ` • LKR ${Number(l.price).toLocaleString('en-US')}`
+                                  : '';
+                                return {
+                                  value: String(l.id),
+                                  label: `${l.title}${priceLabel}`
+                                };
+                              })}
+                              searchable={true}
+                              virtualized={true}
+                              maxDropdownHeight={420}
+                            />
+                          </div>
                           <button className="btn" onClick={() => sendOffer(r.id)} disabled={!offerSelections[r.id] || offerSending[r.id]}>
                             {offerSending[r.id] ? 'Sending...' : 'Offer this ad'}
                           </button>
