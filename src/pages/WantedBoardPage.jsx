@@ -588,8 +588,7 @@ export default function WantedBoardPage() {
       setMyRequests(Array.isArray(data.results) ? data.results : []);
     } catch (_) {
       setMyRequests([]);
-    }
-  </
+    }_code
     }
   }
 
@@ -630,7 +629,7 @@ export default function WantedBoardPage() {
     try {
       const r = await fetch(`/api/wanted/${id}/close`, {
         method: 'POST',
-        headers: { 'X-User-Email': userEmail }
+        headers: buildAuthHeaders()
       });
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
@@ -1013,13 +1012,14 @@ export default function WantedBoardPage() {
 
           {loading && <div className="pill">Loading...</div>}
           {!loading && filteredRequests.length === 0 && (
-           <<p className="text-muted">No open requests match your filte.</</p>
+            <p className="text-muted">No open requests match your filters.</p>
           )}
 
           {/* Redesigned cards to match HomePage grid and style */}
-          {!loading && (
-           <<div className="grid three">
-              {filteredRequests.map(r _code                const locs = parseArray(r.locations_json);
+          {!loading && filteredRequests.length > 0 && (
+            <div className="grid three">
+              {filteredRequests.map(r => {
+                const locs = parseArray(r.locations_json);
                 const modelsArr = parseArray(r.models_json);
                 const filtersObj = parseFilters(r.filters_json);
                 const filterEntries = Object.entries(filtersObj || {}).filter(([k]) => !['model', 'job_type'].includes(String(k)));
