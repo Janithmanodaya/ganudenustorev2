@@ -729,6 +729,8 @@ export default function HomePage() {
                       { value: 'Mobile', label: 'Mobile' },
                       { value: 'Home Garden', label: 'Home Garden' },
                     ]}
+                    virtualized={true}
+                    maxDropdownHeight={420}
                   />
                 </div>
                 <div>

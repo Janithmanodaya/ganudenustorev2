@@ -270,6 +270,8 @@ export default function SearchResultsPage() {
                       { value: 'Home Garden', label: 'Home Garden' },
                       { value: 'Job', label: 'Job' },
                     ]}
+                    virtualized={true}
+                    maxDropdownHeight={420}
                   />
                 </div>
                 <div>
@@ -296,6 +298,8 @@ export default function SearchResultsPage() {
                       { value: 'Fixed Price', label: 'Fixed Price' },
                       { value: 'Negotiable', label: 'Negotiable' },
                     ]}
+                    virtualized={true}
+                    maxDropdownHeight={420}
                   />
                 </div>
 
@@ -321,6 +325,8 @@ export default function SearchResultsPage() {
                       { value: 'or', label: 'OR (any word)' },
                       { value: 'and', label: 'AND (all words)' },
                     ]}
+                    virtualized={true}
+                    maxDropdownHeight={420}
                   />
                 </div>
 
@@ -354,7 +360,10 @@ export default function SearchResultsPage() {
                             options={[{ value: '', label: 'Any' }, ...values.map(v => ({ value: v, label: v }))]}
                             searchable={true}
                             allowCustom={true}
-                          />
+                            virtualized={true}
+                            maxDropdownHeight={420}
+                        
+>
                         </div>
                       );
                     });
@@ -371,6 +380,8 @@ export default function SearchResultsPage() {
                       { value: 'price_asc', label: 'Price: Low to High' },
                       { value: 'price_desc', label: 'Price: High to Low' },
                     ]}
+                    virtualized={true}
+                    maxDropdownHeight={420}
                   />
                   <button className="btn accent compact" type="submit" style={{ flex: '0 0 auto' }}>Apply</button>
                   <button className="btn compact" type="button" onClick={resetAdvancedFilters} style={{ flex: '0 0 auto' }}>Reset</button>

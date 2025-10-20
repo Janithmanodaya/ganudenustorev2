@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, Link, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
+import CustomSelect from '../components/CustomSelect.jsx'
 
 export default function JobSearchResultsPage() {
   const navigate = useNavigate()
@@ -169,33 +170,51 @@ export default function JobSearchResultsPage() {
                 {searchSuggestions.map(s => <option key={s} value={s} />)}
               </datalist>
               <div>
-                <input
-                  className="input"
-                  list="job-location-suggest"
-                  placeholder="Location"
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Location</div>
+                <CustomSelect
                   value={location}
-                  onChange={e => { setLocation(e.target.value); setLocQuery(e.target.value) }}
+                  onChange={v => { setLocation(String(v || '')); setLocQuery(String(v || '')); }}
+                  ariaLabel="Location"
+                  placeholder="Location"
+                  options={[{ value: '', label: 'Any' }, ...locSuggestions.map(loc => ({ value: loc, label: loc }))]}
+                  searchable={true}
+                  allowCustom={true}
+                  virtualized={true}
+                  maxDropdownHeight={420}
                 />
-                <datalist id="job-location-suggest">
-                  {locSuggestions.map(loc => <option key={loc} value={loc} />)}
-                </datalist>
               </div>
-              <select className="select" value={employmentType} onChange={e => setEmploymentType(e.target.value)}>
-                <option value="">Any</option>
-                <option value="Full-time">Full-time</option>
-                <option value="Part-time">Part-time</option>
-                <option value="Contract">Contract</option>
-                <option value="Internship">Internship</option>
-                <option value="Temporary">Temporary</option>
-              </select>
-              <select className="select" value={experience} onChange={e => setExperience(e.target.value)}>
-                <option value="">Any</option>
-                <option value="Intern">Intern</option>
-                <option value="Junior">Junior</option>
-                <option value="Mid">Mid</option>
-                <option value="Senior">Senior</option>
-                <option value="Lead">Lead</option>
-              </select>
+              <CustomSelect
+                value={employmentType}
+                onChange={v => setEmploymentType(String(v || ''))}
+                ariaLabel="Employment type"
+                placeholder="Employment type"
+                options={[
+                  { value: '', label: 'Any' },
+                  { value: 'Full-time', label: 'Full-time' },
+                  { value: 'Part-time', label: 'Part-time' },
+                  { value: 'Contract', label: 'Contract' },
+                  { value: 'Internship', label: 'Internship' },
+                  { value: 'Temporary', label: 'Temporary' },
+                ]}
+                virtualized={true}
+                maxDropdownHeight={420}
+              />
+              <CustomSelect
+                value={experience}
+                onChange={v => setExperience(String(v || ''))}
+                ariaLabel="Experience"
+                placeholder="Experience"
+                options={[
+                  { value: '', label: 'Any' },
+                  { value: 'Intern', label: 'Intern' },
+                  { value: 'Junior', label: 'Junior' },
+                  { value: 'Mid', label: 'Mid' },
+                  { value: 'Senior', label: 'Senior' },
+                  { value: 'Lead', label: 'Lead' },
+                ]}
+                virtualized={true}
+                maxDropdownHeight={420}
+              />
               <input className="input" type="number" placeholder="Min salary" value={salaryMin} onChange={e => setSalaryMin(e.target.value)} />
               <input className="input" type="number" placeholder="Max salary" value={salaryMax} onChange={e => setSalaryMax(e.target.value)} />
               <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -203,11 +222,19 @@ export default function JobSearchResultsPage() {
                 <label htmlFor="remote">Remote only</label>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <select className="select" value={sort} onChange={e => setSort(e.target.value)}>
-                  <option value="latest">Latest</option>
-                  <option value="price_asc">Salary: Low to High</option>
-                  <option value="price_desc">Salary: High to Low</option>
-                </select>
+                <CustomSelect
+                  value={sort}
+                  onChange={v => setSort(String(v || 'latest'))}
+                  ariaLabel="Sort"
+                  placeholder="Sort"
+                  options={[
+                    { value: 'latest', label: 'Latest' },
+                    { value: 'price_asc', label: 'Salary: Low to High' },
+                    { value: 'price_desc', label: 'Salary: High to Low' },
+                  ]}
+                  virtualized={true}
+                  maxDropdownHeight={420}
+                />
                 <button className="btn primary" type="submit">Apply</button>
               </div>
             </form>

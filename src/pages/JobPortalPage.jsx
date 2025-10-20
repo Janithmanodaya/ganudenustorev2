@@ -323,6 +323,8 @@ export default function JobPortalPage() {
                   ]}
                   searchable={true}
                   allowCustom={true}
+                  virtualized={true}
+                  maxDropdownHeight={420}
                 />
               </div>
 
@@ -339,6 +341,8 @@ export default function JobPortalPage() {
                     ...((filtersDef.valuesByKey['pricing_type'] || []).map(v => ({ value: String(v), label: String(v) })))
                   ]}
                   searchable={true}
+                  virtualized={true}
+                  maxDropdownHeight={420}
                 />
               </div>
 

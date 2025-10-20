@@ -823,6 +823,8 @@ export default function WantedBoardPage() {
                     })()}
                     searchable={true}
                     allowCustom={true}
+                    virtualized={true}
+                    maxDropdownHeight={420}
                   />
                   {/* Simple single location quick filter preserved (optional) */}
                   <div style={{ marginTop: 6 }}>
@@ -834,6 +836,8 @@ export default function WantedBoardPage() {
                       options={[{ value: '', label: 'Any' }, ...Array.from(new Set([...(locationOptionsCache || []), ...(locSuggestions || [])].map(v => String(v).trim()).filter(Boolean))).map(v => ({ value: v, label: v }))]}
                       searchable={true}
                       allowCustom={true}
+                      virtualized={true}
+                      maxDropdownHeight={420}
                     />
                   </div>
                 </div>
@@ -875,6 +879,8 @@ export default function WantedBoardPage() {
                         options={modelOptions.map(v => ({ value: v, label: v }))}
                         searchable={true}
                         allowCustom={true}
+                        virtualized={true}
+                        maxDropdownHeight={420}
                       />
                     </div>
                   </div>
@@ -902,7 +908,7 @@ export default function WantedBoardPage() {
                       ))}
                     </div>
                     <div style={{ marginTop: 4 }}>
-                      <CustomSelect
+                     <CustomSe_code
                         value=""
                         onChange={(val) => {
                           const v = String(val || '').trim();
@@ -915,7 +921,9 @@ export default function WantedBoardPage() {
                         options={jobTypeOptions.map(v => ({ value: v, label: v }))}
                         searchable={true}
                         allowCustom={true}
-                      />
+                        virtualized={true}
+                        maxDropdownHeight={420}
+                    />
                     </div>
                   </div>
                 )}
@@ -958,6 +966,8 @@ export default function WantedBoardPage() {
                             options={subCategoryOptions.map(v => ({ value: v, label: v }))}
                             searchable={true}
                             allowCustom={true}
+                            virtualized={true}
+                            maxDropdownHeight={420}
                           />
                         </div>
                       </div>
@@ -988,7 +998,11 @@ export default function WantedBoardPage() {
                                 ariaLabel={key}
                                 placeholder={pretty(key)}
                                 options={opts}
-                              />
+                                searchable={true}
+                                virtualized={true}
+                                maxDropdownHeight={420}
+                            
+>
                             </div>
                           );
                         });
@@ -1101,16 +1115,15 @@ export default function WantedBoardPage() {
                       </button>
                       {canOffer && (
                         <>
-                          <select
-                            className="select"
-                            value={offerSelections[r.id] || ''}
-                            onChange={e => setOfferSelections(prev => ({ ...prev, [r.id]: Number(e.target.value) || '' }))}
-                            style={{ minWidth: 220 }}
-                          >
-                            <option value="">Offer one of your ads</option>
-                            {myListings.map(l => (
-                              <option key={l.id} value={l.id}>
-                                {l.title} {typeof l.price === 'number' ? `• LKR ${Number(l.price).toLocaleString('en-US')}` : ''}
+                          <div style={{ minWidth: 220, flex: '0 0 220px' }}>
+                           < CustomSelect
+                              value={offerSelections[r.id] || ''}
+                              onChange={v => setOfferSelections(prev => ({ ...prev, [r.id]: v ? Number(v) : '' }))}
+                              ariaLabel="Offer one of your ads"
+                              placeholder="Offer one of your ads"
+                              options={myListings.map(l => ({
+                                value: String(l.id),
+                                label: `${l.title}${typeof l.price === 'number' ? ` • LKR ${.toLocaleString('en-US')}` : ''}
                               </option>
                             ))}
                           </select>
