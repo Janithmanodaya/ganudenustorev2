@@ -1025,21 +1025,21 @@ export default function HomePage() {
                             </span>
                           )}
                           {imgs.length > 1 && (
-                           < div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
-                             < button
+                            <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
+                              <button
                                 className="btn"
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); prevImage(item) }}
                                 aria-label="Previous image"
-                              </  button>
-                             < button
+                              >‹</button>
+                              <button
                                 className="btn"
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); nextImage(item) }}
                                 aria-label="Next image"
-                              </  button>
-                          </  div>
-                        _code          )}
+                              >›</button>
+                            </div>
+                          )}
                         </div>
                       )}
                       <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
