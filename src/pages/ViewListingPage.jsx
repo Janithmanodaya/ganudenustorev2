@@ -16,6 +16,7 @@ export default function ViewListingPage() {
   const [images, setImages] = useState([])
   const [structured, setStructured] = useState({})
   const [status, setStatus] = useState(null)
+  const [copiedToast, setCopiedToast] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
   const [favorited, setFavorited] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -686,6 +687,18 @@ export default function ViewListingPage() {
     }
   }
 
+  async function onShare() {
+    try {
+      const url = window.location.href
+      await navigator.clipboard.writeText(url)
+      setCopiedToast(true)
+      setTimeout(() => setCopiedToast(false), 1500)
+    } catch (_) {
+      setStatus('Failed to copy link')
+      setTimeout(() => setStatus(null), 2000)
+    }
+  }
+
   function prevImage() {
     setCurrentIndex(i => {
       const n = images.length
@@ -776,6 +789,15 @@ export default function ViewListingPage() {
                 type="button"
               >
                 ★ {favorited ? 'Favorited' : 'Favorite'}
+              </button>
+              <button
+                className="btn"
+                onClick={onShare}
+                aria-label="Share listing link"
+                title="Share"
+                type="button"
+              >
+                🔗
               </button>
             </div>
           </div>
@@ -1204,6 +1226,15 @@ export default function ViewListingPage() {
           <div className="price-chip">LKR {formatPrice(listing.price)}</div>
         ) : <span />}
         <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className="btn"
+            onClick={onShare}
+            aria-label="Share listing link"
+            title="Share"
+            type="button"
+          >
+            🔗
+          </button>
           {listing?.phone && (
             <a
               className="btn accent"
@@ -1216,6 +1247,31 @@ export default function ViewListingPage() {
           )}
         </div>
       </div>
+
+      {copiedToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pill"
+          style={{
+            position: 'fixed',
+            bottom: 20,
+            zIndex: 3000,
+            background: 'rgba(18,22,31,0.92)',
+            color: '#fff',
+            padding: isMobile ? '14px 20px' : '12px 18px',
+            borderRadius: 999,
+            fontSize: isMobile ? 17 : 15,
+            fontWeight: 700,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+            ...(isMobile
+              ? { left: '50%', transform: 'translateX(-50%)' }
+              : { right: 20 })
+          }}
+        >
+          Link copied
+        </div>
+      )}
     </div>
   )
 }
