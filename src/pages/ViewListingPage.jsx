@@ -781,15 +781,6 @@ export default function ViewListingPage() {
                 <div className="price-chip large">LKR {formatPrice(listing.price)}</div>
               )}
               <button
-                className="btn"
-                onClick={onShare}
-                aria-label="Share listing link"
-                title="Share"
-                type="button"
-              >
-                🔗
-              </button>
-              <button
                 className={`btn fav-btn ${favorited ? 'active' : ''} ${favPulse ? 'pulse' : ''}`}
                 onClick={onToggleFavorite}
                 aria-label={favorited ? 'Remove favorite' : 'Add favorite'}
@@ -797,6 +788,15 @@ export default function ViewListingPage() {
                 type="button"
               >
                 ★ {favorited ? 'Favorited' : 'Favorite'}
+              </button>
+              <button
+                className="btn"
+                onClick={onShare}
+                aria-label="Share listing link"
+                title="Share"
+                type="button"
+              >
+                🔗
               </button>
             </div>
           </div>
