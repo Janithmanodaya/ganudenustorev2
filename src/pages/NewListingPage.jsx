@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import CustomSelect from '../components/CustomSelect.jsx'
 
 export default function NewListingPage() {
   const navigate = useNavigate()
@@ -326,14 +327,23 @@ export default function NewListingPage() {
         <p className="text-muted">{helperText}</p>
 
         <form onSubmit={onNext} className="grid two">
-          <select id="mainCategory" className="select" value={mainCategory} onChange={e => setMainCategory(e.target.value)}>
-            <option>Vehicle</option>
-            <option>Property</option>
-            <option>Job</option>
-            <option>Electronic</option>
-            <option>Mobile</option>
-            <option>Home Garden</option>
-          </select>
+          <CustomSelect
+            value={mainCategory}
+            onChange={v => setMainCategory(String(v || 'Vehicle'))}
+            ariaLabel="Main category"
+            placeholder="Main category"
+            options={[
+              { value: 'Vehicle', label: 'Vehicle' },
+              { value: 'Property', label: 'Property' },
+              { value: 'Job', label: 'Job' },
+              { value: 'Electronic', label: 'Electronic' },
+              { value: 'Mobile', label: 'Mobile' },
+              { value: 'Home Garden', label: 'Home &amp; Garden' },
+            ]}
+            searchable={true}
+            virtualized={true}
+            maxDropdownHeight={420}
+          />
           <input id="title" className="input" placeholder="Main Title" value={title} onChange={e => setTitle(e.target.value)} />
           <textarea id="description" className="textarea" placeholder="Description (free-form text)" value={description} onChange={e => setDescription(e.target.value)} />
 
@@ -355,17 +365,21 @@ export default function NewListingPage() {
                 onChange={e => setWantedQuery(e.target.value)}
                 style={{ minWidth: 220 }}
               />
-              <select
-                className="select"
-                value={wantedSelectId}
-                onChange={e => setWantedSelectId(e.target.value)}
-                style={{ minWidth: 260 }}
-              >
-                <option value="">Pick a request</option>
-                {filteredWanted.map(w => (
-                  <option key={w.id} value={w.id}>{w.title}</option>
-                ))}
-              </select>
+              <div style={{ minWidth: 260, flex: '0 0 260px' }}>
+                <CustomSelect
+                  value={wantedSelectId}
+                  onChange={v => setWantedSelectId(String(v || ''))}
+                  ariaLabel="Pick a request"
+                  placeholder="Pick a request"
+                  options={[
+                    { value: '', label: 'Pick a request' },
+                    ...filteredWanted.map(w => ({ value: String(w.id), label: w.title }))
+                  ]}
+                  searchable={true}
+                  virtualized={true}
+                  maxDropdownHeight={420}
+                />
+              </div>
               <button
                 className="btn"
                 type="button"

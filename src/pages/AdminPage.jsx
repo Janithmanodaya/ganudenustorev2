@@ -1173,6 +1173,8 @@ export default function AdminPage() {
                   options={userEmailOptionsCache.map(e => ({ value: e, label: e }))}
                   searchable={true}
                   allowCustom={true}
+                  virtualized={true}
+                  maxDropdownHeight={420}
                 />
                 <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
                   Tip: start typing to filter. You can also enter a custom email.
