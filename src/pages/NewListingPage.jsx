@@ -335,7 +335,15 @@ export default function NewListingPage() {
             options={[
               { value: 'Vehicle', label: 'Vehicle' },
               { value: 'Property', label: 'Property' },
-              { value: 'Job',ect>
+              { value: 'Job', label: 'Job' },
+              { value: 'Electronic', label: 'Electronic' },
+              { value: 'Mobile', label: 'Mobile' },
+              { value: 'Home Garden', label: 'Home &amp; Garden' },
+            ]}
+            searchable={true}
+            virtualized={true}
+            maxDropdownHeight={420}
+          />
           <input id="title" className="input" placeholder="Main Title" value={title} onChange={e => setTitle(e.target.value)} />
           <textarea id="description" className="textarea" placeholder="Description (free-form text)" value={description} onChange={e => setDescription(e.target.value)} />
 
