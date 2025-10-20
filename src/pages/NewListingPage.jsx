@@ -339,7 +339,9 @@ export default function NewListingPage() {
 
           {/* Tag buyer requests (optional) */}
           <div className="card" style={{ marginTop: 8 }}>
-            <div className="h2" style={{ marginTop: 0 }}>Talent Requests (optional)</div>
+            <div className="h2" style={{ marginTop: 0 }}>
+              {mainCategory === 'Job' ? 'Talent Requests (optional)' : 'Buyer Requests (optional)'}
+            </div>
             {mainCategory === 'Job' ? (
               <p className="text-muted">Select up to 3 Talent requests so candidates get notified after admin approval.</p>
             ) : (
