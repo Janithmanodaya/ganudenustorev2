@@ -146,9 +146,9 @@ export default function PostEmployeeAdPage() {
   return (
     <div className="center">
       <div className="card">
-        <div className="h1">Post Employee Profile</div>
+        <div className="h1">Post Employee Profile (Free)</div>
         <p className="text-muted">
-          Upload 1–2 images of your resume (minimum 1). Avoid heavy compression that makes text unreadable.
+          Upload 1–2 images of your resume (minimum 1).
           This feature is completely free. One profile per email. Profiles expire after 3 months.
         </p>
         <form onSubmit={submit} className="grid two">
