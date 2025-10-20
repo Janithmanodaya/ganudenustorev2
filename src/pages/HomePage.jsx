@@ -591,8 +591,9 @@ export default function HomePage() {
           {/* Suggested row sizing to match normal home cards */}
           <style>{`
             .sug-row { display: flex; gap: 16px; min-width: max-content; padding-bottom: 6px; }
-            .sug-card { min-width: 316px; }
-            @media (max-width: 780px) { .sug-card { min-width: 100%; } }
+            /* Match grid-three card width by using a third of the container minus gap */
+            .sug-card { flex: 0 0 calc(33.333% - 12px); max-width: calc(33.333% - 12px); }
+            @media (max-width: 780px) { .sug-card { flex: 0 0 100%; max-width: 100%; } }
           `}</style>
         </div>
 
