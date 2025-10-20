@@ -18,6 +18,17 @@ export default function HomePage() {
   const [slide, setSlide] = useState(0)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  // Prevent accidental double navigations from rapid clicks/touches
+  const navLockRef = useRef({ locked: false, t: null })
+  function navigateOnce(path, itemForTrack = null) {
+    const ref = navLockRef.current
+    if (ref.locked) return
+    try { if (itemForTrack) trackView(itemForTrack) } catch (_) {}
+    ref.locked = true
+    navigate(path)
+    try { if (ref.t) clearTimeout(ref.t) } catch (_) {}
+    ref.t = setTimeout(() => { ref.locked = false; ref.t = null }, 800)
+  }
   const [showFilters, setShowFilters] = useState(false)
   const [filterCategory, setFilterCategory] = useState('')
   const [filterLocation, setFilterLocation] = useState('')
@@ -551,7 +562,8 @@ export default function HomePage() {
                 ))}
                 {!suggestedLoading && suggested.slice(0, 10).map(item => {
                   const imgs = Array.isArray(item.small_images) ? item.small_images : []
-                  const hero = imgs.length ? imgs[0] : (item.thumbnail_url || null)
+                  const idx = cardSlideIndex[item.id] || 0
+                  const hero = imgs.length ? imgs[idx % imgs.length] : (item.thumbnail_url || null)
                   function makeSlug(s) {
                     const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
                     return base || 'listing'
@@ -569,7 +581,7 @@ export default function HomePage() {
                     return `/listing/${it.id}-${parts.join('-')}`
                   }
                   return (
-                    <div key={item.id} className="card sug-card" style={{ cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
+                    <div key={item.id} className="card sug-card" style={{ cursor: 'pointer' }} onClick={() => navigateOnce(permalinkForItem(item), item)}>
                       {hero && (
                         <div style={{ position: 'relative', marginBottom: 8 }}>
                           <img
@@ -582,6 +594,22 @@ export default function HomePage() {
                           {(item.is_urgent || item.urgent) && (
                             <span className="pill" style={{ position: 'absolute', top: 8, left: 8, background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))', border: '1px solid rgba(239,68,68,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>Urgent</span>
                           )}
+                          <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, zIndex: 5 }}>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); prevImage(item) }}
+                              aria-label="Previous image"
+                              disabled={!(Array.isArray(imgs) && imgs.length > 1)}
+                            >‹</button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); nextImage(item) }}
+                              aria-label="Next image"
+                              disabled={!(Array.isArray(imgs) && imgs.length > 1)}
+                            >›</button>
+                          </div>
                         </div>
                       )}
                       <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
@@ -920,6 +948,8 @@ export default function HomePage() {
                 placeholder="Sort"
                 options={[
                   { value: 'latest', label: 'Latest' },
+                  { value: 'views_desc', label: 'Most Viewed' },
+                  { value: 'favorites_desc', label: 'Most Favorites' },
                   { value: 'price_desc', label: 'Price: High to Low' },
                   { value: 'price_asc', label: 'Price: Low to High' },
                 ]}
@@ -995,7 +1025,7 @@ export default function HomePage() {
                     return `/listing/${it.id}-${parts.join('-')}`;
                   }
                   return (
-                    <div key={item.id} className="card" onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }} style={{ cursor: 'pointer' }}>
+                    <div key={item.id} className="card" onClick={() => navigateOnce(permalinkForItem(item), item)} style={{ cursor: 'pointer' }}>
                       {/* Small image slider */}
                       {hero && (
                         <div style={{ position: 'relative', marginBottom: 8 }}>
@@ -1040,6 +1070,8 @@ export default function HomePage() {
                               disabled={!(Array.isArray(imgs) && imgs.length > 1)}
                             >›</button>
                           </div>
+                        </div>
+                      )}
                       <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                         <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{item.title}</div>
