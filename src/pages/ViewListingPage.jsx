@@ -16,6 +16,7 @@ export default function ViewListingPage() {
   const [images, setImages] = useState([])
   const [structured, setStructured] = useState({})
   const [status, setStatus] = useState(null)
+  const [copiedToast, setCopiedToast] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
   const [favorited, setFavorited] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -690,8 +691,8 @@ export default function ViewListingPage() {
     try {
       const url = window.location.href
       await navigator.clipboard.writeText(url)
-      setStatus('Link copied to clipboard')
-      setTimeout(() => setStatus(null), 1500)
+      setCopiedToast(true)
+      setTimeout(() => setCopiedToast(false), 1500)
     } catch (_) {
       setStatus('Failed to copy link')
       setTimeout(() => setStatus(null), 2000)
@@ -1245,7 +1246,24 @@ export default function ViewListingPage() {
             </a>
           )}
         </div>
-      </div>
-    </div>
+      {copiedToast && (
+       < div
+          role="status"
+          aria-live="polite"
+          className="pill"
+          style={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            zIndex: 3000,
+            background: 'rgba(18,22,31,0.9)',
+            color: '#fff',
+            padding: '8px 12px',
+            borderRadius: 999,
+            boxShadow: '0 6px 20px rgba(0,0,0,0.35)'
+          }}
+        >
+          Link copied
+      </  div>
   )
 }
