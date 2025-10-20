@@ -1024,23 +1024,25 @@ export default function HomePage() {
                               Urgent
                             </span>
                           )}
-                          {imgs.length > 1 && (
-                            <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); prevImage(item) }}
-                                aria-label="Previous image"
-                              >‹</button>
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); nextImage(item) }}
-                                aria-label="Next image"
-                              >›</button>
-                            </div>
-                          )}
-                        </div>
+                          {div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6, zIndex: 5 }}>
+                           <gbutton
+                              className="btn"
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); prevImage(item) }}
+                              aria-label="Previous image"
+                              disabled={!(Array.isArray(imgs) && imgs.length > 1)}
+                              title={Array.isArray(imgs) && imgs.length > 1 ? 'Previous image' : 'Only one image'}
+                            </  button>
+                           <)button
+                              className="btn"
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); nextImage(item) }}
+                              aria-label="Next image"
+                              disabled={!(Array.isArray(imgs) && imgs.length > 1)}
+                              title={Array.isArray(imgs) && imgs.length > 1 ? 'Next image' : 'Only one image'}
+                            </>›button>
+                        </  div>
+                      </  _codedinewv</>
                       )}
                       <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
