@@ -249,11 +249,29 @@ export default function HomePage() {
     return () => { alive = false }
   }, [q, filterCategory, filterLocation, filters, refreshKey])
 
+  // Cache for preloaded images to avoid re-downloading when sliding
+  const imageCacheRef = useRef(new Map())
+  function prefetchImage(url) {
+    try {
+      const cache = imageCacheRef.current
+      if (!url || cache.has(url)) return
+      const img = new Image()
+      img.decoding = 'async'
+      img.loading = 'eager'
+      img.src = url
+      img.onload = () => { try { cache.set(url, true) } catch (_) {} }
+      img.onerror = () => { try { cache.set(url, false) } catch (_) {} }
+    } catch (_) {}
+  }
+
   const [cardSlideIndex, setCardSlideIndex] = useState({})
   function nextImage(item) {
     const imgs = Array.isArray(item.small_images) ? item.small_images : []
     const len = imgs.length || 1
-    setCardSlideIndex(prev => ({ ...prev, [item.id]: ((prev[item.id] || 0) + 1) % len }))
+    const nextIdx = ((cardSlideIndex[item.id] || 0) + 1) % len
+    // Prefetch upcoming image to make slide feel instant
+    if (imgs.length > 1) prefetchImage(imgs[nextIdx])
+    setCardSlideIndex(prev => ({ ...prev, [item.id]: nextIdx }))
   }
   function prevImage(item) {
     const imgs = Array.isArray(item.small_images) ? item.small_images : []
@@ -261,6 +279,8 @@ export default function HomePage() {
     setCardSlideIndex(prev => {
       const cur = prev[item.id] || 0
       const nxt = (cur - 1 + len) % len
+      // Prefetch upcoming image
+      if (imgs.length > 1) prefetchImage(imgs[nxt])
       return { ...prev, [item.id]: nxt }
     })
   }
@@ -589,7 +609,13 @@ export default function HomePage() {
                             src={hero}
                             alt={item.title}
                             loading="lazy"
+                            decoding="async"
+                            fetchpriority="low"
+                            width={320}
+                            height={180}
                             sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            style={{ transition: 'opacity 160ms ease', opacity: 1 }}
+                            onLoad={(e) => { try { e.currentTarget.style.opacity = '1' } catch (_) {} }}
                           />
                           {(item.is_urgent || item.urgent) && (
                             <span className="pill" style={{ position: 'absolute', top: 8, left: 8, background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))', border: '1px solid rgba(239,68,68,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>Urgent</span>
@@ -1033,8 +1059,13 @@ export default function HomePage() {
                             src={hero}
                             alt={item.title}
                             loading="lazy"
+                            decoding="async"
+                            fetchpriority="low"
                             sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                            style={{ width: '100%', borderRadius: 8, objectFit: 'cover', height: 180 }}
+                            style={{ width: '100%', borderRadius: 8, objectFit: 'cover', height: 170, transition: 'opacity 160ms ease', opacity: 1 }}
+                            width={320}
+                            height={170}
+                            onLoad={(e) => { try { e.currentTarget.style.opacity = '1' } catch (_) {} }}
                           />
                           {(item.is_urgent || item.urgent) && (
                             <span
