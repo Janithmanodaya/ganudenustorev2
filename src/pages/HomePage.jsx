@@ -953,8 +953,7 @@ export default function HomePage() {
                   { value: 'price_desc', label: 'Price: High to Low' },
                   { value: 'price_asc', label: 'Price: Low to High' },
                 ]}
-            _code  new/</>
->
+              />
             </div>
           </div>
 
