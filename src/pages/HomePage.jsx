@@ -571,13 +571,15 @@ export default function HomePage() {
                   return (
                     <div key={item.id} className="card sug-card" style={{ cursor: 'pointer' }} onClick={() => { try { trackView(item) } catch (_) {}; navigate(permalinkForItem(item)) }}>
                       {hero && (
-                       <<div style={{ position: 'relative', marginBottom: 8 }}>
-                         <<img
+                        <div style={{ position: 'relative', marginBottom: 8 }}>
+                          <img
                             className="sug-img"
                             src={hero}
                             alt={item.title}
                             loading="lazy"
-                            sizes="(max-widthis_urgent || item.urgent) && (
+                            sizes="(max-width: 780px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          />
+                          {(item.is_urgent || item.urgent) && (
                             <span className="pill" style={{ position: 'absolute', top: 8, left: 8, background: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(255,160,160,0.22))', border: '1px solid rgba(239,68,68,0.5)', color: '#fff', fontSize: 12, fontWeight: 700, boxShadow: '0 4px 12px rgba(239,68,68,0.25)' }}>Urgent</span>
                           )}
                         </div>
