@@ -1040,6 +1040,8 @@ export default function HomePage() {
                               disabled={!(Array.isArray(imgs) && imgs.length > 1)}
                             >›</button>
                           </div>
+                        </div>
+                      )}
                       <div className="text-muted" style={{ marginBottom: 6 }}>{item.main_category}</div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                         <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{item.title}</div>
