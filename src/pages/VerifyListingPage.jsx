@@ -332,13 +332,20 @@ export default function VerifyListingPage() {
                     />
 
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
-                    <select className="select" value={subCategory} disabled>
-                      <option value="">Vehicle Sub-category</option>
+                    <select
+                      className="select"
+                      value={subCategory || ''}
+                      onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                    >
+                      <option value="">{subCategory ? subCategory : 'Select vehicle sub-category'}</option>
                       <option value="Bike">Bike</option>
                       <option value="Car">Car</option>
                       <option value="Van">Van</option>
                       <option value="Bus">Bus</option>
                     </select>
+                    {!subCategory && (
+                      <small className="text-muted">AI couldn't detect a sub-category. Please select one.</small>
+                    )}
 
                     {/* Vehicle extra specs */}
                     <div className="card" style={{ marginTop: 8 }}>
@@ -638,13 +645,13 @@ export default function VerifyListingPage() {
                       onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
                     />
 
-                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Model Na</</label>
-                   <<input
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Model Name</label>
+                    <input
                       className="input"
                       placeholder="Model Name (required)"
                       value={modelName}
                       onChange={e => { const s = parseStruct(); s.model_name = e.target.value; patchStruct(s) }}
-                  _code
+                    />
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Brand</label>
                     <input
                       className="input"
@@ -653,8 +660,8 @@ export default function VerifyListingPage() {
                       onChange={e => { const s = parseStruct(); s.brand = e.target.value; patchStruct(s) }}
                     />
 
-                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Manufacture Ye</</label>
-                   <<input
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Manufacture Year</label>
+                    <input
                       className="input"
                       type="number"
                       placeholder="Manufacture Year (required)"
@@ -674,9 +681,21 @@ export default function VerifyListingPage() {
                     </select>
 
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
-                    <select className="select" value={subCategory || ''} disabled>
-                      <option value="">{subCategory ? subCategory : 'None'}</option>
-                    </select>
+                    {subCategory ? (
+                      <select className="select" value={subCategory} disabled>
+                        <option value="">{subCategory}</option>
+                      </select>
+                    ) : (
+                      <>
+                        <input
+                          className="input"
+                          placeholder="Enter sub-category (e.g., Smartphone, Laptop)"
+                          value={subCategory}
+                          onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                        />
+                        <small className="text-muted">AI couldn't detect a sub-category. Please provide one.</small>
+                      </>
+                    )}
                   </>
                 )}
 
@@ -711,9 +730,21 @@ export default function VerifyListingPage() {
                     />
 
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Sub-category</label>
-                    <select className="select" value={subCategory || ''} disabled>
-                      <option value="">{subCategory ? subCategory : 'None'}</option>
-                    </select>
+                    {subCategory ? (
+                      <select className="select" value={subCategory} disabled>
+                        <option value="">{subCategory}</option>
+                      </select>
+                    ) : (
+                      <>
+                        <input
+                          className="input"
+                          placeholder="Enter sub-category"
+                          value={subCategory}
+                          onChange={e => { const s = parseStruct(); s.sub_category = e.target.value; patchStruct(s) }}
+                        />
+                        <small className="text-muted">AI couldn't detect a sub-category. Please provide one.</small>
+                      </>
+                    )}
                   </>
                 )}
               </div>
