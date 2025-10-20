@@ -716,7 +716,47 @@ export default function WantedBoardPage() {
                 <input className="input" type="number" placeholder="Min budget (LKR)" value={filterPriceMin} onChange={e => setFilterPriceMin(e.target.value)} />
                 <input className="input" type="number" placeholder="Max budget (LKR)" value={filterPriceMax} onChange={e => setFilterPriceMax(e.target.value)} />
 
-                {/* Dynamic sub_category/model/job_type tag inputs + other keys */}
+                {/* Model multi-select tags (from Wanted ads), independent of backend filter keys */}
+                {(filterCategory === 'Vehicle' || filterCategory === 'Mobile' || filterCategory === 'Electronic' || filterCategory === 'Home Garden') && (
+                  <div>
+                    <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Model</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                      {modelSelected.map((tag, idx) => (
+                        <span key={`model-${tag}-${idx}`} className="pill">
+                          {tag}
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => {
+                              const next = modelSelected.filter((t, i) => !(t === tag && i === idx));
+                              updateBrowseFilter('model', next);
+                            }}
+                            aria-label="Remove"
+                            style={{ padding: '2px 6px', marginLeft: 6 }}
+                          >✕</button>
+                        </span>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      <CustomSelect
+                        value=""
+                        onChange={(val) => {
+                          const v = String(val || '').trim();
+                          if (!v) return;
+                          const next = Array.from(new Set([...modelSelected, v]));
+                          updateBrowseFilter('model', next);
+                        }}
+                        ariaLabel="Add model"
+                        placeholder="Add model..."
+                        options={modelOptions.map(v => ({ value: v, label: v }))}
+                        searchable={true}
+                        allowCustom={true}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Dynamic sub_category/job_type tag inputs + other keys */}
                 {filterCategory && browseFiltersDef.keys.length > 0 && (
                   <>
                     {/* Sub-category multi-select tags */}
