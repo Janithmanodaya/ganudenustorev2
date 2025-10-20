@@ -136,29 +136,52 @@ export default function VerifyListingPage() {
     const hasPricing = ['Fixed Price', 'Negotiable'].includes(String(s.pricing_type || ''))
     const hasPhone = /^\+94\d{9}$/.test(String(s.phone || '').trim())
     const hasDesc = String(descriptionText || '').trim().length >= 20
+    const hasSubCat = String(s.sub_category || '').trim().length > 0
+    const hasCondition = (isVehicle || isMobile || isElectronic || isHomeGarden)
+      ? String(s.condition || '').trim().length > 0
+      : true
 
     if (isVehicle) {
       const hasModel = String(s.model_name || '').trim().length >= 2
       const nYear = Number(s.manufacture_year)
       const hasYear = Number.isFinite(nYear) && nYear >= 1950 && nYear <= 2100
       const validSubCats = new Set(['Bike','Car','Van','Bus'])
-      const hasSubCat = validSubCats.has(String(s.sub_category || '').trim())
+      const hasVehicleSubCat = validSubCats.has(String(s.sub_category || '').trim())
 
-      if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasModel || !hasYear || !hasDesc || !hasSubCat) {
-        setStatus('Please provide Location, Price, Pricing Type, Phone (+94), Model Name, Manufacture Year (1950-2100), Vehicle Sub-category (Bike/Car/Van/Bus), and a Description (min 20 chars).')
+      if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasModel || !hasYear || !hasDesc || !hasVehicleSubCat || !hasCondition) {
+        setStatus('Missing required fields. Please fill: Location, Condition, Price, Pricing Type, Phone (+94), Model Name, Manufacture Year (1950-2100), Vehicle Sub-category (Bike/Car/Van/Bus), and a Description (min 20 chars). AI auto-fill is disabled; enter values manually.')
+        return
+      }
+    } else if (isMobile || isElectronic) {
+      const hasModel = String(s.model_name || '').trim().length >= 2
+      const nYear = Number(s.manufacture_year)
+      const hasYear = Number.isFinite(nYear) && nYear >= 1980 && nYear <= 2100
+      if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasDesc || !hasSubCat || !hasCondition || !hasModel || !hasYear) {
+        setStatus('Missing required fields. Please fill: Location, Condition, Price, Pricing Type, Phone (+94), Model Name, Manufacture Year, Sub-category, and Description (min 20 chars).')
+        return
+      }
+    } else if (isHomeGarden) {
+      // Home & Garden: no model/year, but condition and sub-category are required
+      if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasDesc || !hasSubCat || !hasCondition) {
+        setStatus('Missing required fields. Please fill: Location, Condition, Price, Pricing Type, Phone (+94), Sub-category, and Description (min 20 chars).')
+        return
+      }
+    } else if (isProperty) {
+      // Property: require base commerce fields and sub-category (property type). No condition/model/year.
+      if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasDesc || !hasSubCat) {
+        setStatus('Missing required fields. Please fill: Location, Price, Pricing Type, Phone (+94), Property Type, and Description (min 20 chars).')
         return
       }
     } else if (isJob) {
-      const hasSubCat = String(s.sub_category || '').trim().length > 0
       const hasEmpType = String(s.employment_type || '').trim().length > 0
       if (!hasLoc || !hasPhone || !hasDesc || !hasSubCat || !hasEmpType) {
         setStatus('For Job: please provide Location, Phone (+94), Employment Type, Job Sub-category (e.g., Driver), and a Description (min 20 chars). Salary is optional.')
         return
       }
     } else {
-      // Other categories: require base commerce fields but not vehicle specifics
-      if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasDesc) {
-        setStatus('Please provide Location, Price, Pricing Type, Phone (+94), and a Description (min 20 chars).')
+      // Other categories
+      if (!hasLoc || !hasPrice || !hasPricing || !hasPhone || !hasDesc || !hasSubCat) {
+        setStatus('Missing required fields. Please fill: Location, Price, Pricing Type, Phone (+94), Sub-category, and Description (min 20 chars).')
         return
       }
     }
@@ -218,37 +241,7 @@ export default function VerifyListingPage() {
     }
   }
 
-  async function autoFillVehicleSpecs() {
-    try {
-      setStatus(null)
-      const s = parseStruct()
-      const model = String(s.model_name || '').trim()
-      if (!model) { setStatus('Please enter a model name first.'); return }
-      const r = await fetch('/api/listings/vehicle-specs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model_name: model,
-          description: descriptionText,
-          sub_category: subCategory
-        })
-      })
-      const data = await r.json()
-      if (!r.ok) throw new Error(data.error || 'Failed to infer vehicle specs')
-      const specs = data.specs || {}
-      const next = { ...s }
-      if (specs.manufacturer && !next.manufacturer) next.manufacturer = specs.manufacturer
-      if (typeof specs.engine_capacity_cc !== 'undefined' && (next.engine_capacity_cc == null || next.engine_capacity_cc === '')) next.engine_capacity_cc = specs.engine_capacity_cc
-      if (specs.transmission && !next.transmission) next.transmission = specs.transmission
-      if (specs.fuel_type && !next.fuel_type) next.fuel_type = specs.fuel_type
-      if (specs.colour && !next.colour) next.colour = specs.colour
-      if (typeof specs.mileage_km !== 'undefined' && (next.mileage_km == null || next.mileage_km === '')) next.mileage_km = specs.mileage_km
-      patchStruct(next)
-      setStatus('Vehicle specs filled (you can edit them).')
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
-  }
+  
 
   return (
     <div className="center">
@@ -410,9 +403,8 @@ export default function VerifyListingPage() {
                       </select>
 
                       <div style={{ marginTop: 8 }}>
-                        <button className="btn" type="button" onClick={autoFillVehicleSpecs}>AI: Auto-fill from model</button>
+                        <small className="text-muted">Please fill the specs manually. AI auto-fill has been disabled.</small>
                       </div>
-                    </div>
                   </>
                 )}
 
@@ -646,14 +638,13 @@ export default function VerifyListingPage() {
                       onChange={e => { const s = parseStruct(); s.phone = e.target.value; patchStruct(s) }}
                     />
 
-                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Model Name</label>
-                    <input
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Model Na</</label>
+                   <<input
                       className="input"
-                      placeholder="Model Name (optional)"
+                      placeholder="Model Name (required)"
                       value={modelName}
                       onChange={e => { const s = parseStruct(); s.model_name = e.target.value; patchStruct(s) }}
-                    />
-
+                  _code
                     <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Brand</label>
                     <input
                       className="input"
@@ -662,11 +653,11 @@ export default function VerifyListingPage() {
                       onChange={e => { const s = parseStruct(); s.brand = e.target.value; patchStruct(s) }}
                     />
 
-                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Manufacture Year</label>
-                    <input
+                    <label className="text-muted" style={{ display: 'block', marginTop: 8 }}>Manufacture Ye</</label>
+                   <<input
                       className="input"
                       type="number"
-                      placeholder="Manufacture Year (optional)"
+                      placeholder="Manufacture Year (required)"
                       value={year}
                       onChange={e => { const s = parseStruct(); const v = e.target.value; s.manufacture_year = v === '' ? '' : Number(v); patchStruct(s) }}
                     />
