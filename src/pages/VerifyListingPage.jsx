@@ -412,6 +412,7 @@ export default function VerifyListingPage() {
                       <div style={{ marginTop: 8 }}>
                         <small className="text-muted">Please fill the specs manually. AI auto-fill has been disabled.</small>
                       </div>
+                    </div>
                   </>
                 )}
 
