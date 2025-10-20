@@ -119,30 +119,69 @@ export default function WantedBoardPage() {
     loadFilters();
   }, [form.category]);
 
-  // Load dynamic filters for BROWSE (home page style)
+  // Load dynamic filters for BROWSE derived from Wanted ads (not listings)
   useEffect(() => {
-    async function loadBrowseFilters() {
-      if (!filterCategory) {
-        setBrowseFiltersDef({ keys: [], valuesByKey: {} });
-        setBrowseFilters({});
-        setSubCategoryQuery('');
-        setModelQuery('');
-        return;
-      }
-      try {
-        const r = await fetch(`/api/listings/filters?category=${encodeURIComponent(filterCategory)}`);
-        const data = await r.json();
-        if (r.ok && Array.isArray(data.keys) && data.valuesByKey) {
-          setBrowseFiltersDef({ keys: data.keys, valuesByKey: data.valuesByKey });
-        } else {
-          setBrowseFiltersDef({ keys: [], valuesByKey: {} });
+    try {
+      // Build keys and values from wanted requests by selected category (or all if none)
+      const valuesByKey = {};
+      const seenKeys = new Set();
+
+      const relevant = (requests || []).filter(r => {
+        return !filterCategory || String(r.category || '') === String(filterCategory);
+      });
+
+      for (const r of relevant) {
+        const f = (() => { try { return JSON.parse(String(r.filters_json || '{}')) || {}; } catch (_) { return {}; } })();
+        // Merge keys
+        for (const [k, v] of Object.entries(f)) {
+          const key = String(k).trim();
+          if (!key) continue;
+          seenKeys.add(key);
+          const arr = Array.isArray(v) ? v : [v];
+          for (const val of arr) {
+            const s = String(val || '').trim();
+            if (!s) continue;
+            if (!Array.isArray(valuesByKey[key])) valuesByKey[key] = [];
+            if (!valuesByKey[key].includes(s)) valuesByKey[key].push(s);
+          }
         }
-      } catch (_) {
-        setBrowseFiltersDef({ keys: [], valuesByKey: {} });
+        // Also include model and job_type derived arrays separately for completeness
+        const modelsArr = (() => { try { return JSON.parse(String(r.models_json || '[]')) || []; } catch (_) { return []; } })();
+        if (Array.isArray(modelsArr) && modelsArr.length) {
+          const key = 'model';
+          seenKeys.add(key);
+          for (const m of modelsArr) {
+            const s = String(m || '').trim();
+            if (!s) continue;
+            if (!Array.isArray(valuesByKey[key])) valuesByKey[key] = [];
+            if (!valuesByKey[key].includes(s)) valuesByKey[key].push(s);
+          }
+        }
+        const jobTypesArr = (() => { try { return JSON.parse(String(r.job_types_json || '[]')) || []; } catch (_) { return []; } })();
+        if (Array.isArray(jobTypesArr) && jobTypesArr.length && String(r.category || '') === 'Job') {
+          const key = 'job_type';
+          seenKeys.add(key);
+          for (const jt of jobTypesArr) {
+            const s = String(jt || '').trim();
+            if (!s) continue;
+            if (!Array.isArray(valuesByKey[key])) valuesByKey[key] = [];
+            if (!valuesByKey[key].includes(s)) valuesByKey[key].push(s);
+          }
+        }
       }
+
+      const keys = Array.from(seenKeys);
+      setBrowseFiltersDef({ keys, valuesByKey });
+      // Reset input queries when category changes
+      setSubCategoryQuery('');
+      setModelQuery('');
+      if (!filterCategory) {
+        setBrowseFilters({});
+      }
+    } catch (_) {
+      setBrowseFiltersDef({ keys: [], valuesByKey: {} });
     }
-    loadBrowseFilters();
-  }, [filterCategory]);
+  }, [filterCategory, requests]);
 
   // Location suggestions for browse (debounced)
   useEffect(() => {
