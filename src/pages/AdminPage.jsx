@@ -1110,12 +1110,21 @@ export default function AdminPage() {
             <div className="grid two">
               <div className="card">
                 <div className="h2">Conversations</div>
-                {conversations.length === 0 && <p className="text-muted">No conversations.</p>}
+                {!authToken && (
+                  <p className="text-muted">Admin chat requires a valid login token. Please log in again.</p>
+                )}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button className="btn" onClick={loadConversations}>Refresh</button>
+                </div>
+                {conversations.length === 0 && <p className="text-muted" style={{ marginTop: 8 }}>No conversations.</p>}
                 {conversations.map(c => (
-                  <div key={c.email} className="card" style={{ marginBottom: 8 }}>
-                    <div><strong>{c.email}</strong></div>
-                    <div className="text-muted">{c.last_message || ''}</div>
-                    <button className="btn" style={{ marginTop: 6 }} onClick={() => loadChatMessages(c.email)}>Open</button>
+                  <div key={(c.user_email || c.email || '') + (c.last_ts || '')} className="card" style={{ marginBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.user_email || c.email}</strong>
+                      {c.last_ts && <small className="text-muted">{new Date(c.last_ts).toLocaleString()}</small>}
+                    </div>
+                    <div className="text-muted" style={{ marginTop: 6 }}>{c.last_message || ''}</div>
+                    <button className="btn" style={{ marginTop: 6 }} onClick={() => loadChatMessages(c.user_email || c.email)}>Open</button>
                   </div>
                 ))}
               </div>
