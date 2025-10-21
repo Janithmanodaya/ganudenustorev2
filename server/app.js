@@ -21,10 +21,67 @@ import wantedRouter from './routes/wanted.js';
 import { sendEmail } from './lib/utils.js';
 import helmet from 'helmet';
 import compression from 'compression';
+import { verifyTokenRaw } from './lib/auth.js';
 
 dotenv.config();
 
 const app = express();
+
+// --- Maintenance mode helpers ---
+function getMaintenanceConfig() {
+  try {
+    const row = db.prepare('SELECT maintenance_mode, maintenance_message FROM admin_config WHERE id = 1').get();
+    return {
+      enabled: !!(row && row.maintenance_mode),
+      message: row?.maintenance_message || ''
+    };
+  } catch (_) {
+    return { enabled: false, message: '' };
+  }
+}
+
+// Render maintenance HTML (prefer src/maintenance.html; fallback to default)
+// Note: We avoid using data/ because it may be reset on server restarts.
+function renderMaintenancePage() {
+  // Try src/maintenance.html first
+  try {
+    const srcPath = path.resolve(process.cwd(), 'src', 'maintenance.html');
+    if (fs.existsSync(srcPath)) {
+      return fs.readFileSync(srcPath, 'utf8');
+    }
+  } catch (_) {}
+  // Legacy fallback (if someone left a copy in data/)
+  try {
+    const dataPath = path.resolve(process.cwd(), 'data', 'maintenance.html');
+    if (fs.existsSync(dataPath)) {
+      return fs.readFileSync(dataPath, 'utf8');
+    }
+  } catch (_) {}
+  const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Maintenance - Ganudenu</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:#0b1220;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center}
+    .card{max-width:720px;padding:32px 28px;border-radius:16px;background:linear-gradient(180deg,#121a2e,#0b1220);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    h1{margin:0 0 8px;font-size:28px;letter-spacing:.3px}
+    p{margin:6px 0 0;color:#ccd3e2;line-height:1.6}
+    .small{margin-top:16px;font-size:12px;color:#9fb0cf}
+    a{color:#58a6ff;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>We’re performing maintenance</h1>
+    <p>Ganudenu is temporarily unavailable while we upgrade our systems. Please check back in a little while.</p>
+    <p class="small">If you are an administrator, you can manage maintenance from the <a href="${domain}/admin">Admin Panel</a>.</p>
+  </div>
+</body>
+</html>`;
+}
 
 // Trust proxy: configurable hops
 app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
@@ -175,6 +232,10 @@ try {
   if (!hasWhats) db.prepare(`ALTER TABLE admin_config ADD COLUMN whatsapp_number TEXT`).run();
   const hasEmailApprove = cols.some(c => c.name === 'email_on_approve');
   if (!hasEmailApprove) db.prepare(`ALTER TABLE admin_config ADD COLUMN email_on_approve INTEGER NOT NULL DEFAULT 0`).run();
+  const hasMaint = cols.some(c => c.name === 'maintenance_mode');
+  if (!hasMaint) db.prepare(`ALTER TABLE admin_config ADD COLUMN maintenance_mode INTEGER NOT NULL DEFAULT 0`).run();
+  const hasMaintMsg = cols.some(c => c.name === 'maintenance_message');
+  if (!hasMaintMsg) db.prepare(`ALTER TABLE admin_config ADD COLUMN maintenance_message TEXT`).run();
 } catch (_) {}
 
 db.prepare(`
@@ -263,6 +324,50 @@ app.use('/api/auth', authLimiter, authRouter);
 
 const adminLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 app.use('/api/admin', adminLimiter, adminRouter);
+
+// --- Global maintenance-mode gate (allow admin, health, and maintenance status; block everything else) ---
+function isAdminRequest(req) {
+  try {
+    const hdr = String(req.headers['authorization'] || '');
+    const parts = hdr.split(' ');
+    if (parts.length !== 2 || !/^Bearer$/i.test(parts[0])) return false;
+    const token = parts[1];
+    const v = verifyTokenRaw(token);
+    if (!v.ok) return false;
+    const claims = v.decoded;
+    const row = db.prepare('SELECT id, email, is_admin FROM users WHERE id = ?').get(Number(claims.user_id));
+    if (!row || !row.is_admin) return false;
+    if (String(row.email).toLowerCase() !== String(claims.email).toLowerCase()) return false;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// Public maintenance status endpoint (allowed during maintenance)
+app.get('/api/maintenance-status', (req, res) => {
+  const { enabled, message } = getMaintenanceConfig();
+  res.json({ enabled, message });
+});
+
+app.use((req, res, next) => {
+  const { enabled, message } = getMaintenanceConfig();
+  if (!enabled) return next();
+
+  // Allow admin API, health, and public maintenance status (and any admin-authenticated request)
+  const p = String(req.path || '');
+  if (p.startsWith('/api/admin') || p === '/api/health' || p === '/api/maintenance-status' || isAdminRequest(req)) {
+    return next();
+  }
+
+  // For API calls, return JSON 503
+  if (p.startsWith('/api/')) {
+    return res.status(503).json({ error: 'Service under maintenance', message });
+  }
+
+  // For other GET requests, serve maintenance page
+  res.status(503).type('text/html').send(renderMaintenancePage());
+});
 
 const listingsLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
 app.use('/api/listings', listingsLimiter, listingsRouter);

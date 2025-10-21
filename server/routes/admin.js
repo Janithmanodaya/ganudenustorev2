@@ -75,7 +75,7 @@ const upload = multer({
 
 // Get current Gemini API key (masked)
 router.get('/config', requireAdmin, (req, res) => {
-  const row = db.prepare('SELECT bank_details, whatsapp_number, email_on_approve FROM admin_config WHERE id = 1').get();
+  const row = db.prepare('SELECT bank_details, whatsapp_number, email_on_approve, maintenance_mode, maintenance_message FROM admin_config WHERE id = 1').get();
   // Load payment rules
   let rules = [];
   try {
@@ -87,6 +87,8 @@ router.get('/config', requireAdmin, (req, res) => {
     bank_details: row?.bank_details || '',
     whatsapp_number: row?.whatsapp_number || '',
     email_on_approve: !!(row && row.email_on_approve),
+    maintenance_mode: !!(row && row.maintenance_mode),
+    maintenance_message: row?.maintenance_message || '',
     payment_rules: rules,
     secrets_managed: true
   });
@@ -94,7 +96,7 @@ router.get('/config', requireAdmin, (req, res) => {
 
 // Save Gemini API key
 router.post('/config', requireAdmin, (req, res) => {
-  const { bankDetails, whatsappNumber, emailOnApprove, paymentRules } = req.body || {};
+  const { bankDetails, whatsappNumber, emailOnApprove, paymentRules, maintenanceMode, maintenanceMessage } = req.body || {};
 
   if (bankDetails && typeof bankDetails !== 'string') {
     return res.status(400).json({ error: 'bankDetails must be string.' });
@@ -102,13 +104,18 @@ router.post('/config', requireAdmin, (req, res) => {
   if (whatsappNumber && typeof whatsappNumber !== 'string') {
     return res.status(400).json({ error: 'whatsappNumber must be string.' });
   }
+  if (maintenanceMessage && typeof maintenanceMessage !== 'string') {
+    return res.status(400).json({ error: 'maintenanceMessage must be string.' });
+  }
   const row = db.prepare('SELECT id FROM admin_config WHERE id = 1').get();
   if (!row) db.prepare('INSERT INTO admin_config (id) VALUES (1)').run();
-  db.prepare('UPDATE admin_config SET bank_details = COALESCE(?, bank_details), whatsapp_number = COALESCE(?, whatsapp_number), email_on_approve = COALESCE(?, email_on_approve) WHERE id = 1')
+  db.prepare('UPDATE admin_config SET bank_details = COALESCE(?, bank_details), whatsapp_number = COALESCE(?, whatsapp_number), email_on_approve = COALESCE(?, email_on_approve), maintenance_mode = COALESCE(?, maintenance_mode), maintenance_message = COALESCE(?, maintenance_message) WHERE id = 1')
     .run(
       bankDetails ? bankDetails.trim() : null,
       whatsappNumber ? whatsappNumber.trim() : null,
-      (emailOnApprove == null ? null : (emailOnApprove ? 1 : 0))
+      (emailOnApprove == null ? null : (emailOnApprove ? 1 : 0)),
+      (maintenanceMode == null ? null : (maintenanceMode ? 1 : 0)),
+      maintenanceMessage != null ? String(maintenanceMessage).trim() : null
     );
 
   // Update payment rules if provided
@@ -1829,6 +1836,29 @@ router.post('/restore', requireAdmin2FA, backupUpload.single('backup'), async (r
     return res.json({ ok: true });
   } catch (e) {
     return res.status(500).json({ error: 'Failed to restore from backup' });
+  }
+});
+
+// Explicit maintenance endpoints
+router.get('/maintenance', requireAdmin, (req, res) => {
+  try {
+    const row = db.prepare('SELECT maintenance_mode, maintenance_message FROM admin_config WHERE id = 1').get();
+    res.json({ enabled: !!(row && row.maintenance_mode), message: row?.maintenance_message || '' });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to load maintenance state' });
+  }
+});
+
+router.post('/maintenance', requireAdmin, (req, res) => {
+  const { enabled, message } = req.body || {};
+  try {
+    const row = db.prepare('SELECT id FROM admin_config WHERE id = 1').get();
+    if (!row) db.prepare('INSERT INTO admin_config (id) VALUES (1)').run();
+    db.prepare('UPDATE admin_config SET maintenance_mode = ?, maintenance_message = COALESCE(?, maintenance_message) WHERE id = 1')
+      .run(enabled ? 1 : 0, message != null ? String(message).trim() : null);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update maintenance state' });
   }
 });
 
