@@ -29,6 +29,10 @@ export default function App() {
   const location = useLocation()
   const isHome = location.pathname === '/'
 
+  // Maintenance gate (client-side overlay for SPA when backend is in maintenance)
+  const [maintenance, setMaintenance] = useState({ enabled: false, message: '' })
+  const [isAdminLocal, setIsAdminLocal] = useState(false)
+
   // Track last distinct paths to provide a reliable "Back" fallback
   const pathHistoryRef = useRef([])
   useEffect(() => {
@@ -101,9 +105,7 @@ export default function App() {
     try {
       const user = JSON.parse(localStorage.getItem('user') || 'null')
       setUserEmail(user?.email || '')
-    } catch (_) {
-      setUserEmail('')
-    }
+      setIsAdminLocal(!!(user && user.is_admin
   }, [location])
 
   // Check ban/suspend status and show blocking overlay if necessary
@@ -186,6 +188,24 @@ export default function App() {
     return () => clearInterval(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userEmail])
+
+  // Check maintenance status periodically and on load
+  useEffect(() => {
+    let cancelled = false
+    async function checkMaintenance() {
+      try {
+        const r = await fetch('/api/maintenance-status', { cache: 'no-store' })
+        const d = await r.json().catch(() => ({}))
+        if (cancelled) return
+        setMaintenance({ enabled: !!d.enabled, message: String(d.message || '') })
+      } catch (_) {
+        // If backend unreachable, do not block; leave previous state
+      }
+    }
+    checkMaintenance()
+    const t = setInterval(checkMaintenance, 20000)
+    return () => { cancelled = true; clearInterval(t) }
+  }, [])
 
   async function markAllRead() {
     if (!userEmail) return
@@ -473,6 +493,52 @@ export default function App() {
         )}
       </header>
       <main className="content">
+        {/* Global maintenance overlay for non-admin users */}
+        {maintenance.enabled && !isAdminLocal && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Maintenance Mode"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 2500,
+              background: 'rgba(9,12,18,0.92)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backdropFilter: 'blur(4px)'
+            }}
+          >
+            <div
+              className="card"
+              style={{
+                maxWidth: 820,
+                margin: 12,
+                padding: 24,
+                borderRadius: 16,
+                background: 'linear-gradient(180deg, rgba(18,26,46,.9), rgba(11,18,32,.9))',
+                boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
+                textAlign: 'left'
+              }}
+            >
+              <div className="h1" style={{ marginTop: 0, backgroundImage: 'linear-gradient(90deg,#d4e0ff,#9fd1ff,#c6a8ff,#d4e0ff)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+                We’re performing maintenance
+              </div>
+              <p className="text-muted">Ganudenu is temporarily unavailable while we upgrade our systems. Please check back in a little while.</p>
+              {maintenance.message ? (
+                <div className="card" style={{ marginTop: 8, background: 'rgba(88,166,255,0.08)', borderColor: 'transparent' }}>
+                  <strong>Note from admin</strong>
+                  <div className="text-muted" style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{maintenance.message}</div>
+                </div>
+              ) : null}
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button className="btn" onClick={() => window.location.reload()}>Retry</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <Suspense fallback={<LoadingOverlay message="Loading..." />}>
           <Routes>
             <Route path="/" element={<HomePage />} />
