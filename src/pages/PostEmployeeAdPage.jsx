@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import CustomSelect from '../components/CustomSelect.jsx'
 
-const JOB_SUBCATEGORIES = [
+const DEFAULT_JOB_SUBCATEGORIES = [
   'IT/Software',
   'Accounting/Finance',
   'Sales/Marketing',
@@ -23,14 +23,70 @@ const JOB_SUBCATEGORIES = [
   'Other'
 ]
 
+// Persist custom sub-categories locally so users see them next time
+const CUSTOM_KEY = 'job_subcategories_custom'
+function readCustomSubs() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_KEY) || '[]'
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr.map(v => String(v)).filter(Boolean) : []
+  } catch (_) {
+    return []
+  }
+}
+function saveCustomSub(newVal) {
+  const v = String(newVal || '').trim()
+  if (!v) return
+  const cur = readCustomSubs()
+  if (!cur.find(x => x.toLowerCase() === v.toLowerCase())) {
+    const next = [...cur, v].slice(0, 50)
+    try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(next)) } catch (_) {}
+  }
+}
+
+// Sri Lankan locations (districts + common cities)
+const DEFAULT_LOCATIONS = [
+  'Colombo','Gampaha','Kalutara','Kandy','Matale','Nuwara Eliya','Galle','Matara','Hambantota',
+  'Jaffna','Kilinochchi','Mannar','Vavuniya','Mullaitivu','Batticaloa','Ampara','Trincomalee',
+  'Kurunegala','Puttalam','Anuradhapura','Polonnaruwa','Badulla','Monaragala','Ratnapura','Kegalle',
+  // Common cities/towns
+  'Negombo','Maharagama','Dehiwala','Mount Lavinia','Moratuwa','Sri Jayawardenepura Kotte','Katunayake','Kadawatha',
+  'Homagama','Avissawella','Panadura','Kalutara','Beruwala','Wadduwa','Weligama','Tangalle','Embilipitiya',
+  'Hikkaduwa','Peradeniya','Hatton','Bandarawela','Badulla','Kuliyapitiya','Chilaw',
+  'Kalmunai','Nuwara Eliya','Anuradhapura Town',
+  'Other'
+]
+
+const LOCATION_CUSTOM_KEY = 'job_locations_custom'
+function readCustomLocations() {
+  try {
+    const raw = localStorage.getItem(LOCATION_CUSTOM_KEY) || '[]'
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr.map(v => String(v)).filter(Boolean) : []
+  } catch (_) {
+    return []
+  }
+}
+function saveCustomLocation(newVal) {
+  const v = String(newVal || '').trim()
+  if (!v) return
+  const cur = readCustomLocations()
+  if (!cur.find(x => x.toLowerCase() === v.toLowerCase())) {
+    const next = [...cur, v].slice(0, 100)
+    try { localStorage.setItem(LOCATION_CUSTOM_KEY, JSON.stringify(next)) } catch (_) {}
+  }
+}
+
 export default function PostEmployeeAdPage() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [targetTitle, setTargetTitle] = useState('')
   const [summary, setSummary] = useState('')
   const [location, setLocation] = useState('')
+  const [customLocation, setCustomLocation] = useState('') // shown when 'Other' is selected
   const [phone, setPhone] = useState('')
   const [subCategory, setSubCategory] = useState('')
+  const [customSubCategory, setCustomSubCategory] = useState('') // shown when 'Other' is selected
   const [status, setStatus] = useState(null)
   const [processing, setProcessing] = useState(false)
 
@@ -38,6 +94,29 @@ export default function PostEmployeeAdPage() {
   const [existingDraft, setExistingDraft] = useState(null)
   const [existingProfile, setExistingProfile] = useState(null)
   const [checkingExisting, setCheckingExisting] = useState(true)
+
+  // Merge defaults with any locally saved custom values (keep 'Other' last)
+  const mergedSubCategories = useMemo(() => {
+    const customs = readCustomSubs()
+    const withoutOther = DEFAULT_JOB_SUBCATEGORIES.filter(v => v !== 'Other')
+    const all = [...withoutOther]
+    for (const c of customs) {
+      if (!all.find(x => x.toLowerCase() === String(c).toLowerCase())) all.push(c)
+    }
+    all.push('Other')
+    return all
+  }, [])
+
+  const mergedLocations = useMemo(() => {
+    const customs = readCustomLocations()
+    const withoutOther = DEFAULT_LOCATIONS.filter(v => v !== 'Other')
+    const all = [...withoutOther]
+    for (const c of customs) {
+      if (!all.find(x => x.toLowerCase() === String(c).toLowerCase())) all.push(c)
+    }
+    all.push('Other')
+    return all
+  }, [])
 
   function getUser() {
     try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null }
@@ -156,19 +235,41 @@ export default function PostEmployeeAdPage() {
       setStatus('Name, Target Title, and Summary are required.')
       return
     }
-    if (!location.trim()) {
+
+    // Resolve final location (handle "Other" custom and free-typed values)
+    const selLoc = String(location || '').trim()
+    let finalLocation = selLoc
+    if (!finalLocation) {
       setStatus('Location is required.')
       return
     }
+    if (selLoc.toLowerCase() === 'other') {
+      const manual = String(customLocation || '').trim()
+      if (!manual) {
+        setStatus('Please enter your Location.')
+        return
+      }
+      finalLocation = manual
+    }
+
     const phoneVal = phone.trim()
     if (!/^\+94\d{9}$/.test(phoneVal)) {
       setStatus('Phone must be in +94XXXXXXXXX format.')
       return
     }
-    const sub = String(subCategory || '').trim()
+
+    let sub = String(subCategory || '').trim()
+    let subCustom = ''
     if (!sub) {
       setStatus('Please select a Job sub-category or type your own.')
       return
+    }
+    if (sub.toLowerCase() === 'other') {
+      subCustom = String(customSubCategory || '').trim()
+      if (!subCustom) {
+        setStatus('Please enter your Job sub-category.')
+        return
+      }
     }
 
     try {
@@ -178,9 +279,12 @@ export default function PostEmployeeAdPage() {
       fd.append('name', name.trim())
       fd.append('target_title', targetTitle.trim())
       fd.append('summary', summary.trim())
-      fd.append('location', location.trim())
+      fd.append('location', finalLocation)
       fd.append('phone', phoneVal)
       fd.append('sub_category', sub)
+      if (subCustom) {
+        fd.append('sub_category_custom', subCustom)
+      }
       const r = await fetch('/api/jobs/employee/draft', {
         method: 'POST',
         headers: { 'X-User-Email': userEmail },
@@ -192,6 +296,13 @@ export default function PostEmployeeAdPage() {
         setStatus(data.error || 'Failed to create draft.')
         return
       }
+
+      // Persist new custom entries for future sessions
+      if (subCustom) saveCustomSub(subCustom)
+      // Save custom location if it was "Other" manual OR a free-typed non-default
+      const isDefaultLoc = mergedLocations.some(x => x.toLowerCase() === finalLocation.toLowerCase())
+      if (!isDefaultLoc) saveCustomLocation(finalLocation)
+
       setTimeout(() => {
         navigate(`/verify-employee?draftId=${encodeURIComponent(data.draftId)}`)
       }, 400)
@@ -200,6 +311,9 @@ export default function PostEmployeeAdPage() {
       setStatus('Network error.')
     }
   }
+
+  const isOtherSub = String(subCategory || '').toLowerCase() === 'other'
+  const isOtherLoc = String(location || '').toLowerCase() === 'other'
 
   return (
     <div className="center">
@@ -268,7 +382,29 @@ export default function PostEmployeeAdPage() {
             <form onSubmit={submit} className="grid two">
               <input className="input" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} />
               <input className="input" placeholder="Target Job Title" value={targetTitle} onChange={e => setTargetTitle(e.target.value)} />
-              <input className="input" placeholder="Location (e.g., Colombo)" value={location} onChange={e => setLocation(e.target.value)} />
+
+              <div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Location</div>
+                <CustomSelect
+                  value={location}
+                  onChange={v => setLocation(v)}
+                  ariaLabel="Location"
+                  placeholder="Select or type a location"
+                  options={mergedLocations.map(v => ({ value: v, label: v }))}
+                  searchable={true}
+                  allowCustom={true}
+                />
+                {isOtherLoc && (
+                  <input
+                    className="input"
+                    style={{ marginTop: 8 }}
+                    placeholder="Type your Location"
+                    value={customLocation}
+                    onChange={e => setCustomLocation(e.target.value)}
+                  />
+                )}
+              </div>
+
               <input className="input" placeholder="Contact phone (+94XXXXXXXXX)" value={phone} onChange={e => setPhone(e.target.value)} />
               <div>
                 <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Job Sub-category</div>
@@ -277,10 +413,19 @@ export default function PostEmployeeAdPage() {
                   onChange={v => setSubCategory(v)}
                   ariaLabel="Job sub-category"
                   placeholder="Select or type a sub-category"
-                  options={JOB_SUBCATEGORIES.map(v => ({ value: v, label: v }))}
+                  options={mergedSubCategories.map(v => ({ value: v, label: v }))}
                   searchable={true}
                   allowCustom={true}
                 />
+                {isOtherSub && (
+                  <input
+                    className="input"
+                    style={{ marginTop: 8 }}
+                    placeholder="Type your Job sub-category"
+                    value={customSubCategory}
+                    onChange={e => setCustomSubCategory(e.target.value)}
+                  />
+                )}
               </div>
               <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
               <div>
