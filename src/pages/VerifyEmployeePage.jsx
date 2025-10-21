@@ -26,12 +26,14 @@ export default function VerifyEmployeePage() {
   const [sp] = useSearchParams()
   const navigate = useNavigate()
   const draftId = sp.get('draftId')
+
   const [draft, setDraft] = useState(null)
   const [seoTitle, setSeoTitle] = useState('')
   const [seoDescription, setSeoDescription] = useState('')
   const [seoKeywords, setSeoKeywords] = useState('')
- tate(null)
+  const [status, setStatus] = useState(null)
   const [submitted, setSubmitted] = useState(null)
+  const [loading, setLoading] = useState(false)
 
   // Publishing essentials
   const [location, setLocation] = useState('')
@@ -46,18 +48,44 @@ export default function VerifyEmployeePage() {
     } catch (_) { return '' }
   }
 
+  function buildAuthHeaders() {
+    const email = getUserEmail()
+    const token = localStorage.getItem('auth_token')
+    if (token) return { Authorization: `Bearer ${token}` }
+    if (email) return { 'X-User-Email': email }
+    return {}
+  }
+
   useEffect(() => {
+    let cancelled = false
     async function load() {
-      if (!draftId) return
       try {
+        setLoading(true)
+
+        // If no draftId in URL, try to locate latest employee draft and redirect
+        if (!draftId) {
+          const r2 = await fetch('/api/listings/my-drafts?employee_profile=1', { headers: buildAuthHeaders() })
+          const d2 = await r2.json().catch(() => ({}))
+          if (r2.ok && Array.isArray(d2.results) && d2.results.length > 0) {
+            const first = d2.results[0]
+            navigate(`/verify-employee?draftId=${encodeURIComponent(first.id)}`, { replace: true })
+            return
+          }
+          setStatus('No draft specified. Please go back and create a profile first.')
+          return
+        }
+
         const r = await fetch(`/api/listings/draft/${encodeURIComponent(draftId)}`)
         const data = await r.json()
         if (!r.ok) throw new Error(data.error || 'Failed to load draft')
+        if (cancelled) return
+
         setDraft(data.draft)
         setSeoTitle(data.draft.seo_title || '')
         setSeoDescription(data.draft.seo_description || '')
         setSeoKeywords(data.draft.seo_keywords || '')
         setDescription(data.draft.description || '')
+
         try {
           const obj = JSON.parse(data.draft.structured_json || '{}')
           setLocation(String(obj.location || ''))
@@ -66,9 +94,13 @@ export default function VerifyEmployeePage() {
         } catch (_) {}
       } catch (e) {
         setStatus(`Error: ${e.message}`)
+      } finally {
+        setLoading(false)
       }
     }
     load()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftId])
 
   async function submitPost() {
@@ -93,9 +125,7 @@ export default function VerifyEmployeePage() {
         seo_keywords: seoKeywords,
         description: desc
       }
-      const headers = { 'Content-Type': 'application/json' }
-      const email = getUserEmail()
-      if (email) headers['X-User-Email'] = email
+      const headers = { 'Content-Type': 'application/json', ...buildAuthHeaders() }
 
       const r = await fetch('/api/listings/submit', {
         method: 'POST',
@@ -127,16 +157,16 @@ export default function VerifyEmployeePage() {
           </button>
         </div>
 
-        {!draftId && (
+        {loading && <p className="text-muted">Loading profile draft...</p>}
+
+        {!loading && !draft && (
           <div className="card" style={{ marginTop: 8 }}>
-            <p className="text-muted">No draft specified. Please go back and create a profile first.</p>
+            <p className="text-muted">{status || 'No draft found.'}</p>
             <div style={{ marginTop: 8 }}>
               <button className="btn" type="button" onClick={() => navigate('/jobs/post-employee')}>Go to Post Profile</button>
             </div>
           </div>
         )}
-
-        {!draft && draftId && <p className="text-muted">Loading profile draft...</p>}
 
         {draft && (
           <>
