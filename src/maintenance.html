@@ -122,7 +122,11 @@
       border-radius:18px;
       padding:2px;
       background: conic-gradient(from 0deg, #7cfab0, #58a6ff, #a98bff, #7cfab0);
+      /* Vendor and standard masks for compatibility */
       -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      mask:
         linear-gradient(#000 0 0) content-box,
         linear-gradient(#000 0 0);
       -webkit-mask-composite: xor;
