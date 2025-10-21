@@ -34,6 +34,38 @@ export default function VerifyEmployeePage() {
   const [status, setStatus] = useState(null)
   const [submitted, setSubmitted] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [customSubCategory, setCustomSubCategory] = useState('')
+  const [subListVersion, setSubListVersion] = useState(0)
+
+  const jobOptions = React.useMemo(() => {
+    let custom = []
+    try { custom = JSON.parse(localStorage.getItem('job_subcategories_custom') || '[]') } catch (_) { custom = [] }
+    const base = JOB_SUBCATEGORIES.filter(v => v !== 'Other')
+    const merged = [...base]
+    const lowSet = new Set(base.map(s => String(s).toLowerCase()))
+    for (const s of custom) {
+      const t = String(s || '').trim()
+      if (t && !lowSet.has(t.toLowerCase()) && t.toLowerCase() !== 'other') {
+        merged.push(t)
+      }
+    }
+    merged.push('Other')
+    return merged
+  }, [subListVersion])
+
+  function addCustomSubcategory(val) {
+    const t = String(val || '').trim()
+    if (!t) return
+    const inBase = JOB_SUBCATEGORIES.some(x => String(x).toLowerCase() === t.toLowerCase())
+    let arr = []
+    try { arr = JSON.parse(localStorage.getItem('job_subcategories_custom') || '[]') } catch (_) { arr = [] }
+    const exists = arr.some(x => String(x).toLowerCase() === t.toLowerCase())
+    if (!exists && !inBase && t.toLowerCase() !== 'other') {
+      arr.push(t)
+      try { localStorage.setItem('job_subcategories_custom', JSON.stringify(arr)) } catch (_) {}
+      setSubListVersion(v => v + 1)
+    }
+  }
 
   // Publishing essentials
   const [location, setLocation] = useState('')
@@ -90,7 +122,11 @@ export default function VerifyEmployeePage() {
           const obj = JSON.parse(data.draft.structured_json || '{}')
           setLocation(String(obj.location || ''))
           setPhone(String(obj.phone || ''))
-          setSubCategory(String(obj.sub_category || ''))
+          const loadedSub = String(obj.sub_category || '')
+          setSubCategory(loadedSub)
+          if (loadedSub && !JOB_SUBCATEGORIES.some(x => String(x).toLowerCase() === loadedSub.toLowerCase())) {
+            addCustomSubcategory(loadedSub)
+          }
         } catch (_) {}
       } catch (e) {
         setStatus(`Error: ${e.message}`)
@@ -108,9 +144,14 @@ export default function VerifyEmployeePage() {
       // Basic validation required by server
       const loc = String(location || '').trim()
       const ph = String(phone || '').trim()
-      const sub = String(subCategory || '').trim()
+      let sub = String(subCategory || '').trim()
       const desc = String(description || '').trim()
       if (!sub) { setStatus('Please specify a Job sub-category (e.g., Driver, IT/Software, Sales/Marketing)'); return }
+      if (sub === 'Other') {
+        const typed = String(customSubCategory || '').trim()
+        if (!typed) { setStatus('Please type your Job sub-category.'); return }
+        sub = typed
+      }
       if (!loc) { setStatus('Location is required'); return }
       if (!/^\+94\d{9}$/.test(ph)) { setStatus('Phone must be in +94XXXXXXXXX format'); return }
       if (!desc || desc.length < 10) { setStatus('Description must be at least 10 characters'); return }
@@ -182,10 +223,12 @@ export default function VerifyEmployeePage() {
                     onChange={v => setSubCategory(v)}
                     ariaLabel="Job sub-category"
                     placeholder="Select or type a sub-category"
-                    options={JOB_SUBCATEGORIES.map(v => ({ value: v, label: v }))}
+                    options={jobOptions.map(v => ({ value: v, label: v }))}
                     searchable={true}
                     allowCustom={true}
                   />
+                  {String(subCategory) === 'Other' && (
+                       />
                 </div>
                 <input
                   className="input"

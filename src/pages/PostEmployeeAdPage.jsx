@@ -33,6 +33,38 @@ export default function PostEmployeeAdPage() {
   const [subCategory, setSubCategory] = useState('')
   const [status, setStatus] = useState(null)
   const [processing, setProcessing] = useState(false)
+  const [customSubCategory, setCustomSubCategory] = useState('')
+  const [subListVersion, setSubListVersion] = useState(0)
+
+  const jobOptions = React.useMemo(() => {
+    let custom = []
+    try { custom = JSON.parse(localStorage.getItem('job_subcategories_custom') || '[]') } catch (_) { custom = [] }
+    const base = JOB_SUBCATEGORIES.filter(v => v !== 'Other')
+    const merged = [...base]
+    const lowSet = new Set(base.map(s => String(s).toLowerCase()))
+    for (const s of custom) {
+      const t = String(s || '').trim()
+      if (t && !lowSet.has(t.toLowerCase()) && t.toLowerCase() !== 'other') {
+        merged.push(t)
+      }
+    }
+    merged.push('Other')
+    return merged
+  }, [subListVersion])
+
+  function addCustomSubcategory(val) {
+    const t = String(val || '').trim()
+    if (!t) return
+    const inBase = JOB_SUBCATEGORIES.some(x => String(x).toLowerCase() === t.toLowerCase())
+    let arr = []
+    try { arr = JSON.parse(localStorage.getItem('job_subcategories_custom') || '[]') } catch (_) { arr = [] }
+    const exists = arr.some(x => String(x).toLowerCase() === t.toLowerCase())
+    if (!exists && !inBase && t.toLowerCase() !== 'other') {
+      arr.push(t)
+      try { localStorage.setItem('job_subcategories_custom', JSON.stringify(arr)) } catch (_) {}
+      setSubListVersion(v => v + 1)
+    }
+  }
 
   // If an employee profile or draft already exists, show management UI instead of the form
   const [existingDraft, setExistingDraft] = useState(null)
@@ -165,10 +197,18 @@ export default function PostEmployeeAdPage() {
       setStatus('Phone must be in +94XXXXXXXXX format.')
       return
     }
-    const sub = String(subCategory || '').trim()
+    let sub = String(subCategory || '').trim()
     if (!sub) {
       setStatus('Please select a Job sub-category or type your own.')
       return
+    }
+    if (sub === 'Other') {
+      const typed = String(customSubCategory || '').trim()
+      if (!typed) {
+        setStatus('Please type your Job sub-category.')
+        return
+      }
+      sub = typed
     }
 
     try {
@@ -192,9 +232,10 @@ export default function PostEmployeeAdPage() {
         setStatus(data.error || 'Failed to create draft.')
         return
       }
+      addCustomSubcategory(sub)
       setTimeout(() => {
         navigate(`/verify-employee?draftId=${encodeURIComponent(data.draftId)}`)
-      }, 400)
+      }, _code40new0</)
     } catch (e) {
       setProcessing(false)
       setStatus('Network error.')
@@ -277,10 +318,19 @@ export default function PostEmployeeAdPage() {
                   onChange={v => setSubCategory(v)}
                   ariaLabel="Job sub-category"
                   placeholder="Select or type a sub-category"
-                  options={JOB_SUBCATEGORIES.map(v => ({ value: v, label: v }))}
+                  options={jobOptions.map(v => ({ value: v, label: v }))}
                   searchable={true}
                   allowCustom={true}
                 />
+                {String(subCategory) === 'Other' && (
+                  <input
+                    className="input"
+                    placeholder="Type your Job sub-category"
+                    value={customSubCategory}
+                    onChange={e => setCustomSubCategory(e.target.value)}
+                    style={{ marginTop: 8 }}
+                  />
+                )}
               </div>
               <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
               <div>
