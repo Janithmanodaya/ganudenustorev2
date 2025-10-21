@@ -98,18 +98,23 @@ router.post('/employee/draft', upload.array('images', 2), async (req, res) => {
     // Enforce one active employee profile per email (either existing approved or pending)
     const nowIso = new Date().toISOString();
     const existingActive = db.prepare(`
-      SELECT 1 FROM listings
+      SELECT id FROM listings
       WHERE LOWER(owner_email) = LOWER(?) AND employee_profile = 1
         AND status != 'Archived' AND (valid_until IS NULL OR valid_until > ?)
       LIMIT 1
     `).get(ownerEmail, nowIso);
-    const existingDraft = db.prepare(`
-      SELECT 1 FROM listing_drafts
+    const existingDraftRow = db.prepare(`
+      SELECT id FROM listing_drafts
       WHERE LOWER(owner_email) = LOWER(?) AND employee_profile = 1
+      ORDER BY created_at DESC
       LIMIT 1
     `).get(ownerEmail);
-    if (existingActive || existingDraft) {
+    // If a live/pending profile exists, block; if a draft exists, reuse it instead of erroring
+    if (existingActive && existingActive.id) {
       return res.status(400).json({ error: 'You can upload a maximum of 1 Employee Profile per email.' });
+    }
+    if (existingDraftRow && existingDraftRow.id) {
+      return res.json({ ok: true, draftId: existingDraftRow.id, reused: true });
     }
 
     const key = getGeminiKey();
