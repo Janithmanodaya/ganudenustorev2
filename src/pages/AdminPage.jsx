@@ -271,8 +271,8 @@ export default function AdminPage() {
       setPending(items)
     } catch (_) {
       // Silent on errors to keep dashboard responsive
-    }_code
- new </}
+    }
+  }
   async function loadDetail(id) {
     try {
       const r = await fetch(`/api/admin/pending/${encodeURIComponent(id)}`, { headers: getAdminHeaders() })
