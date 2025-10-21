@@ -380,8 +380,7 @@ export default function NewListingPage() {
                   searchable={true}
                   virtualized={true}
                   maxDropdownHeight={420}
-              _code  new/</>
-/>
+                />
               </div>
               <button
                 className="btn"
@@ -389,7 +388,7 @@ export default function NewListingPage() {
                 onClick={() => addWantedTagById(wantedSelectId)}
                 disabled={!wantedSelectId || wantedTags.length >= 3}
               >
-                Add
+                {t('common.add')}
               </button>
             </div>
             {wantedTags.length > 0 && (
@@ -416,12 +415,12 @@ export default function NewListingPage() {
           </div>
 
           <div>
-            <div className="h2" style={{ marginTop: 0 }}>Photos</div>
+            <div className="h2" style={{ marginTop: 0 }}>{t('newListing.photos')}</div>
             <ImageSlots />
           </div>
 
           <div>
-            <button className="btn primary" type="submit">Continue</button>
+            <button className="btn primary" type="submit">{t('common.continue')}</button>
           </div>
         </form>
 
@@ -431,10 +430,10 @@ export default function NewListingPage() {
       {showAuthPrompt && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div className="card" style={{ maxWidth: 420 }}>
-            <div className="h2">{t('auth.loginRequir')}</  div>
-           <ep className="text-muted">{t('auth.loginRequiredMessa')}</Plp>
-           <odiv style={{ display:   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button className="btn primary" onClick={() => navigate('/auth')}>Go to Login</button>
+            <div className="h2" style={{ marginTop: 0 }}>{t('auth.loginRequired')}</div>
+            <p className="text-muted">{t('auth.loginRequiredMessage')}</p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn primary" onClick={() => navigate('/auth')}>{t('auth.goToLogin')}</button>
             </div>
           </div>
         </div>
