@@ -21,6 +21,7 @@ import wantedRouter from './routes/wanted.js';
 import { sendEmail } from './lib/utils.js';
 import helmet from 'helmet';
 import compression from 'compression';
+import { verifyTokenRaw } from './lib/auth.js';
 
 dotenv.config();
 
@@ -325,13 +326,31 @@ const adminLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60, standardHead
 app.use('/api/admin', adminLimiter, adminRouter);
 
 // --- Global maintenance-mode gate (allow admin and health; block everything else) ---
+function isAdminRequest(req) {
+  try {
+    const hdr = String(req.headers['authorization'] || '');
+    const parts = hdr.split(' ');
+    if (parts.length !== 2 || !/^Bearer$/i.test(parts[0])) return false;
+    const token = parts[1];
+    const v = verifyTokenRaw(token);
+    if (!v.ok) return false;
+    const claims = v.decoded;
+    const row = db.prepare('SELECT id, email, is_admin FROM users WHERE id = ?').get(Number(claims.user_id));
+    if (!row || !row.is_admin) return false;
+    if (String(row.email).toLowerCase() !== String(claims.email).toLowerCase()) return false;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 app.use((req, res, next) => {
   const { enabled, message } = getMaintenanceConfig();
   if (!enabled) return next();
 
-  // Allow admin API and health check to function
+  // Allow admin API, health, and any request authenticated as admin
   const p = String(req.path || '');
-  if (p.startsWith('/api/admin') || p === '/api/health') {
+  if (p.startsWith('/api/admin') || p === '/api/health' || isAdminRequest(req)) {
     return next();
   }
 
