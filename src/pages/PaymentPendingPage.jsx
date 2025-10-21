@@ -123,19 +123,19 @@ export default function PaymentPendingPage() {
                   {bankName && (
                     <div className="pill" style={{ marginBottom: 6 }}>
                       Bank: {bankName}
-                      <button className="btn" style={{ marginLeft: 8 }} onClick={() => copy(bankName)}>Copy</button>
+                      <button className="btn compact" style={{ marginLeft: 8 }} onClick={() => copy(bankName)}>Copy</button>
                     </div>
                   )}
                   {bankAccountName && (
                     <div className="pill" style={{ marginBottom: 6 }}>
                       Account Name: {bankAccountName}
-                      <button className="btn" style={{ marginLeft: 8 }} onClick={() => copy(bankAccountName)}>Copy</button>
+                      <button className="btn compact" style={{ marginLeft: 8 }} onClick={() => copy(bankAccountName)}>Copy</button>
                     </div>
                   )}
                   {bankAccountNumber && (
                     <div className="pill" style={{ marginBottom: 6 }}>
                       Account Number: {bankAccountNumber}
-                      <button className="btn" style={{ marginLeft: 8 }} onClick={() => copy(bankAccountNumber)}>Copy</button>
+                      <button className="btn compact" style={{ marginLeft: 8 }} onClick={() => copy(bankAccountNumber)}>Copy</button>
                     </div>
                   )}
                   {bank && (
