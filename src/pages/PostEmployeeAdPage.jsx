@@ -1,6 +1,27 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
+import CustomSelect from '../components/CustomSelect.jsx'
+
+const JOB_SUBCATEGORIES = [
+  'IT/Software',
+  'Accounting/Finance',
+  'Sales/Marketing',
+  'Customer Service',
+  'Administration',
+  'HR/Recruitment',
+  'Education/Training',
+  'Healthcare',
+  'Construction/Trades',
+  'Logistics/Delivery',
+  'Driver',
+  'Security',
+  'Cleaning/Housekeeping',
+  'Hospitality/Food',
+  'Design/Creative',
+  'Legal',
+  'Other'
+]
 
 export default function PostEmployeeAdPage() {
   const navigate = useNavigate()
@@ -8,7 +29,8 @@ export default function PostEmployeeAdPage() {
   const [targetTitle, setTargetTitle] = useState('')
   const [summary, setSummary] = useState('')
   const [location, setLocation] = useState('')
-  const [images, setImages] = useState([null, null]) // 2 image slots
+  const [phone, setPhone] = useState('')
+  const [subCategory, setSubCategory] = useState('')
   const [status, setStatus] = useState(null)
   const [processing, setProcessing] = useState(false)
 
@@ -16,9 +38,6 @@ export default function PostEmployeeAdPage() {
   const [existingDraft, setExistingDraft] = useState(null)
   const [existingProfile, setExistingProfile] = useState(null)
   const [checkingExisting, setCheckingExisting] = useState(true)
-
-  const hiddenFileInput = useRef(null)
-  const pendingSlotRef = useRef(null)
 
   function getUser() {
     try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null }
@@ -76,40 +95,6 @@ export default function PostEmployeeAdPage() {
     checkExisting()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  function openPickerForSlot(index) {
-    pendingSlotRef.current = index
-    hiddenFileInput.current?.click()
-  }
-
-  function onHiddenFileChange(e) {
-    const file = (e.target.files && e.target.files[0]) || null
-    e.target.value = ''
-    if (!file) return
-    if (!String(file.type || '').startsWith('image/')) {
-      setStatus('Only image files are allowed.')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setStatus(`File ${file.name} exceeds 5MB limit.`)
-      return
-    }
-    setStatus(null)
-    const idx = pendingSlotRef.current ?? 0
-    setImages(prev => {
-      const next = [...prev]
-      next[idx] = file
-      return next
-    })
-  }
-
-  function clearSlot(index) {
-    setImages(prev => {
-      const next = [...prev]
-      next[index] = null
-      return next
-    })
-  }
 
   function makeSlug(s) {
     const base = String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
@@ -171,9 +156,18 @@ export default function PostEmployeeAdPage() {
       setStatus('Name, Target Title, and Summary are required.')
       return
     }
-    const selectedImages = images.filter(Boolean)
-    if (selectedImages.length < 1) {
-      setStatus('At least 1 resume image is required.')
+    if (!location.trim()) {
+      setStatus('Location is required.')
+      return
+    }
+    const phoneVal = phone.trim()
+    if (!/^\+94\d{9}$/.test(phoneVal)) {
+      setStatus('Phone must be in +94XXXXXXXXX format.')
+      return
+    }
+    const sub = String(subCategory || '').trim()
+    if (!sub) {
+      setStatus('Please select a Job sub-category or type your own.')
       return
     }
 
@@ -184,8 +178,9 @@ export default function PostEmployeeAdPage() {
       fd.append('name', name.trim())
       fd.append('target_title', targetTitle.trim())
       fd.append('summary', summary.trim())
-      if (location && location.trim()) fd.append('location', location.trim())
-      for (const img of selectedImages) fd.append('images', img)
+      fd.append('location', location.trim())
+      fd.append('phone', phoneVal)
+      fd.append('sub_category', sub)
       const r = await fetch('/api/jobs/employee/draft', {
         method: 'POST',
         headers: { 'X-User-Email': userEmail },
@@ -194,75 +189,21 @@ export default function PostEmployeeAdPage() {
       const data = await r.json()
       if (!r.ok) {
         setProcessing(false)
-        setStatus(data.error || 'Failed to process resume images.')
+        setStatus(data.error || 'Failed to create draft.')
         return
       }
-      // Small UX delay to show the processing overlay before navigate
       setTimeout(() => {
         navigate(`/verify-employee?draftId=${encodeURIComponent(data.draftId)}`)
-      }, 900)
+      }, 400)
     } catch (e) {
       setProcessing(false)
       setStatus('Network error.')
     }
   }
 
-  function ImageSlots() {
-    return (
-      <div>
-        <input
-          ref={hiddenFileInput}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={onHiddenFileChange}
-        />
-        <div className="grid two" style={{ gap: 10 }}>
-          {images.map((file, i) => {
-            const hasFile = !!file
-            const url = hasFile ? URL.createObjectURL(file) : null
-            return (
-              <div
-                key={i}
-                className="card"
-                style={{ padding: 0, position: 'relative', height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                onClick={() => openPickerForSlot(i)}
-              >
-                {hasFile ? (
-                  <>
-                    <img
-                      src={url}
-                      alt={`resume-image-${i + 1}`}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }}
-                      onLoad={() => url && URL.revokeObjectURL(url)}
-                    />
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={(e) => { e.stopPropagation(); clearSlot(i) }}
-                      style={{ position: 'absolute', top: 6, right: 6 }}
-                      aria-label="Remove image"
-                    >
-                      ×
-                    </button>
-                  </>
-                ) : (
-                  <div className="text-muted" style={{ fontSize: 28 }}>+</div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-        <div className="text-muted" style={{ marginTop: 6 }}>
-          {images.filter(Boolean).length}/2 selected
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="center">
-      {processing && <LoadingOverlay message="Processing resume..." />}
+      {processing && <LoadingOverlay message="Saving your profile..." />}
       <div className="card">
         <div className="h1">Post Employee Profile (Free)</div>
         {checkingExisting ? (
@@ -322,12 +263,37 @@ export default function PostEmployeeAdPage() {
         ) : (
           <>
             <p className="text-muted">
-              Upload 1–2 images of your resume (minimum 1).
-              This feature is completely free. One profile per email. Profiles expire after 3 months.
+              Create your profile manually. One profile per email. Profiles expire after 3 months.
             </p>
             <form onSubmit={submit} className="grid two">
               <input className="input" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} />
               <input className="input" placeholder="Target Job Title" value={targetTitle} onChange={e => setTargetTitle(e.target.value)} />
+              <input className="input" placeholder="Location (e.g., Colombo)" value={location} onChange={e => setLocation(e.target.value)} />
+              <input className="input" placeholder="Contact phone (+94XXXXXXXXX)" value={phone} onChange={e => setPhone(e.target.value)} />
+              <div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Job Sub-category</div>
+                <CustomSelect
+                  value={subCategory}
+                  onChange={v => setSubCategory(v)}
+                  ariaLabel="Job sub-category"
+                  placeholder="Select or type a sub-category"
+                  options={JOB_SUBCATEGORIES.map(v => ({ value: v, label: v }))}
+                  searchable={true}
+                  allowCustom={true}
+                />
+              </div>
+              <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
+              <div>
+                <button className="btn primary" type="submit" disabled={processing}>Continue</button>
+              </div>
+            </form>
+          </>
+        )}
+        {status && <p style={{ marginTop: 8 }}>{status}</p>}
+      </div>
+    </div>
+  )
+} />
               <input className="input" placeholder="Location (e.g., Colombo)" value={location} onChange={e => setLocation(e.target.value)} />
               <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
               <div>
