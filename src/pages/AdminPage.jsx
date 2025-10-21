@@ -158,8 +158,8 @@ export default function AdminPage() {
       fetchConfig()
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }_code
- new </}
+    }
+  }
 
   async function testGemini() {
     try {
