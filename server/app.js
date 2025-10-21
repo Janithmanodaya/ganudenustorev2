@@ -39,12 +39,21 @@ function getMaintenanceConfig() {
   }
 }
 
-// Render maintenance HTML (from data/maintenance.html if present; otherwise default)
+// Render maintenance HTML (prefer src/maintenance.html; fallback to default)
+// Note: We avoid using data/ because it may be reset on server restarts.
 function renderMaintenancePage() {
+  // Try src/maintenance.html first
   try {
-    const p = path.resolve(process.cwd(), 'data', 'maintenance.html');
-    if (fs.existsSync(p)) {
-      return fs.readFileSync(p, 'utf8');
+    const srcPath = path.resolve(process.cwd(), 'src', 'maintenance.html');
+    if (fs.existsSync(srcPath)) {
+      return fs.readFileSync(srcPath, 'utf8');
+    }
+  } catch (_) {}
+  // Legacy fallback (if someone left a copy in data/)
+  try {
+    const dataPath = path.resolve(process.cwd(), 'data', 'maintenance.html');
+    if (fs.existsSync(dataPath)) {
+      return fs.readFileSync(dataPath, 'utf8');
     }
   } catch (_) {}
   const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
@@ -211,7 +220,8 @@ db.prepare(`
     bank_details TEXT,
     whatsapp_number TEXT
   )
-`).run();>
+`).run();
+
 // Ensure new columns exist for older databases
 try {
   const cols = db.prepare(`PRAGMA table_info(admin_config)`).all();
@@ -221,7 +231,11 @@ try {
   if (!hasWhats) db.prepare(`ALTER TABLE admin_config ADD COLUMN whatsapp_number TEXT`).run();
   const hasEmailApprove = cols.some(c => c.name === 'email_on_approve');
   if (!hasEmailApprove) db.prepare(`ALTER TABLE admin_config ADD COLUMN email_on_approve INTEGER NOT NULL DEFAULT 0`).run();
-  const hasMaint = cols.some(c => c.name {}
+  const hasMaint = cols.some(c => c.name === 'maintenance_mode');
+  if (!hasMaint) db.prepare(`ALTER TABLE admin_config ADD COLUMN maintenance_mode INTEGER NOT NULL DEFAULT 0`).run();
+  const hasMaintMsg = cols.some(c => c.name === 'maintenance_message');
+  if (!hasMaintMsg) db.prepare(`ALTER TABLE admin_config ADD COLUMN maintenance_message TEXT`).run();
+} catch (_) {}
 
 db.prepare(`
   CREATE TABLE IF NOT EXISTS payment_rules (
