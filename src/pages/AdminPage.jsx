@@ -415,7 +415,10 @@ export default function AdminPage() {
         return { ...prev, [userId]: nextRows }
       })
     } catch (e) {
-      set
+      setStatus(`Error: ${e.message}`)
+    }_code
+ new </}
+
   }
   function updateUserAdsFilter(userId, patch) {
     setUserAdsFilters(prev => ({ ...prev, [userId]: { ...(prev[userId] || {}), ...patch } }))
