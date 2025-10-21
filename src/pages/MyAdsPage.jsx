@@ -314,11 +314,12 @@ export default function MyAdsPage() {
         </div>
 
         <div className="card" style={{ marginTop: 12 }}>
-         <<div className="h2" style={{ marginTop: 0 }}>{t('myAds.approvedTit')}</p div>
-         <-p className="text-muted" style={{ marginTop: 4 }}>Click an approved ad to view the live listi.</v p>
-         <idiv className="grid three" style={{ marginTop: 12 }}>
+          <div className="h2" style={{ marginTop: 0 }}>{t('myAds.approvedTitle')}</div>
+          <p className="text-muted" style={{ marginTop: 4 }}>Click an approved ad to view the live listing.</p>
+          <div className="grid three" style={{ marginTop: 12 }}>
             {approved.map(renderCard)}
-            {approved.length === 0 & <-p className="text-muted">{t('my        </div>
+            {approved.length === 0 && <p className="text-muted">{t('myAds.noApproved')}</p>}
+          </div>
         </div>
 
         <div className="card" style={{ marginTop: 12 }}>
@@ -337,8 +338,8 @@ export default function MyAdsPage() {
         onClose={() => setRejectModal({ open: false, reason: '', title: '' })}
       >
         <div className="card" style={{ background: 'rgba(239,68,68,0.08)', borderColor: '#ef44441a' }}>
-         <<strong>{t('myAds.rejectReas')}</  strong>
-         <mdiv className="text-muted" style={{ whiteSpace: 'pre-wrap',6 }}>{rejectModal.reason}</div>
+          <strong>{t('myAds.rejectReason')}:</strong>
+          <div className="text-muted" style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{rejectModal.reason}</div>
         </div>
       </Modal>
     </div>
