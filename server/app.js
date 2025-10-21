@@ -236,6 +236,14 @@ try {
   if (!hasMaint) db.prepare(`ALTER TABLE admin_config ADD COLUMN maintenance_mode INTEGER NOT NULL DEFAULT 0`).run();
   const hasMaintMsg = cols.some(c => c.name === 'maintenance_message');
   if (!hasMaintMsg) db.prepare(`ALTER TABLE admin_config ADD COLUMN maintenance_message TEXT`).run();
+
+  // New: separate bank fields
+  const hasAccNum = cols.some(c => c.name === 'bank_account_number');
+  if (!hasAccNum) db.prepare(`ALTER TABLE admin_config ADD COLUMN bank_account_number TEXT`).run();
+  const hasAccName = cols.some(c => c.name === 'bank_account_name');
+  if (!hasAccName) db.prepare(`ALTER TABLE admin_config ADD COLUMN bank_account_name TEXT`).run();
+  const hasBankName = cols.some(c => c.name === 'bank_name');
+  if (!hasBankName) db.prepare(`ALTER TABLE admin_config ADD COLUMN bank_name TEXT`).run();
 } catch (_) {}
 
 db.prepare(`

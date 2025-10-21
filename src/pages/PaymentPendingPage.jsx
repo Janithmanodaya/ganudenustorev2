@@ -33,6 +33,9 @@ export default function PaymentPendingPage() {
   }
 
   const bank = String(info?.bank_details || '').trim()
+  const bankName = String(info?.bank_name || '').trim()
+  const bankAccountName = String(info?.bank_account_name || '').trim()
+  const bankAccountNumber = String(info?.bank_account_number || '').trim()
   const wa = String(info?.whatsapp_number || '').trim()
   const remark = String(info?.listing?.remark_number || '')
   const title = String(info?.listing?.title || '')
@@ -115,11 +118,34 @@ export default function PaymentPendingPage() {
 
             <div className="h2" style={{ marginTop: 12 }}>Bank Details</div>
             <div className="card">
-              <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{bank || 'Not configured yet.'}</pre>
-              {bank && (
-                <div style={{ marginTop: 8 }}>
-                  <button className="btn" onClick={() => copy(bank)}>Copy Bank Details</button>
-                </div>
+              {(bankName || bankAccountName || bankAccountNumber) ? (
+                <>
+                  {bankName && (
+                    <div className="pill" style={{ marginBottom: 6 }}>
+                      Bank: {bankName}
+                      <button className="btn" style={{ marginLeft: 8 }} onClick={() => copy(bankName)}>Copy</button>
+                    </div>
+                  )}
+                  {bankAccountName && (
+                    <div className="pill" style={{ marginBottom: 6 }}>
+                      Account Name: {bankAccountName}
+                      <button className="btn" style={{ marginLeft: 8 }} onClick={() => copy(bankAccountName)}>Copy</button>
+                    </div>
+                  )}
+                  {bankAccountNumber && (
+                    <div className="pill" style={{ marginBottom: 6 }}>
+                      Account Number: {bankAccountNumber}
+                      <button className="btn" style={{ marginLeft: 8 }} onClick={() => copy(bankAccountNumber)}>Copy</button>
+                    </div>
+                  )}
+                  {bank && (
+                    <div style={{ marginTop: 8 }}>
+                      <button className="btn" onClick={() => copy(bank)}>Copy All Details</button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{bank || 'Not configured yet.'}</pre>
               )}
             </div>
 

@@ -8,6 +8,9 @@ export default function AdminPage() {
   const [maskedKey, setMaskedKey] = useState(null)
   const [geminiApiKey, setGeminiApiKey] = useState('')
   const [bankDetails, setBankDetails] = useState('')
+  const [bankAccountNumber, setBankAccountNumber] = useState('')
+  const [bankAccountName, setBankAccountName] = useState('')
+  const [bankName, setBankName] = useState('')
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [emailOnApprove, setEmailOnApprove] = useState(false)
   // Maintenance mode
@@ -122,6 +125,9 @@ export default function AdminPage() {
       if (!r.ok) throw new Error(data.error || 'Failed to load config')
       setMaskedKey(data.gemini_api_key_masked)
       setBankDetails(data.bank_details || '')
+      setBankAccountNumber(data.bank_account_number || '')
+      setBankAccountName(data.bank_account_name || '')
+      setBankName(data.bank_name || '')
       setWhatsappNumber(data.whatsapp_number || '')
       setEmailOnApprove(!!data.email_on_approve)
       // Maintenance
@@ -137,6 +143,9 @@ export default function AdminPage() {
       const payload = {
         geminiApiKey,
         bankDetails,
+        bankAccountNumber,
+        bankAccountName,
+        bankName,
         whatsappNumber,
         emailOnApprove,
         maintenanceMode: !!maintenanceEnabled,
@@ -1096,6 +1105,64 @@ export default function AdminPage() {
                 <option value="30">Last 30 days</option>
               </select>
               <button className="btn" onClick={() => loadMetrics(rangeDays)}>Refresh</button>
+            </div>
+
+            {/* Payment & Bank Settings */}
+            <div className="card" style={{ marginTop: 8 }}>
+              <div className="h2" style={{ marginTop: 0 }}>Payment & Bank Settings</div>
+              <div className="grid two" style={{ gap: 8 }}>
+                <div>
+                  <label className="text-muted">Bank Name</label>
+                  <input
+                    className="input"
+                    placeholder="e.g., Bank of Ceylon"
+                    value={bankName}
+                    onChange={e => setBankName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted">Account Name</label>
+                  <input
+                    className="input"
+                    placeholder="e.g., Ganudenu Pvt Ltd"
+                    value={bankAccountName}
+                    onChange={e => setBankAccountName(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid two" style={{ gap: 8, marginTop: 8 }}>
+                <div>
+                  <label className="text-muted">Account Number</label>
+                  <input
+                    className="input"
+                    placeholder="e.g., 1234567890"
+                    value={bankAccountNumber}
+                    onChange={e => setBankAccountNumber(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted">WhatsApp Number</label>
+                  <input
+                    className="input"
+                    placeholder="e.g., +94 7X XXX XXXX"
+                    value={whatsappNumber}
+                    onChange={e => setWhatsappNumber(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <label className="text-muted">Legacy Bank Details (combined text)</label>
+                <textarea
+                  className="textarea"
+                  placeholder="Optional combined details shown to users if set"
+                  value={bankDetails}
+                  onChange={e => setBankDetails(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn primary" onClick={saveConfig}>Save Settings</button>
+                <button className="btn" onClick={fetchConfig}>Refresh</button>
+              </div>
             </div>
 
             {!metrics && <p className="text-muted">Loading analytics...</p>}
