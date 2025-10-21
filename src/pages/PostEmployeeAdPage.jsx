@@ -293,21 +293,4 @@ export default function PostEmployeeAdPage() {
       </div>
     </div>
   )
-} />
-              <input className="input" placeholder="Location (e.g., Colombo)" value={location} onChange={e => setLocation(e.target.value)} />
-              <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
-              <div>
-                <div className="h2" style={{ marginTop: 0 }}>Resume Images</div>
-                <ImageSlots />
-              </div>
-              <div>
-                <button className="btn primary" type="submit" disabled={processing}>Continue</button>
-              </div>
-            </form>
-          </>
-        )}
-        {status && <p style={{ marginTop: 8 }}>{status}</p>}
-      </div>
-    </div>
-  )
 }
