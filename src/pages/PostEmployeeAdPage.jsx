@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import CustomSelect from '../components/CustomSelect.jsx'
 
-const JOB_SUBCATEGORIES = [
+const DEFAULT_JOB_SUBCATEGORIES = [
   'IT/Software',
   'Accounting/Finance',
   'Sales/Marketing',
@@ -23,6 +23,27 @@ const JOB_SUBCATEGORIES = [
   'Other'
 ]
 
+// Persist custom sub-categories locally so users see them next time
+const CUSTOM_KEY = 'job_subcategories_custom'
+function readCustomSubs() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_KEY) || '[]'
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr.map(v => String(v)).filter(Boolean) : []
+  } catch (_) {
+    return []
+  }
+}
+function saveCustomSub(newVal) {
+  const v = String(newVal || '').trim()
+  if (!v) return
+  const cur = readCustomSubs()
+  if (!cur.find(x => x.toLowerCase() === v.toLowerCase())) {
+    const next = [...cur, v].slice(0, 50)
+    try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(next)) } catch (_) {}
+  }
+}
+
 export default function PostEmployeeAdPage() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
@@ -31,6 +52,7 @@ export default function PostEmployeeAdPage() {
   const [location, setLocation] = useState('')
   const [phone, setPhone] = useState('')
   const [subCategory, setSubCategory] = useState('')
+  const [customSubCategory, setCustomSubCategory] = useState('') // shown when 'Other' is selected
   const [status, setStatus] = useState(null)
   const [processing, setProcessing] = useState(false)
 
@@ -38,6 +60,18 @@ export default function PostEmployeeAdPage() {
   const [existingDraft, setExistingDraft] = useState(null)
   const [existingProfile, setExistingProfile] = useState(null)
   const [checkingExisting, setCheckingExisting] = useState(true)
+
+  // Merge defaults with any locally saved custom values (keep 'Other' last)
+  const mergedSubCategories = useMemo(() => {
+    const customs = readCustomSubs()
+    const withoutOther = DEFAULT_JOB_SUBCATEGORIES.filter(v => v !== 'Other')
+    const all = [...withoutOther]
+    for (const c of customs) {
+      if (!all.find(x => x.toLowerCase() === String(c).toLowerCase())) all.push(c)
+    }
+    all.push('Other')
+    return all
+  }, [])
 
   function getUser() {
     try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null }
@@ -165,10 +199,19 @@ export default function PostEmployeeAdPage() {
       setStatus('Phone must be in +94XXXXXXXXX format.')
       return
     }
-    const sub = String(subCategory || '').trim()
+
+    let sub = String(subCategory || '').trim()
+    let subCustom = ''
     if (!sub) {
       setStatus('Please select a Job sub-category or type your own.')
       return
+    }
+    if (sub.toLowerCase() === 'other') {
+      subCustom = String(customSubCategory || '').trim()
+      if (!subCustom) {
+        setStatus('Please enter your Job sub-category.')
+        return
+      }
     }
 
     try {
@@ -181,6 +224,9 @@ export default function PostEmployeeAdPage() {
       fd.append('location', location.trim())
       fd.append('phone', phoneVal)
       fd.append('sub_category', sub)
+      if (subCustom) {
+        fd.append('sub_category_custom', subCustom)
+      }
       const r = await fetch('/api/jobs/employee/draft', {
         method: 'POST',
         headers: { 'X-User-Email': userEmail },
@@ -192,6 +238,12 @@ export default function PostEmployeeAdPage() {
         setStatus(data.error || 'Failed to create draft.')
         return
       }
+
+      // If user typed a custom sub-category, persist it for future sessions
+      if (subCustom) {
+        saveCustomSub(subCustom)
+      }
+
       setTimeout(() => {
         navigate(`/verify-employee?draftId=${encodeURIComponent(data.draftId)}`)
       }, 400)
@@ -200,6 +252,8 @@ export default function PostEmployeeAdPage() {
       setStatus('Network error.')
     }
   }
+
+  const isOther = String(subCategory || '').toLowerCase() === 'other'
 
   return (
     <div className="center">
@@ -277,10 +331,19 @@ export default function PostEmployeeAdPage() {
                   onChange={v => setSubCategory(v)}
                   ariaLabel="Job sub-category"
                   placeholder="Select or type a sub-category"
-                  options={JOB_SUBCATEGORIES.map(v => ({ value: v, label: v }))}
+                  options={mergedSubCategories.map(v => ({ value: v, label: v }))}
                   searchable={true}
                   allowCustom={true}
                 />
+                {isOther && (
+                  <input
+                    className="input"
+                    style={{ marginTop: 8 }}
+                    placeholder="Type your Job sub-category"
+                    value={customSubCategory}
+                    onChange={e => setCustomSubCategory(e.target.value)}
+                  />
+                )}
               </div>
               <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
               <div>
