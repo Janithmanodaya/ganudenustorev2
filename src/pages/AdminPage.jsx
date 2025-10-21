@@ -1063,7 +1063,21 @@ export default function AdminPage() {
             </div>
             {notifyTargetType === 'email' && (
               <div style={{ marginTop: 8 }}>
-                <input className="input" placeholder="Target email" value={notifyEmail} onChange={e => setNotifyEmail(e.target.value)} />
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Select user email</div>
+                <CustomSelect
+                  value={notifyEmail}
+                  onChange={v => setNotifyEmail(String(v || ''))}
+                  ariaLabel="Target email"
+                  placeholder={userEmailOptionsCache.length ? 'Pick an email...' : 'No users loaded yet'}
+                  options={userEmailOptionsCache.map(e => ({ value: e, label: e }))}
+                  searchable={true}
+                  allowCustom={true}
+                  virtualized={true}
+                  maxDropdownHeight={420}
+                />
+                <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                  Tip: start typing to filter. You can also enter a custom email not in the list.
+                </small>
               </div>
             )}
             <div style={{ marginTop: 8 }}>
