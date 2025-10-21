@@ -323,7 +323,8 @@ const authLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 30, standardHeade
 app.use('/api/auth', authLimiter, authRouter);
 
 const adminLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
-app.use('/api/admin', adminLimiter, adminRouter);>
+app.use('/api/admin', adminLimiter, adminRouter);
+
 // --- Global maintenance-mode gate (allow admin, health, and maintenance status; block everything else) ---
 function isAdminRequest(req) {
   try {
@@ -353,8 +354,15 @@ app.use((req, res, next) => {
   const { enabled, message } = getMaintenanceConfig();
   if (!enabled) return next();
 
-  // Allow admin API, health, and public maintenance status
- tatus(503).json({ error: 'Service under maintenance', message });
+  // Allow admin API, health, and public maintenance status (and any admin-authenticated request)
+  const p = String(req.path || '');
+  if (p.startsWith('/api/admin') || p === '/api/health' || p === '/api/maintenance-status' || isAdminRequest(req)) {
+    return next();
+  }
+
+  // For API calls, return JSON 503
+  if (p.startsWith('/api/')) {
+    return res.status(503).json({ error: 'Service under maintenance', message });
   }
 
   // For other GET requests, serve maintenance page
