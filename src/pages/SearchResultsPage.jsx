@@ -393,8 +393,7 @@ export default function SearchResultsPage() {
         </div>
 
         <div style={{ padding: 18 }}>
-          <div className="h2" style={{ marginTop: 0 }}>{t('search.resul')}</ts_codedinewv</>
-iv>
+          <div className="h2" style={{ marginTop: 0 }}>{t('search.results')}</div>
           <div className="grid three">
             {results.map(r => {
               let expires = ''
@@ -455,8 +454,7 @@ iv>
                             }}
                           >
                             {t('common.urgent')}
-                        </  s_codepanewn</>
-            </span>
+                          </span>
                         )}
                       </div>
                     )}
@@ -477,12 +475,12 @@ iv>
                 );
               }
             })}
-            {results.length === 0 & <<p className="text-muted">{t('search.noResul')}</t_codespnew></}
+            {results.length === 0 && <p className="text-muted">{t('search.noResults')}</p>}
 
           </div>
           {/* Pagination */}
           <div className="pagination" style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-            <button className="btn page" onClick={() => setPage(Math.max(1, page - 1))} aria-label="Previous page">{t('commontton>
+            <button className="btn page" onClick={() => setPage(Math.max(1, page - 1))} aria-label="Previous page">{t('common.prev')}</button>
             {pageWindow.map(p => (
               <button
                 key={p}
@@ -493,7 +491,7 @@ iv>
                 {p}
               </button>
             ))}
-            <button className="btn page" onClick={() => setPage(page + 1)} aria-label="Next page">{t('common.ne')}</xtbut_codetonewn</>
+            <button className="btn page" onClick={() => setPage(page + 1)} aria-label="Next page">{t('common.next')}</button>
 
           </div>
 
