@@ -105,7 +105,11 @@ export default function App() {
     try {
       const user = JSON.parse(localStorage.getItem('user') || 'null')
       setUserEmail(user?.email || '')
-      setIsAdminLocal(!!(user && user.is_admin
+      setIsAdminLocal(!!(user && user.is_admin))
+    } catch (_) {
+      setUserEmail('')
+      setIsAdminLocal(false)
+    }
   }, [location])
 
   // Check ban/suspend status and show blocking overlay if necessary
