@@ -704,7 +704,36 @@ export default function AdminPage() {
               const aH = totalH > 0 ? Math.round((d.a / (d.a + d.b)) * totalH) : 0
               const bH = totalH - aH
               return (
-                <div key={idx} style={{ width: 18, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ display: 'contents' }}>
+                                      <div style={{ minWidth: 200, flex: '0 0 200px' }}>
+                                        <CustomSelect
+                                          value={(userAdsFilters[u.id]?.category || '')}
+                                          onChange={v => updateUserAdsFilter(u.id, { category: String(v || '') })}
+                                          ariaLabel="Category"
+                                          placeholder="Category"
+                                          options={[{ value: '', label: 'Any' }, ...Array.from(
+                                            new Set(((Array.isArray(userAds[u.id]) ? userAds[u.id] : []).map(a => String(a.main_category || '').trim()).filter(Boolean)))
+                                          ).map(c => ({ value: c, label: c }))]}
+                                          searchable={true}
+                                          allowCustom={true}
+                                        />
+                                      </div>
+                                      <div style={{ minWidth: 200, flex: '0 0 200px' }}>
+                                        <CustomSelect
+                                          value={(userAdsFilters[u.id]?.location || '')}
+                                          onChange={v => updateUserAdsFilter(u.id, { location: String(v || '') })}
+                                          ariaLabel="Location"
+                                          placeholder="Location"
+                                          options={[{ value: '', label: 'Any' }, ...Array.from(
+                                            new Set(((Array.isArray(userAds[u.id]) ? userAds[u.id] : []).map(a => String(a.location || '').trim()).filter(Boolean)))
+                                          ).map(l => ({ value: l, label: l }))]}
+                                          searchable={true}
+                                          allowCustom={true}
+                                        />
+                                      </div>
+                                    </div>
+                                  )
+                                })()} <div key={idx} style={{ width: 18, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: '100%', height: totalH, borderRadius: 8, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} title={`${d.date}: ${d.a} / ${d.b}`}>
                     <div style={{ background: aColor, height: aH }} />
                     <div style={{ background: bColor, height: bH }} />
