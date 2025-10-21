@@ -67,6 +67,7 @@ export default function AdminPage() {
   const [selectedChatEmail, setSelectedChatEmail] = useState('')
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState('')
+  const [sendEmailOnReply, setSendEmailOnReply] = useState(t_coderunewe</)
 
   // Backup
   const backupFileRef = useRef(null)
@@ -582,12 +583,17 @@ export default function AdminPage() {
       const r = await fetch(`/api/chats/admin/${encodeURIComponent(selectedChatEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined },
-        body: JSON.stringify({ message: msg })
+        body: JSON.stringify({ message: msg, notifyEmail: !!sendEmailOnReply })
       })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to send')
       setChatInput('')
       setChatMessages(prev => [...prev, { id: Date.now(), sender: 'admin', message: msg, created_at: new Date().toISOString() }])
+      if (sendEmailOnReply) {
+        setStatus('Reply sent and email notification requested.')
+      } else {
+        setStatus('Reply sent.')
+      }
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
@@ -1136,13 +1142,20 @@ export default function AdminPage() {
                     <div style={{ maxHeight: 300, overflowY: 'auto', marginTop: 8 }}>
                       {chatMessages.map(m => (
                         <div key={m.id} className="card" style={{ marginBottom: 6 }}>
-                          <div><strong>{m.sender}</strong> • {new Date(m.created_at).toLocaleString()}</div>
-                          <div className="text-muted">{m.message}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                            <strong>{m.sender}</strong>
+                            <small className="text-muted">{new Date(m.created_at).toLocaleString()}</small>
+                          </div>
+                          <div className="text-muted" style={{ marginTop: 4 }}>{m.message}</div>
                         </div>
                       ))}
                     </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                      <input className="input" placeholder="Type a message..." value={chatInput} onChange={e => setChatInput(e.target.value)} />
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input className="input" placeholder="Type a message..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendAdminReply() } }} />
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <input type="checkbox" checked={sendEmailOnReply} onChange={e => setSendEmailOnReply(!!e.target.checked)} />
+                        <span className="text-muted">Send email notification</span>
+                      </label>
                       <button className="btn primary" onClick={sendAdminReply}>Send</button>
                     </div>
                   </>
