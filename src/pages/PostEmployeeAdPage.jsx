@@ -492,3 +492,754 @@ export default function PostEmployeeAdPage() {
     </div>
   )
 }
+).test(phoneVal)) {
+      setStatus('Phone must be in +94XXXXXXXXX format.')
+      return
+    }
+    let sub = String(subCategory || '').trim()
+    if (!sub) {
+      setStatus('Please select a Job sub-category or type your own.')
+      return
+    }
+    if (sub === 'Other') {
+      const typed = String(customSubCategory || '').trim()
+      if (!typed) {
+        setStatus('Please type your Job sub-category.')
+        return
+      }
+      sub = typed
+    }
+
+    try {
+      setProcessing(true)
+      setStatus(null)
+      const fd = new FormData()
+      fd.append('name', name.trim())
+      fd.append('target_title', targetTitle.trim())
+      fd.append('summary', summary.trim())
+      fd.append('location', location.trim())
+      fd.append('phone', phoneVal)
+      fd.append('sub_category', sub)
+      const r = await fetch('/api/jobs/employee/draft', {
+        method: 'POST',
+        headers: { 'X-User-Email': userEmail },
+        body: fd
+      })
+      const data = await r.json()
+      if (!r.ok) {
+        setProcessing(false)
+        setStatus(data.error || 'Failed to create draft.')
+        return
+      }
+      addCustomSubcategory(sub)
+      setTimeout(() => {
+        navigate(`/verify-employee?draftId=${encodeURIComponent(data.draftId)}`)
+      }, 400)
+    } catch (e) {
+      setProcessing(false)
+      setStatus('Network error.')
+    }
+  }
+
+  return (
+    <div className="center">
+      {processing && <LoadingOverlay message="Saving your profile..." />}
+      <div className="card">
+        <div className="h1">Post Employee Profile (Free)</div>
+        {checkingExisting ? (
+          <p className="text-muted">Checking for an existing profile...</p>
+        ) : existingDraft ? (
+          <>
+            <p className="text-muted" style={{ marginTop: 0 }}>
+              You have an Employee Profile draft. You can continue or delete it below.
+            </p>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>{existingDraft.title}</div>
+              <div className="text-muted" style={{ marginBottom: 6 }}>
+                Created: {existingDraft.created_at ? new Date(existingDraft.created_at).toLocaleString() : '—'}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => navigate(`/verify-employee?draftId=${encodeURIComponent(existingDraft.id)}`)}
+                >
+                  Continue to Review & Publish
+                </button>
+                <button className="btn" type="button" onClick={() => handleDeleteDraft(existingDraft.id)} style={{ background: '#f44336', color: '#fff' }}>
+                  Delete Draft
+                </button>
+              </div>
+            </div>
+          </>
+        ) : existingProfile ? (
+          <>
+            <p className="text-muted" style={{ marginTop: 0 }}>
+              You already have an Employee Profile. You can view or delete it below.
+            </p>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>{existingProfile.title}</div>
+              <div className="text-muted" style={{ marginBottom: 6 }}>
+                Status: {existingProfile.status} {existingProfile.location ? `• ${existingProfile.location}` : ''}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => {
+                    const slug = makeSlug(existingProfile.title)
+                    navigate(`/listing/${existingProfile.id}-${slug}`)
+                  }}
+                >
+                  Open Profile
+                </button>
+                <button className="btn" type="button" onClick={() => navigate('/my-ads')}>Manage in My Ads</button>
+                <button className="btn" type="button" onClick={() => handleDeleteExisting(existingProfile.id)} style={{ background: '#f44336', color: '#fff' }}>
+                  Delete Profile
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-muted">
+              Create your profile manually. One profile per email. Profiles expire after 3 months.
+            </p>
+            <form onSubmit={submit} className="grid two">
+              <input className="input" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} />
+              <input className="input" placeholder="Target Job Title" value={targetTitle} onChange={e => setTargetTitle(e.target.value)} />
+              <input className="input" placeholder="Location (e.g., Colombo)" value={location} onChange={e => setLocation(e.target.value)} />
+              <input className="input" placeholder="Contact phone (+94XXXXXXXXX)" value={phone} onChange={e => setPhone(e.target.value)} />
+              <div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Job Sub-category</div>
+                <CustomSelect
+                  value={subCategory}
+                  onChange={v => setSubCategory(v)}
+                  ariaLabel="Job sub-category"
+                  placeholder="Select or type a sub-category"
+                  options={jobOptions.map(v => ({ value: v, label: v }))}
+                  searchable={true}
+                  allowCustom={true}
+                />
+                {String(subCategory) === 'Other' && (
+                  <input
+                    className="input"
+                    placeholder="Type your Job sub-category"
+                    value={customSubCategory}
+                    onChange={e => setCustomSubCategory(e.target.value)}
+                    style={{ marginTop: 8 }}
+                  />
+                )}
+              </div>
+              <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
+              <div>
+                <button className="btn primary" type="submit" disabled={processing}>Continue</button>
+              </div>
+            </form>
+          </>
+        )}
+        {status && <p style={{ marginTop: 8 }}>{status}</p>}
+      </div>
+    </div>
+  )
+}
+).test(phoneVal)) {
+      setStatus('Phone must be in +94XXXXXXXXX format.')
+      return
+    }
+    let sub = String(subCategory || '').trim()
+    if (!sub) {
+      setStatus('Please select a Job sub-category or type your own.')
+      return
+    }
+    if (sub === 'Other') {
+      const typed = String(customSubCategory || '').trim()
+      if (!typed) {
+        setStatus('Please type your Job sub-category.')
+        return
+      }
+      sub = typed
+    }
+
+    try {
+      setProcessing(true)
+      setStatus(null)
+      const fd = new FormData()
+      fd.append('name', name.trim())
+      fd.append('target_title', targetTitle.trim())
+      fd.append('summary', summary.trim())
+      fd.append('location', location.trim())
+      fd.append('phone', phoneVal)
+      fd.append('sub_category', sub)
+      const r = await fetch('/api/jobs/employee/draft', {
+        method: 'POST',
+        headers: { 'X-User-Email': userEmail },
+        body: fd
+      })
+      const data = await r.json()
+      if (!r.ok) {
+        setProcessing(false)
+        setStatus(data.error || 'Failed to create draft.')
+        return
+      }
+      addCustomSubcategory(sub)
+      setTimeout(() => {
+        navigate(`/verify-employee?draftId=${encodeURIComponent(data.draftId)}`)
+      }, 400)
+    } catch (e) {
+      setProcessing(false)
+      setStatus('Network error.')
+    }
+  }
+
+  return (
+    <div className="center">
+      {processing && <LoadingOverlay message="Saving your profile..." />}
+      <div className="card">
+        <div className="h1">Post Employee Profile (Free)</div>
+        {checkingExisting ? (
+          <p className="text-muted">Checking for an existing profile...</p>
+        ) : existingDraft ? (
+          <>
+            <p className="text-muted" style={{ marginTop: 0 }}>
+              You have an Employee Profile draft. You can continue or delete it below.
+            </p>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>{existingDraft.title}</div>
+              <div className="text-muted" style={{ marginBottom: 6 }}>
+                Created: {existingDraft.created_at ? new Date(existingDraft.created_at).toLocaleString() : '—'}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => navigate(`/verify-employee?draftId=${encodeURIComponent(existingDraft.id)}`)}
+                >
+                  Continue to Review & Publish
+                </button>
+                <button className="btn" type="button" onClick={() => handleDeleteDraft(existingDraft.id)} style={{ background: '#f44336', color: '#fff' }}>
+                  Delete Draft
+                </button>
+              </div>
+            </div>
+          </>
+        ) : existingProfile ? (
+          <>
+            <p className="text-muted" style={{ marginTop: 0 }}>
+              You already have an Employee Profile. You can view or delete it below.
+            </p>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>{existingProfile.title}</div>
+              <div className="text-muted" style={{ marginBottom: 6 }}>
+                Status: {existingProfile.status} {existingProfile.location ? `• ${existingProfile.location}` : ''}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => {
+                    const slug = makeSlug(existingProfile.title)
+                    navigate(`/listing/${existingProfile.id}-${slug}`)
+                  }}
+                >
+                  Open Profile
+                </button>
+                <button className="btn" type="button" onClick={() => navigate('/my-ads')}>Manage in My Ads</button>
+                <button className="btn" type="button" onClick={() => handleDeleteExisting(existingProfile.id)} style={{ background: '#f44336', color: '#fff' }}>
+                  Delete Profile
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-muted">
+              Create your profile manually. One profile per email. Profiles expire after 3 months.
+            </p>
+            <form onSubmit={submit} className="grid two">
+              <input className="input" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} />
+              <input className="input" placeholder="Target Job Title" value={targetTitle} onChange={e => setTargetTitle(e.target.value)} />
+              <input className="input" placeholder="Location (e.g., Colombo)" value={location} onChange={e => setLocation(e.target.value)} />
+              <input className="input" placeholder="Contact phone (+94XXXXXXXXX)" value={phone} onChange={e => setPhone(e.target.value)} />
+              <div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Job Sub-category</div>
+                <CustomSelect
+                  value={subCategory}
+                  onChange={v => setSubCategory(v)}
+                  ariaLabel="Job sub-category"
+                  placeholder="Select or type a sub-category"
+                  options={jobOptions.map(v => ({ value: v, label: v }))}
+                  searchable={true}
+                  allowCustom={true}
+                />
+                {String(subCategory) === 'Other' && (
+                  <input
+                    className="input"
+                    placeholder="Type your Job sub-category"
+                    value={customSubCategory}
+                    onChange={e => setCustomSubCategory(e.target.value)}
+                    style={{ marginTop: 8 }}
+                  />
+                )}
+              </div>
+              <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
+              <div>
+                <button className="btn primary" type="submit" disabled={processing}>Continue</button>
+              </div>
+            </form>
+          </>
+        )}
+        {status && <p style={{ marginTop: 8 }}>{status}</p>}
+      </div>
+    </div>
+  )
+}
+    let sub = String(subCategory || '').trim()
+    if (!sub) {
+      setStatus('Please select a Job sub-category or type your own.')
+      return
+    }
+    if (sub === 'Other') {
+      const typed = String(customSubCategory || '').trim()
+      if (!typed) {
+        setStatus('Please type your Job sub-category.')
+        return
+      }
+      sub = typed
+    }
+
+    try {
+      setProcessing(true)
+      setStatus(null)
+      const fd = new FormData()
+      fd.append('name', name.trim())
+      fd.append('target_title', targetTitle.trim())
+      fd.append('summary', summary.trim())
+      fd.append('location', location.trim())
+      fd.append('phone', phoneVal)
+      fd.append('sub_category', sub)
+      const r = await fetch('/api/jobs/employee/draft', {
+        method: 'POST',
+        headers: { 'X-User-Email': userEmail },
+        body: fd
+      })
+      const data = await r.json()
+      if (!r.ok) {
+        setProcessing(false)
+        setStatus(data.error || 'Failed to create draft.')
+        return
+      }
+      addCustomSubcategory(sub)
+      setTimeout(() => {
+        navigate(`/verify-employee?draftId=${encodeURIComponent(data.draftId)}`)
+      }, 400)
+    } catch (e) {
+      setProcessing(false)
+      setStatus('Network error.')
+    }
+  }
+
+  return (
+    <div className="center">
+      {processing && <LoadingOverlay message="Saving your profile..." />}
+      <div className="card">
+        <div className="h1">Post Employee Profile (Free)</div>
+        {checkingExisting ? (
+          <p className="text-muted">Checking for an existing profile...</p>
+        ) : existingDraft ? (
+          <>
+            <p className="text-muted" style={{ marginTop: 0 }}>
+              You have an Employee Profile draft. You can continue or delete it below.
+            </p>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>{existingDraft.title}</div>
+              <div className="text-muted" style={{ marginBottom: 6 }}>
+                Created: {existingDraft.created_at ? new Date(existingDraft.created_at).toLocaleString() : '—'}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => navigate(`/verify-employee?draftId=${encodeURIComponent(existingDraft.id)}`)}
+                >
+                  Continue to Review & Publish
+                </button>
+                <button className="btn" type="button" onClick={() => handleDeleteDraft(existingDraft.id)} style={{ background: '#f44336', color: '#fff' }}>
+                  Delete Draft
+                </button>
+              </div>
+            </div>
+          </>
+        ) : existingProfile ? (
+          <>
+            <p className="text-muted" style={{ marginTop: 0 }}>
+              You already have an Employee Profile. You can view or delete it below.
+            </p>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>{existingProfile.title}</div>
+              <div className="text-muted" style={{ marginBottom: 6 }}>
+                Status: {existingProfile.status} {existingProfile.location ? `• ${existingProfile.location}` : ''}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => {
+                    const slug = makeSlug(existingProfile.title)
+                    navigate(`/listing/${existingProfile.id}-${slug}`)
+                  }}
+                >
+                  Open Profile
+                </button>
+                <button className="btn" type="button" onClick={() => navigate('/my-ads')}>Manage in My Ads</button>
+                <button className="btn" type="button" onClick={() => handleDeleteExisting(existingProfile.id)} style={{ background: '#f44336', color: '#fff' }}>
+                  Delete Profile
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-muted">
+              Create your profile manually. One profile per email. Profiles expire after 3 months.
+            </p>
+            <form onSubmit={submit} className="grid two">
+              <input className="input" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} />
+              <input className="input" placeholder="Target Job Title" value={targetTitle} onChange={e => setTargetTitle(e.target.value)} />
+              <input className="input" placeholder="Location (e.g., Colombo)" value={location} onChange={e => setLocation(e.target.value)} />
+              <input className="input" placeholder="Contact phone (+94XXXXXXXXX)" value={phone} onChange={e => setPhone(e.target.value)} />
+              <div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Job Sub-category</div>
+                <CustomSelect
+                  value={subCategory}
+                  onChange={v => setSubCategory(v)}
+                  ariaLabel="Job sub-category"
+                  placeholder="Select or type a sub-category"
+                  options={jobOptions.map(v => ({ value: v, label: v }))}
+                  searchable={true}
+                  allowCustom={true}
+                />
+                {String(subCategory) === 'Other' && (
+                  <input
+                    className="input"
+                    placeholder="Type your Job sub-category"
+                    value={customSubCategory}
+                    onChange={e => setCustomSubCategory(e.target.value)}
+                    style={{ marginTop: 8 }}
+                  />
+                )}
+              </div>
+              <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
+              <div>
+                <button className="btn primary" type="submit" disabled={processing}>Continue</button>
+              </div>
+            </form>
+          </>
+        )}
+        {status && <p style={{ marginTop: 8 }}>{status}</p>}
+      </div>
+    </div>
+  )
+}
+).test(phoneVal)) {
+      setStatus('Phone must be in +94XXXXXXXXX format.')
+      return
+    }
+    let sub = String(subCategory || '').trim()
+    if (!sub) {
+      setStatus('Please select a Job sub-category or type your own.')
+      return
+    }
+    if (sub === 'Other') {
+      const typed = String(customSubCategory || '').trim()
+      if (!typed) {
+        setStatus('Please type your Job sub-category.')
+        return
+      }
+      sub = typed
+    }
+
+    try {
+      setProcessing(true)
+      setStatus(null)
+      const fd = new FormData()
+      fd.append('name', name.trim())
+      fd.append('target_title', targetTitle.trim())
+      fd.append('summary', summary.trim())
+      fd.append('location', location.trim())
+      fd.append('phone', phoneVal)
+      fd.append('sub_category', sub)
+      const r = await fetch('/api/jobs/employee/draft', {
+        method: 'POST',
+        headers: { 'X-User-Email': userEmail },
+        body: fd
+      })
+      const data = await r.json()
+      if (!r.ok) {
+        setProcessing(false)
+        setStatus(data.error || 'Failed to create draft.')
+        return
+      }
+      addCustomSubcategory(sub)
+      setTimeout(() => {
+        navigate(`/verify-employee?draftId=${encodeURIComponent(data.draftId)}`)
+      }, 400)
+    } catch (e) {
+      setProcessing(false)
+      setStatus('Network error.')
+    }
+  }
+
+  return (
+    <div className="center">
+      {processing && <LoadingOverlay message="Saving your profile..." />}
+      <div className="card">
+        <div className="h1">Post Employee Profile (Free)</div>
+        {checkingExisting ? (
+          <p className="text-muted">Checking for an existing profile...</p>
+        ) : existingDraft ? (
+          <>
+            <p className="text-muted" style={{ marginTop: 0 }}>
+              You have an Employee Profile draft. You can continue or delete it below.
+            </p>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>{existingDraft.title}</div>
+              <div className="text-muted" style={{ marginBottom: 6 }}>
+                Created: {existingDraft.created_at ? new Date(existingDraft.created_at).toLocaleString() : '—'}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => navigate(`/verify-employee?draftId=${encodeURIComponent(existingDraft.id)}`)}
+                >
+                  Continue to Review & Publish
+                </button>
+                <button className="btn" type="button" onClick={() => handleDeleteDraft(existingDraft.id)} style={{ background: '#f44336', color: '#fff' }}>
+                  Delete Draft
+                </button>
+              </div>
+            </div>
+          </>
+        ) : existingProfile ? (
+          <>
+            <p className="text-muted" style={{ marginTop: 0 }}>
+              You already have an Employee Profile. You can view or delete it below.
+            </p>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>{existingProfile.title}</div>
+              <div className="text-muted" style={{ marginBottom: 6 }}>
+                Status: {existingProfile.status} {existingProfile.location ? `• ${existingProfile.location}` : ''}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => {
+                    const slug = makeSlug(existingProfile.title)
+                    navigate(`/listing/${existingProfile.id}-${slug}`)
+                  }}
+                >
+                  Open Profile
+                </button>
+                <button className="btn" type="button" onClick={() => navigate('/my-ads')}>Manage in My Ads</button>
+                <button className="btn" type="button" onClick={() => handleDeleteExisting(existingProfile.id)} style={{ background: '#f44336', color: '#fff' }}>
+                  Delete Profile
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-muted">
+              Create your profile manually. One profile per email. Profiles expire after 3 months.
+            </p>
+            <form onSubmit={submit} className="grid two">
+              <input className="input" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} />
+              <input className="input" placeholder="Target Job Title" value={targetTitle} onChange={e => setTargetTitle(e.target.value)} />
+              <input className="input" placeholder="Location (e.g., Colombo)" value={location} onChange={e => setLocation(e.target.value)} />
+              <input className="input" placeholder="Contact phone (+94XXXXXXXXX)" value={phone} onChange={e => setPhone(e.target.value)} />
+              <div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Job Sub-category</div>
+                <CustomSelect
+                  value={subCategory}
+                  onChange={v => setSubCategory(v)}
+                  ariaLabel="Job sub-category"
+                  placeholder="Select or type a sub-category"
+                  options={jobOptions.map(v => ({ value: v, label: v }))}
+                  searchable={true}
+                  allowCustom={true}
+                />
+                {String(subCategory) === 'Other' && (
+                  <input
+                    className="input"
+                    placeholder="Type your Job sub-category"
+                    value={customSubCategory}
+                    onChange={e => setCustomSubCategory(e.target.value)}
+                    style={{ marginTop: 8 }}
+                  />
+                )}
+              </div>
+              <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
+              <div>
+                <button className="btn primary" type="submit" disabled={processing}>Continue</button>
+              </div>
+            </form>
+          </>
+        )}
+        {status && <p style={{ marginTop: 8 }}>{status}</p>}
+      </div>
+    </div>
+  )
+}
+).test(phoneVal)) {
+      setStatus('Phone must be in +94XXXXXXXXX format.')
+      return
+    }
+    let sub = String(subCategory || '').trim()
+    if (!sub) {
+      setStatus('Please select a Job sub-category or type your own.')
+      return
+    }
+    if (sub === 'Other') {
+      const typed = String(customSubCategory || '').trim()
+      if (!typed) {
+        setStatus('Please type your Job sub-category.')
+        return
+      }
+      sub = typed
+    }
+
+    try {
+      setProcessing(true)
+      setStatus(null)
+      const fd = new FormData()
+      fd.append('name', name.trim())
+      fd.append('target_title', targetTitle.trim())
+      fd.append('summary', summary.trim())
+      fd.append('location', location.trim())
+      fd.append('phone', phoneVal)
+      fd.append('sub_category', sub)
+      const r = await fetch('/api/jobs/employee/draft', {
+        method: 'POST',
+        headers: { 'X-User-Email': userEmail },
+        body: fd
+      })
+      const data = await r.json()
+      if (!r.ok) {
+        setProcessing(false)
+        setStatus(data.error || 'Failed to create draft.')
+        return
+      }
+      addCustomSubcategory(sub)
+      setTimeout(() => {
+        navigate(`/verify-employee?draftId=${encodeURIComponent(data.draftId)}`)
+      }, 400)
+    } catch (e) {
+      setProcessing(false)
+      setStatus('Network error.')
+    }
+  }
+
+  return (
+    <div className="center">
+      {processing && <LoadingOverlay message="Saving your profile..." />}
+      <div className="card">
+        <div className="h1">Post Employee Profile (Free)</div>
+        {checkingExisting ? (
+          <p className="text-muted">Checking for an existing profile...</p>
+        ) : existingDraft ? (
+          <>
+            <p className="text-muted" style={{ marginTop: 0 }}>
+              You have an Employee Profile draft. You can continue or delete it below.
+            </p>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>{existingDraft.title}</div>
+              <div className="text-muted" style={{ marginBottom: 6 }}>
+                Created: {existingDraft.created_at ? new Date(existingDraft.created_at).toLocaleString() : '—'}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => navigate(`/verify-employee?draftId=${encodeURIComponent(existingDraft.id)}`)}
+                >
+                  Continue to Review & Publish
+                </button>
+                <button className="btn" type="button" onClick={() => handleDeleteDraft(existingDraft.id)} style={{ background: '#f44336', color: '#fff' }}>
+                  Delete Draft
+                </button>
+              </div>
+            </div>
+          </>
+        ) : existingProfile ? (
+          <>
+            <p className="text-muted" style={{ marginTop: 0 }}>
+              You already have an Employee Profile. You can view or delete it below.
+            </p>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>{existingProfile.title}</div>
+              <div className="text-muted" style={{ marginBottom: 6 }}>
+                Status: {existingProfile.status} {existingProfile.location ? `• ${existingProfile.location}` : ''}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => {
+                    const slug = makeSlug(existingProfile.title)
+                    navigate(`/listing/${existingProfile.id}-${slug}`)
+                  }}
+                >
+                  Open Profile
+                </button>
+                <button className="btn" type="button" onClick={() => navigate('/my-ads')}>Manage in My Ads</button>
+                <button className="btn" type="button" onClick={() => handleDeleteExisting(existingProfile.id)} style={{ background: '#f44336', color: '#fff' }}>
+                  Delete Profile
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-muted">
+              Create your profile manually. One profile per email. Profiles expire after 3 months.
+            </p>
+            <form onSubmit={submit} className="grid two">
+              <input className="input" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} />
+              <input className="input" placeholder="Target Job Title" value={targetTitle} onChange={e => setTargetTitle(e.target.value)} />
+              <input className="input" placeholder="Location (e.g., Colombo)" value={location} onChange={e => setLocation(e.target.value)} />
+              <input className="input" placeholder="Contact phone (+94XXXXXXXXX)" value={phone} onChange={e => setPhone(e.target.value)} />
+              <div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Job Sub-category</div>
+                <CustomSelect
+                  value={subCategory}
+                  onChange={v => setSubCategory(v)}
+                  ariaLabel="Job sub-category"
+                  placeholder="Select or type a sub-category"
+                  options={jobOptions.map(v => ({ value: v, label: v }))}
+                  searchable={true}
+                  allowCustom={true}
+                />
+                {String(subCategory) === 'Other' && (
+                  <input
+                    className="input"
+                    placeholder="Type your Job sub-category"
+                    value={customSubCategory}
+                    onChange={e => setCustomSubCategory(e.target.value)}
+                    style={{ marginTop: 8 }}
+                  />
+                )}
+              </div>
+              <textarea className="textarea" placeholder="Summary / Pitch" value={summary} onChange={e => setSummary(e.target.value)} />
+              <div>
+                <button className="btn primary" type="submit" disabled={processing}>Continue</button>
+              </div>
+            </form>
+          </>
+        )}
+        {status && <p style={{ marginTop: 8 }}>{status}</p>}
+      </div>
+    </div>
+  )
+}
