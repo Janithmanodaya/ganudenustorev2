@@ -532,6 +532,22 @@ export default function WantedBoardPage() {
     });
   }, [requests, localFilter, filterCategory, filterLocation, filterPriceMin, filterPriceMax, browseFilters]);
 
+  // Numbered pagination (same design/behaviour as HomePage)
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
+  // Reset to page 1 when filters/search change
+  useEffect(() => {
+    setPage(1);
+  }, [localFilter, filterCategory, filterLocation, filterPriceMin, filterPriceMax, browseFilters]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / limit));
+  const startIdx = (page - 1) * limit;
+  const endIdx = startIdx + limit;
+  const visibleRequests = filteredRequests.slice(startIdx, endIdx);
+
+  const pageWindow = [page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1 && p <= totalPages);
+
   const filteredKeysForUI = (filtersMeta.keys || []).filter(k => !['location', 'pricing_type', 'price', 'phone', 'model', 'job_type', 'sub_category'].includes(k));
 
   // Helpers and missing handlers
@@ -970,7 +986,7 @@ export default function WantedBoardPage() {
           {/* Redesigned cards to match HomePage grid and style */}
           {!loading && filteredRequests.length > 0 && (
             <div className="grid three">
-              {filteredRequests.map(r => {
+              {visibleRequests.map(r => {
                 const locs = parseArray(r.locations_json);
                 const modelsArr = parseArray(r.models_json);
                 const filtersObj = parseFilters(r.filters_json);
@@ -1084,6 +1100,38 @@ export default function WantedBoardPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Pagination (matches HomePage style) */}
+          {!loading && filteredRequests.length > 0 && (
+            <div className="pagination" style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+              <button
+                className="btn page"
+                onClick={() => setPage(Math.max(1, page - 1))}
+                aria-label="Previous page"
+                disabled={page <= 1}
+              >
+                ‹ Prev
+              </button>
+              {pageWindow.map(p => (
+                <button
+                  key={p}
+                  className={`btn page ${p === page ? 'primary' : ''}`}
+                  onClick={() => setPage(p)}
+                  aria-label={`Go to page ${p}`}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                className="btn page"
+                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                aria-label="Next page"
+                disabled={page >= totalPages}
+              >
+                Next ›
+              </button>
             </div>
           )}
         </div>
