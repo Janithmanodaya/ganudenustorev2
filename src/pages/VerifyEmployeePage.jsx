@@ -34,38 +34,6 @@ export default function VerifyEmployeePage() {
   const [status, setStatus] = useState(null)
   const [submitted, setSubmitted] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [customSubCategory, setCustomSubCategory] = useState('')
-  const [subListVersion, setSubListVersion] = useState(0)
-
-  const jobOptions = React.useMemo(() => {
-    let custom = []
-    try { custom = JSON.parse(localStorage.getItem('job_subcategories_custom') || '[]') } catch (_) { custom = [] }
-    const base = JOB_SUBCATEGORIES.filter(v => v !== 'Other')
-    const merged = [...base]
-    const lowSet = new Set(base.map(s => String(s).toLowerCase()))
-    for (const s of custom) {
-      const t = String(s || '').trim()
-      if (t && !lowSet.has(t.toLowerCase()) && t.toLowerCase() !== 'other') {
-        merged.push(t)
-      }
-    }
-    merged.push('Other')
-    return merged
-  }, [subListVersion])
-
-  function addCustomSubcategory(val) {
-    const t = String(val || '').trim()
-    if (!t) return
-    const inBase = JOB_SUBCATEGORIES.some(x => String(x).toLowerCase() === t.toLowerCase())
-    let arr = []
-    try { arr = JSON.parse(localStorage.getItem('job_subcategories_custom') || '[]') } catch (_) { arr = [] }
-    const exists = arr.some(x => String(x).toLowerCase() === t.toLowerCase())
-    if (!exists && !inBase && t.toLowerCase() !== 'other') {
-      arr.push(t)
-      try { localStorage.setItem('job_subcategories_custom', JSON.stringify(arr)) } catch (_) {}
-      setSubListVersion(v => v + 1)
-    }
-  }
 
   // Publishing essentials
   const [location, setLocation] = useState('')
@@ -122,11 +90,7 @@ export default function VerifyEmployeePage() {
           const obj = JSON.parse(data.draft.structured_json || '{}')
           setLocation(String(obj.location || ''))
           setPhone(String(obj.phone || ''))
-          const loadedSub = String(obj.sub_category || '')
-          setSubCategory(loadedSub)
-          if (loadedSub && !JOB_SUBCATEGORIES.some(x => String(x).toLowerCase() === loadedSub.toLowerCase())) {
-            addCustomSubcategory(loadedSub)
-          }
+          setSubCategory(String(obj.sub_category || ''))
         } catch (_) {}
       } catch (e) {
         setStatus(`Error: ${e.message}`)
@@ -144,144 +108,11 @@ export default function VerifyEmployeePage() {
       // Basic validation required by server
       const loc = String(location || '').trim()
       const ph = String(phone || '').trim()
-      let sub = String(subCategory || '').trim()
+      const sub = String(subCategory || '').trim()
       const desc = String(description || '').trim()
       if (!sub) { setStatus('Please specify a Job sub-category (e.g., Driver, IT/Software, Sales/Marketing)'); return }
-      if (sub === 'Other') {
-        const typed = String(customSubCategory || '').trim()
-        if (!typed) { setStatus('Please type your Job sub-category.'); return }
-        sub = typed
-      }
       if (!loc) { setStatus('Location is required'); return }
-      if (!new RegExp('^\\+94\\d{9}
-
-      const obj = { sub_category: sub, location: loc, phone: ph }
-
-      const payload = {
-        draftId,
-        structured_json: JSON.stringify(obj, null, 2),
-        seo_title: seoTitle,
-        seo_description: seoDescription,
-        seo_keywords: seoKeywords,
-        description: desc
-      }
-      const headers = { 'Content-Type': 'application/json', ...buildAuthHeaders() }
-
-      const r = await fetch('/api/listings/submit', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      })
-      const data = await r.json()
-      if (!r.ok) throw new Error(data.error || 'Failed to submit')
-      setSubmitted(data)
-      setStatus('Profile submitted. Status: Pending Approval')
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
-  }
-
-  return (
-    <div className="center">
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <div className="h1" style={{ marginTop: 0, marginBottom: 0 }}>Review Profile & Publish</div>
-          <button
-            className="btn"
-            type="button"
-            onClick={() => navigate('/jobs/post-employee')}
-            aria-label="Back to post profile"
-            title="Back to post profile"
-          >
-            Back
-          </button>
-        </div>
-
-        {loading && <p className="text-muted">Loading profile draft...</p>}
-
-        {!loading && !draft && (
-          <div className="card" style={{ marginTop: 8 }}>
-            <p className="text-muted">{status || 'No draft found.'}</p>
-            <div style={{ marginTop: 8 }}>
-              <button className="btn" type="button" onClick={() => navigate('/jobs/post-employee')}>Go to Post Profile</button>
-            </div>
-          </div>
-        )}
-
-        {draft && (
-          <>
-            <p className="text-muted">Category: {draft.main_category} • Title: {draft.title}</p>
-
-            <div className="card" style={{ marginTop: 8 }}>
-              <div className="h2" style={{ marginTop: 0 }}>Publishing Details</div>
-              <div className="grid two">
-                <div>
-                  <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Job Sub-category</div>
-                  <CustomSelect
-                    value={subCategory}
-                    onChange={v => setSubCategory(v)}
-                    ariaLabel="Job sub-category"
-                    placeholder="Select or type a sub-category"
-                    options={jobOptions.map(v => ({ value: v, label: v }))}
-                    searchable={true}
-                    allowCustom={true}
-                  />
-                  {String(subCategory) === 'Other' && (
-                       />
-                </div>
-                <input
-                  className="input"
-                  placeholder="Location (e.g., Colombo)"
-                  value={location}
-                  onChange={e => setLocation(e.target.value)}
-                />
-                <input
-                  className="input"
-                  placeholder="Contact phone (+94XXXXXXXXX)"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                />
-              </div>
-              <div className="text-muted" style={{ marginTop: 6, fontSize: 12 }}>
-                Sub-category, location and phone are required to publish.
-              </div>
-            </div>
-
-            <div className="card" style={{ marginTop: 8 }}>
-              <div className="h2" style={{ marginTop: 0 }}>Profile Summary</div>
-              <textarea
-                className="textarea"
-                rows={4}
-                placeholder="Add details to help companies match your profile..."
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-              />
-            </div>
-
-            <div className="card" style={{ marginTop: 8 }}>
-              <div className="h2" style={{ marginTop: 0 }}>SEO Metadata (optional)</div>
-              <input className="input" placeholder="SEO Title (max 60 chars)" value={seoTitle} onChange={e => setSeoTitle(e.target.value.slice(0,60))} />
-              <input className="input" placeholder="Meta Description (max 160 chars)" value={seoDescription} onChange={e => setSeoDescription(e.target.value.slice(0,160))} style={{ marginTop: 8 }} />
-              <input className="input" placeholder="SEO Keywords (comma-separated)" value={seoKeywords} onChange={e => setSeoKeywords(e.target.value)} style={{ marginTop: 8 }} />
-            </div>
-
-            <div style={{ marginTop: 12 }}>
-              <button className="btn primary" onClick={submitPost}>Publish Profile</button>
-            </div>
-          </>
-        )}
-
-        {status && <p style={{ marginTop: 8 }}>{status}</p>}
-        {submitted && (
-          <div className="card" style={{ marginTop: 12 }}>
-            <div className="h2">Submission</div>
-            <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(submitted, null, 2)}</pre>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}).test(ph)) { setStatus('Phone must be in +94XXXXXXXXX format'); return }
+      if (!/^\+94\d{9}$/.test(ph)) { setStatus('Phone must be in +94XXXXXXXXX format'); return }
       if (!desc || desc.length < 10) { setStatus('Description must be at least 10 characters'); return }
 
       const obj = { sub_category: sub, location: loc, phone: ph }
@@ -351,12 +182,10 @@ export default function VerifyEmployeePage() {
                     onChange={v => setSubCategory(v)}
                     ariaLabel="Job sub-category"
                     placeholder="Select or type a sub-category"
-                    options={jobOptions.map(v => ({ value: v, label: v }))}
+                    options={JOB_SUBCATEGORIES.map(v => ({ value: v, label: v }))}
                     searchable={true}
                     allowCustom={true}
                   />
-                  {String(subCategory) === 'Other' && (
-                       />
                 </div>
                 <input
                   className="input"
