@@ -126,7 +126,17 @@ export default function VerifyEmployeePage() {
             Back
           </button>
         </div>
-        {!draft && <p className="text-muted">Loading profile draft...</p>}
+
+        {!draftId && (
+          <div className="card" style={{ marginTop: 8 }}>
+            <p className="text-muted">No draft specified. Please go back and create a profile first.</p>
+            <div style={{ marginTop: 8 }}>
+              <button className="btn" type="button" onClick={() => navigate('/jobs/post-employee')}>Go to Post Profile</button>
+            </div>
+          </div>
+        )}
+
+        {!draft && draftId && <p className="text-muted">Loading profile draft...</p>}
 
         {draft && (
           <>
