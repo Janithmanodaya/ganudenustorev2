@@ -401,16 +401,21 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-  function toggleExpandUser(userId) {
-    setExpandedUserIds(prev => {
-      const has = prev.includes(userId)
-      const next = has ? prev.filter(id => id !== userId) : [...prev, userId]
-      if (!has) {
-        const userObj = users.find(x => x.id === userId) || { id: userId }
-        loadUserAds(userObj)
-      }
-      return next
-    })
+  async function deleteUserAd(listingId, userId) {
+    const yes = window.confirm('Delete this ad? This cannot be undone.')
+    if (!yes) return
+    try {
+      const r = await fetch(`/api/admin/listings/${listingId}`, { method: 'DELETE', headers: getAdminHeaders() })
+      const data = await safeJson(r)
+      if (!r.ok) throw new Error(data.error || 'Failed to delete listing')
+      setStatus('Ad deleted.')
+      setUserAds(prev => {
+        const rows = Array.isArray(prev[userId]) ? prev[userId] : []
+        const nextRows = rows.filter(x => x.id !== listingId)
+        return { ...prev, [userId]: nextRows }
+      })
+    } catch (e) {
+      set
   }
   function updateUserAdsFilter(userId, patch) {
     setUserAdsFilters(prev => ({ ...prev, [userId]: { ...(prev[userId] || {}), ...patch } }))
@@ -1034,7 +1039,14 @@ export default function AdminPage() {
                         <div style={{ marginTop: 8 }}>
                           {(getFilteredUserAds(u.id) || []).map(ad => (
                             <div key={ad.id} className="card" style={{ marginBottom: 8 }}>
-                              <div><strong>#{ad.id}</strong> {ad.title}</div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  <strong>#{ad.id}</strong> {ad.title}
+                                </div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <button className="btn" onClick={() => deleteUserAd(ad.id, u.id)}>Delete Ad</button>
+                                </div>
+                              </div>
                               <div className="text-muted">{ad.main_category} • {ad.location} • {ad.status}</div>
                             </div>
                           ))}
