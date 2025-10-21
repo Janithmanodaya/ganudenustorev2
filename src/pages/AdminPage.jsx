@@ -67,7 +67,7 @@ export default function AdminPage() {
   const [selectedChatEmail, setSelectedChatEmail] = useState('')
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState('')
-  const [sendEmailOnReply, setSendEmailOnReply] = useState(true)
+  const [sendEmailOnReply, setSendEmailOnReply] = useState(false)
 
   // Backup
   const backupFileRef = useRef(null)
