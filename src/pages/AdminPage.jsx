@@ -416,12 +416,21 @@ export default function AdminPage() {
       })
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }_code
- new </}
-
+    }
+  }
+  function toggleExpandUser(userId) {
+    setExpandedUserIds(prev => {
+      const has = prev.includes(userId)
+      const next = has ? prev.filter(id => id !== userId) : [...prev, userId]
+      if (!has) {
+        const userObj = users.find(x => x.id === userId) || { id: userId }
+        loadUserAds(userObj)
+      }
+      return next
+    })
   }
   function updateUserAdsFilter(userId, patch) {
-    setUserAdsFilters(prev => ({ ...prev, [userId]: { ...(prev[userId] || {}), ...patch } }))
+    setUserAdsFilters(prev => ({ ...prev, [userId]: { ...(prev[userId] || {}), ...patch } }))_code, ...patch } }))
   }
   function getFilteredUserAds(userId) {
     const ads = Array.isArray(userAds[userId]) ? userAds[userId] : []
