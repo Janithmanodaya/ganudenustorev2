@@ -1478,26 +1478,29 @@ router.get('/notifications', requireAdmin, (req, res) => {
 });
 
 router.post('/notifications', requireAdmin, async (req, res) => {
-  const { title, message, targetEmail } = req.body || {};
+  const { title, message, targetEmail, sendEmail } = req.body || {};
   if (!title || !message) {
     return res.status(400).json({ error: 'title and message are required' });
   }
 
-  // If sending to a specific email, send a real email using the same mailer used for OTP
-  if (targetEmail) {
+  // Optional email delivery to a specific user (only if explicitly requested)
+  if (targetEmail && sendEmail) {
     try {
       const to = String(targetEmail).toLowerCase().trim();
-      // Convert plain text message to basic HTML
-      const html = `<div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
-        <h2 style="margin:0 0 10px 0;">${String(title).trim()}</h2>
-        <div>${String(message).trim().replace(/\\n/g, '<br/>')}</div>
-      </div>`;
-      const sent = await sendEmail(to, String(title).trim(), html);
-      if (!sent?.ok) {
-        return res.status(502).json({ error: sent?.error || 'Failed to send email.' });
+      if (to) {
+        const html = `<div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+          <h2 style="margin:0 0 10px 0;">${String(title).trim()}</h2>
+          <div>${String(message).trim().replace(/\\n/g, '<br/>')}</div>
+        </div>`;
+        const sent = await sendEmail(to, String(title).trim(), html);
+        if (!sent?.ok) {
+          // Continue with in-app notification even if email fails
+          console.warn('[admin:notifications] email send failed:', sent?.error || sent);
+        }
       }
     } catch (e) {
-      return res.status(502).json({ error: 'Failed to send email.' });
+      console.warn('[admin:notifications] email error:', e && e.message ? e.message : e);
+      // Do not fail the request; still create in-app notification
     }
   }
 
@@ -1505,7 +1508,12 @@ router.post('/notifications', requireAdmin, async (req, res) => {
     db.prepare(`
       INSERT INTO notifications (title, message, target_email, created_at)
       VALUES (?, ?, ?, ?)
-    `).run(String(title).trim(), String(message).trim(), targetEmail ? String(targetEmail).toLowerCase().trim() : null, new Date().toISOString());
+    `).run(
+      String(title).trim(),
+      String(message).trim(),
+      targetEmail ? String(targetEmail).toLowerCase().trim() : null,
+      new Date().toISOString()
+    );
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Failed to create notification' });
