@@ -971,19 +971,19 @@ export default function WantedBoardPage() {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button className="btn accent compact" type="button" onClick={() => setShowFilters(false)} style={{ flex: '0 0 auto' }}>
                     {t('common.apply')}
-                </  button>
-                 <abutton className="btn compact" type="button" onClick={resetBrowseFilters} style={{ flex: '0 0 auto' }}>
+                  </button>
+                  <button className="btn compact" type="button" onClick={resetBrowseFilters} style={{ flex: '0 0 auto' }}>
                     {t('common.reset')}
-                </  but_codetonewn</>
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
-          {loading & <<div className="pill">{t('wanted.loadi')}</  div>}
+          {loading && <div className="pill">Loading...</div>}
           {!loading && filteredRequests.length === 0 && (
-           <ep className="text-muted">{t('wanted.noMatch')}</s.p>
-        _code}
+            <p className="text-muted">{t('wanted.noMatch')}</p>
+          )}
 
           {/* Redesigned cards to match HomePage grid and style */}
           {!loading && filteredRequests.length > 0 && (
@@ -1094,9 +1094,8 @@ export default function WantedBoardPage() {
                             />
                           </div>
                           <button className="btn" onClick={() => sendOffer(r.id)} disabled={!offerSelections[r.id] || offerSending[r.id]}>
-                            {offerSending[r.id] ? t('common.apply') : t('wanted.offerThisAd')}
-                        </  but_codetonewn</>
-             </button>
+                            {offerSending[r.id] ? 'Sending...' : t('wanted.offerThisAd')}
+                          </button>
                         </>
                       )}
                     </div>
