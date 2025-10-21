@@ -66,6 +66,7 @@ export default function CustomSelect({
     if (!open) return
     // Reset hover to selected (or first) when opening
     setHoverIndex(selectedIndexInFiltered >= 0 ? selectedIndexInFiltered : (filteredOptions.length ? 0 : -1))
+    // Clear search only once when opening, not on every keystroke/filter size change
     setSearchTerm('')
 
     try {
@@ -105,7 +106,7 @@ export default function CustomSelect({
       }
     }, 10)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, selectedIndexInFiltered, filteredOptions.length, maxDropdownHeight])
+  }, [open])
 
   // Keep hover item in view when navigating via keyboard
   useEffect(() => {
