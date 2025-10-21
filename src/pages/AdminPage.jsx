@@ -430,7 +430,7 @@ export default function AdminPage() {
     })
   }
   function updateUserAdsFilter(userId, patch) {
-    setUserAdsFilters(prev => ({ ...prev, [userId]: { ...(prev[userId] || {}), ...patch } }))_code, ...patch } }))
+    setUserAdsFilters(prev => ({ ...prev, [userId]: { ...(prev[userId] || {}), ...patch } }))
   }
   function getFilteredUserAds(userId) {
     const ads = Array.isArray(userAds[userId]) ? userAds[userId] : []
