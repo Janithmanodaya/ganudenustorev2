@@ -453,12 +453,21 @@ export default function AdminPage() {
   // Banners
   async function loadBanners() {
     try {
-      const r = await fetch('/api/admin/banners', { headers: getAdminHeaders() })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load banners')
-      setBanners(data.results || [])
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
+      const r = await fetch('/api/admin/banners', { headers: getAdminHeaders(), cache: 'no-store' })
+      let data = {}
+      try {
+        data = await safeJson(r)
+      } catch (_) {
+        data = {}
+      }
+      // If backend is in maintenance or returns non-JSON/html, avoid surfacing a global error.
+      if (!r.ok) {
+        return
+      }
+      const results = Array.isArray(data.results) ? data.results : []
+      setBanners(results)
+    } catch (_) {
+      // Silent on errors to avoid noisy Status card
     }
   }
   async function onUploadBanner(file) {
