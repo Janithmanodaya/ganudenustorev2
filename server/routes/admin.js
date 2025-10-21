@@ -75,7 +75,7 @@ const upload = multer({
 
 // Get current Gemini API key (masked)
 router.get('/config', requireAdmin, (req, res) => {
-  const row = db.prepare('SELECT bank_details, whatsapp_number, email_on_approve, maintenance_mode, maintenance_message FROM admin_config WHERE id = 1').get();
+  const row = db.prepare('SELECT bank_details, whatsapp_number, email_on_approve, maintenance_mode, maintenance_message, bank_account_number, bank_account_name, bank_name FROM admin_config WHERE id = 1').get();
   // Load payment rules
   let rules = [];
   try {
@@ -85,6 +85,9 @@ router.get('/config', requireAdmin, (req, res) => {
   }
   res.json({
     bank_details: row?.bank_details || '',
+    bank_account_number: row?.bank_account_number || '',
+    bank_account_name: row?.bank_account_name || '',
+    bank_name: row?.bank_name || '',
     whatsapp_number: row?.whatsapp_number || '',
     email_on_approve: !!(row && row.email_on_approve),
     maintenance_mode: !!(row && row.maintenance_mode),
@@ -96,7 +99,7 @@ router.get('/config', requireAdmin, (req, res) => {
 
 // Save Gemini API key
 router.post('/config', requireAdmin, (req, res) => {
-  const { bankDetails, whatsappNumber, emailOnApprove, paymentRules, maintenanceMode, maintenanceMessage } = req.body || {};
+  const { bankDetails, whatsappNumber, emailOnApprove, paymentRules, maintenanceMode, maintenanceMessage, bankAccountNumber, bankAccountName, bankName } = req.body || {};
 
   if (bankDetails && typeof bankDetails !== 'string') {
     return res.status(400).json({ error: 'bankDetails must be string.' });
@@ -107,15 +110,28 @@ router.post('/config', requireAdmin, (req, res) => {
   if (maintenanceMessage && typeof maintenanceMessage !== 'string') {
     return res.status(400).json({ error: 'maintenanceMessage must be string.' });
   }
+  if (bankAccountNumber && typeof bankAccountNumber !== 'string') {
+    return res.status(400).json({ error: 'bankAccountNumber must be string.' });
+  }
+  if (bankAccountName && typeof bankAccountName !== 'string') {
+    return res.status(400).json({ error: 'bankAccountName must be string.' });
+  }
+  if (bankName && typeof bankName !== 'string') {
+    return res.status(400).json({ error: 'bankName must be string.' });
+  }
+
   const row = db.prepare('SELECT id FROM admin_config WHERE id = 1').get();
   if (!row) db.prepare('INSERT INTO admin_config (id) VALUES (1)').run();
-  db.prepare('UPDATE admin_config SET bank_details = COALESCE(?, bank_details), whatsapp_number = COALESCE(?, whatsapp_number), email_on_approve = COALESCE(?, email_on_approve), maintenance_mode = COALESCE(?, maintenance_mode), maintenance_message = COALESCE(?, maintenance_message) WHERE id = 1')
+  db.prepare('UPDATE admin_config SET bank_details = COALESCE(?, bank_details), whatsapp_number = COALESCE(?, whatsapp_number), email_on_approve = COALESCE(?, email_on_approve), maintenance_mode = COALESCE(?, maintenance_mode), maintenance_message = COALESCE(?, maintenance_message), bank_account_number = COALESCE(?, bank_account_number), bank_account_name = COALESCE(?, bank_account_name), bank_name = COALESCE(?, bank_name) WHERE id = 1')
     .run(
       bankDetails ? bankDetails.trim() : null,
       whatsappNumber ? whatsappNumber.trim() : null,
       (emailOnApprove == null ? null : (emailOnApprove ? 1 : 0)),
       (maintenanceMode == null ? null : (maintenanceMode ? 1 : 0)),
-      maintenanceMessage != null ? String(maintenanceMessage).trim() : null
+      maintenanceMessage != null ? String(maintenanceMessage).trim() : null,
+      bankAccountNumber ? bankAccountNumber.trim() : null,
+      bankAccountName ? bankAccountName.trim() : null,
+      bankName ? bankName.trim() : null
     );
 
   // Update payment rules if provided

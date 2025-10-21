@@ -1918,7 +1918,7 @@ router.get('/payment-info/:id', (req, res) => {
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid ID' });
     const listing = db.prepare('SELECT id, title, price, owner_email, status, remark_number, main_category FROM listings WHERE id = ?').get(id);
     if (!listing) return res.status(404).json({ error: 'Listing not found' });
-    const cfg = db.prepare('SELECT bank_details, whatsapp_number FROM admin_config WHERE id = 1').get();
+    const cfg = db.prepare('SELECT bank_details, whatsapp_number, bank_account_number, bank_account_name, bank_name FROM admin_config WHERE id = 1').get();
 
     // Determine payment amount and enabled from payment_rules, with sensible defaults
     const rule = db.prepare(`SELECT amount, enabled FROM payment_rules WHERE category = ?`).get(String(listing.main_category || 'Other'));
@@ -1934,10 +1934,26 @@ router.get('/payment-info/:id', (req, res) => {
     const payment_amount = Number(rule?.amount ?? defaults[listing.main_category] ?? defaults['Other']);
     const payments_enabled = rule ? !!rule.enabled : true;
 
+    // Build a combined bank details string for backward compatibility if separate fields exist
+    const accNum = String(cfg?.bank_account_number || '').trim();
+    const accName = String(cfg?.bank_account_name || '').trim();
+    const bankName = String(cfg?.bank_name || '').trim();
+    let combined = String(cfg?.bank_details || '').trim();
+    if (!combined && (accNum || accName || bankName)) {
+      const lines = [];
+      if (bankName) lines.push(`Bank: ${bankName}`);
+      if (accName) lines.push(`Account Name: ${accName}`);
+      if (accNum) lines.push(`Account Number: ${accNum}`);
+      combined = lines.join('\n');
+    }
+
     const payload = {
       ok: true,
       listing,
-      bank_details: cfg?.bank_details || '',
+      bank_details: combined || '',
+      bank_account_number: accNum,
+      bank_account_name: accName,
+      bank_name: bankName,
       whatsapp_number: cfg?.whatsapp_number || '',
       payment_amount,
       payments_enabled

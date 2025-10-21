@@ -423,7 +423,8 @@ router.post('/reset-password', async (req, res) => {
 router.get('/status', (req, res) => {
   try {
     const tok = getBearerToken(req);
-    if (!tok) return res.status(400).json({ error: 'Authorization bearer token required.' });
+    // Return 401 for missing/invalid authentication rather than 400
+    if (!tok) return res.status(401).json({ error: 'Missing authorization bearer token.' });
     const v = verifyTokenRaw(tok);
     if (!v.ok) return res.status(401).json({ error: 'Invalid token.' });
     const claims = v.decoded;
