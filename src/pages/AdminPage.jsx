@@ -252,6 +252,7 @@ export default function AdminPage() {
     } catch (_) {
       // Silent on errors
     }
+  }
 
   // Approvals
   async function loadPending() {
