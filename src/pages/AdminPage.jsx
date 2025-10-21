@@ -61,6 +61,7 @@ export default function AdminPage() {
   const [notifyTargetType, setNotifyTargetType] = useState('all')
   const [notifyEmail, setNotifyEmail] = useState('')
   const [notifySendEmail, setNotifySendEmail] = useState(false)
+  const [notifyFormResetKey, setNotifyFormResetKey] = useState(0)
   const [unreadCount, setUnreadCount] = useState(0)
 
   // Chat
@@ -1130,10 +1131,14 @@ export default function AdminPage() {
                 <div className="h2" style={{ marginTop: 8 }}>Notifications</div>
                 <div className="grid two">
                   <div>
-                    <input className="input" placeholder="Title" value={notifyTitle} onChange={e => setNotifyTitle(e.target.value)} />
-                  </div>
-                  <div>
-                    <select className="select" value={notifyTargetType} onChange={e => setNotifyTargetType(e.target.value)}>
+                    <input className="input" placeholder="Title" value={notifyTitle} onChange={e => setNotifyTitle('')
+      setNotifyMessage('')
+      setNotifyTargetType('all')
+      setNotifyEmail('')
+      setNotifySendEmail(false)
+      setNotifyFormResetKey(k => k + 1)
+      loadAdminNotificatio_codensnew(</)
+{e => setNotifyTargetType(e.target.value)}>
                       <option value="all">All</option>
                       <option value="email">Email</option>
                       <option value="app">App</option>
@@ -1144,6 +1149,7 @@ export default function AdminPage() {
                   <div style={{ marginTop: 8 }}>
                     <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Select user email</div>
                     <CustomSelect
+                      key={notifyFormResetKey}
                       value={notifyEmail}
                       onChange={v => setNotifyEmail(String(v || ''))}
                       ariaLabel="Target email"
@@ -1153,7 +1159,8 @@ export default function AdminPage() {
                       allowCustom={true}
                       virtualized={true}
                       maxDropdownHeight={420}
-                    />
+                  _code  new/</>
+
                     <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
                       Tip: start typing to filter. You can also enter a custom email not in the list.
                     </small>
