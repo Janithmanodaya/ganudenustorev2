@@ -75,26 +75,68 @@ const upload = multer({
 
 // Get current Gemini API key (masked)
 router.get('/config', requireAdmin, (req, res) => {
-  const row = db.prepare('SELECT bank_details, whatsapp_number, email_on_approve, maintenance_mode, maintenance_message, bank_account_number, bank_account_name, bank_name FROM admin_config WHERE id = 1').get();
-  // Load payment rules
-  let rules = [];
   try {
-    rules = db.prepare(`SELECT category, amount, enabled FROM payment_rules ORDER BY category ASC`).all();
-  } catch (_) {
-    rules = [];
+    const row = db.prepare(`
+      SELECT bank_details, whatsapp_number, email_on_approve, maintenance_mode, maintenance_message,
+             bank_account_number, bank_account_name, bank_name
+      FROM admin_config
+      WHERE id = 1
+    `).get() || {};
+
+    // Load payment rules (best-effort)
+    let rules = [];
+    try {
+      rules = db.prepare(`SELECT category, amount, enabled FROM payment_rules ORDER BY category ASC`).all();
+    } catch (_) {
+      rules = [];
+    }
+
+    // Optional: return masked Gemini key if present in secure storage
+    let gemini_api_key_masked = null;
+    try {
+      const { getSecret } = require('../lib/secure-config.js');
+      const key = getSecret('gemini_api_key');
+      if (key && typeof key === 'string') {
+        const s = key.trim();
+        if (s.length <= 8) {
+          gemini_api_key_masked = '****';
+        } else {
+          gemini_api_key_masked = `${s.slice(0, 4)}••••${s.slice(-4)}`;
+        }
+      }
+    } catch (_) {
+      gemini_api_key_masked = null;
+    }
+
+    return res.json({
+      bank_details: row.bank_details || '',
+      bank_account_number: row.bank_account_number || '',
+      bank_account_name: row.bank_account_name || '',
+      bank_name: row.bank_name || '',
+      whatsapp_number: row.whatsapp_number || '',
+      email_on_approve: !!row.email_on_approve,
+      maintenance_mode: !!row.maintenance_mode,
+      maintenance_message: row.maintenance_message || '',
+      payment_rules: rules,
+      secrets_managed: true,
+      gemini_api_key_masked
+    });
+  } catch (e) {
+    // Return a safe JSON payload instead of 500 to keep admin UI responsive
+    return res.json({
+      bank_details: '',
+      bank_account_number: '',
+      bank_account_name: '',
+      bank_name: '',
+      whatsapp_number: '',
+      email_on_approve: false,
+      maintenance_mode: false,
+      maintenance_message: '',
+      payment_rules: [],
+      secrets_managed: true,
+      gemini_api_key_masked: null
+    });
   }
-  res.json({
-    bank_details: row?.bank_details || '',
-    bank_account_number: row?.bank_account_number || '',
-    bank_account_name: row?.bank_account_name || '',
-    bank_name: row?.bank_name || '',
-    whatsapp_number: row?.whatsapp_number || '',
-    email_on_approve: !!(row && row.email_on_approve),
-    maintenance_mode: !!(row && row.maintenance_mode),
-    maintenance_message: row?.maintenance_message || '',
-    payment_rules: rules,
-    secrets_managed: true
-  });
 });
 
 // Save Gemini API key
