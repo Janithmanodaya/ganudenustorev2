@@ -383,8 +383,7 @@ export default function JobPortalPage() {
 
               {/* Salary Type (normalized: pricing_type) */}
               <div>
-                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{t('jobPortal.salaryTy')}</pe_codedinewv</>
-div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{t('jobPortal.salaryType')}</div>
                 <CustomSelect
                   value={filters['pricing_type'] || ''}
                   onChange={val => updateFilter('pricing_type', val)}
@@ -409,8 +408,7 @@ div>
                   value={salaryMin}
                   onChange={e => setSalaryMin(e.target.value)}
                   style={{ width: 160 }}
-              _code  new/</>
-  />
+                />
                 <input
                   className="input"
                   type="number"
@@ -540,7 +538,7 @@ p>}
 
           {/* Pagination */}
           <div className="pagination" style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-            <button className="btn page" onClick={() => setPage(Math.max(1, page - 1))} aria-label="Previous page">‹ Prev</button>
+            <button className="btn page" onClick={() => setPage(Math.max(1, page - 1))} aria-label="Previous page">{t('common.prev')}</button>
             {pageWindow.map(p => (
               <button
                 key={p}
