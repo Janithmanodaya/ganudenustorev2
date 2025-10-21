@@ -177,7 +177,6 @@ export default function WantedBoardPage() {
     } catch (_) {
       setBrowseFiltersDef({ keys: [], valuesByKey: {} });
     }
-  }, [filterCategory, requests
   }, [filterCategory, requests]);
 
   // Location suggestions for browse (debounced)
