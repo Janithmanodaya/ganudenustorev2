@@ -10,6 +10,9 @@ export default function AdminPage() {
   const [bankDetails, setBankDetails] = useState('')
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [emailOnApprove, setEmailOnApprove] = useState(false)
+  // Maintenance mode
+  const [maintenanceEnabled, setMaintenanceEnabled] = useState(false)
+  const [maintenanceMessage, setMaintenanceMessage] = useState('')
   const [status, setStatus] = useState(null)
   const [allowed, setAllowed] = useState(false)
   const [authToken, setAuthToken] = useState('')
@@ -121,6 +124,9 @@ export default function AdminPage() {
       setBankDetails(data.bank_details || '')
       setWhatsappNumber(data.whatsapp_number || '')
       setEmailOnApprove(!!data.email_on_approve)
+      // Maintenance
+      setMaintenanceEnabled(!!data.maintenance_mode)
+      setMaintenanceMessage(String(data.maintenance_message || ''))
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
@@ -128,6 +134,14 @@ export default function AdminPage() {
 
   async function saveConfig() {
     try {
+      const payload = {
+        geminiApiKey,
+        bankDetails,
+        whatsappNumber,
+        emailOnApprove,
+        maintenanceMode: !!maintenanceEnabled,
+        maintenanceMessage: String(maintenanceMessage || '')
+      }
       const r = await fetch('/api/admin/config', {
         method: 'POST',
         headers: {
@@ -135,7 +149,7 @@ export default function AdminPage() {
           'X-Admin-Email': adminEmail,
           'Authorization': authToken ? `Bearer ${authToken}` : undefined
         },
-        body: JSON.stringify({ geminiApiKey, bankDetails, whatsappNumber, emailOnApprove })
+        body: JSON.stringify(payload)
       })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to save config')
@@ -144,8 +158,8 @@ export default function AdminPage() {
       fetchConfig()
     } catch (e) {
       setStatus(`Error: ${e.message}`)
-    }
-  }
+    }_code
+ new </}
 
   async function testGemini() {
     try {
@@ -1526,7 +1540,72 @@ export default function AdminPage() {
                 Current key: {maskedKey || 'none'}
               </div>
             </div>
-            <div className="h2" style={{ marginTop: 12 }}>Bank Details (shown to user for payment)</div>
+
+            {/* Maintenance Mode */}
+            <div className="card" style={{ marginTop: 16 }}>
+              <div className="h2" style={{ marginTop: 0 }}>Maintenance Mode</div>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={!!maintenanceEnabled}
+                  onChange={e => setMaintenanceEnabled(!!e.target.checked)}
+                />
+                <span className="text-muted">Enable maintenance (blocks public pages and APIs)</span>
+              </label>
+              <div style={{ marginTop: 8 }}>
+                <label className="text-muted">Message (optional)</label>
+                <input
+                  className="input"
+                  placeholder="e.g., Upgrading database..."
+                  value={maintenanceMessage}
+                  onChange={e => setMaintenanceMessage(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <button className="btn primary" onClick={saveConfig}>Save Maintenance Settings</button>
+                <button
+                  className="btn"
+                  onClick={async () => {
+                    try {
+                      const r = await fetch('/api/admin/maintenance', {
+                        method: 'POST',
+                        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify({ enabled: !!maintenanceEnabled, message: maintenanceMessage })
+                      })
+                      const d = await safeJson(r)
+                      if (!r.ok) throw new Error(d.error || 'Failed to update maintenance')
+                      setStatus(maintenanceEnabled ? 'Maintenance enabled.' : 'Maintenance disabled.')
+                    } catch (e) {
+                      setStatus(`Error: ${e.message}`)
+                    }
+                  }}
+                >
+                  Apply Now
+                </button>
+                <button
+                  className="btn"
+                  onClick={async () => {
+                    try {
+                      const r = await fetch('/api/admin/maintenance', { headers: getAdminHeaders() })
+                      const d = await safeJson(r)
+                      if (!r.ok) throw new Error(d.error || 'Failed to load maintenance state')
+                      setMaintenanceEnabled(!!d.enabled)
+                      setMaintenanceMessage(String(d.message || ''))
+                      setStatus('Maintenance state refreshed.')
+                    } catch (e) {
+                      setStatus(`Error: ${e.message}`)
+                    }
+                  }}
+                >
+                  Refresh State
+                </button>
+              </div>
+              <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                While enabled, only /api/admin/* and /api/health are accessible. All other routes serve the maintenance page.
+              </small>
+            </div>
+
+            <div className="h2" style={{ marginTop: 16 }}>Bank Details (shown to user for payment)</div>
             <textarea className="textarea" placeholder="Bank details (Account Name, Number, Bank/Branch)" value={bankDetails} onChange={e => setBankDetails(e.target.value)} />
             <div className="h2" style={{ marginTop: 12 }}>WhatsApp Number (for receipts)</div>
             <input className="input" placeholder="+94XXXXXXXXX" value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)} />
