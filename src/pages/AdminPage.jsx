@@ -1126,72 +1126,67 @@ export default function AdminPage() {
         )}
 
         {/* Notifications */}
-            {activeTab === 'notifications' && (
-              <>
-                <div className="h2" style={{ marginTop: 8 }}>Notifications</div>
-                <div className="grid two">
-                  <div>
-                    <input className="input" placeholder="Title" value={notifyTitle} onChange={e => setNotifyTitle('')
-      setNotifyMessage('')
-      setNotifyTargetType('all')
-      setNotifyEmail('')
-      setNotifySendEmail(false)
-      setNotifyFormResetKey(k => k + 1)
-      loadAdminNotificatio_codensnew(</)
-{e => setNotifyTargetType(e.target.value)}>
-                      <option value="all">All</option>
-                      <option value="email">Email</option>
-                      <option value="app">App</option>
-                    </select>
-                  </div>
-                </div>
-                {notifyTargetType === 'email' && (
-                  <div style={{ marginTop: 8 }}>
-                    <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Select user email</div>
-                    <CustomSelect
-                      key={notifyFormResetKey}
-                      value={notifyEmail}
-                      onChange={v => setNotifyEmail(String(v || ''))}
-                      ariaLabel="Target email"
-                      placeholder={userEmailOptionsCache.length ? 'Pick an email...' : 'No users loaded yet'}
-                      options={userEmailOptionsCache.map(e => ({ value: e, label: e }))}
-                      searchable={true}
-                      allowCustom={true}
-                      virtualized={true}
-                      maxDropdownHeight={420}
-                  _code  new/</>
-
-                    <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
-                      Tip: start typing to filter. You can also enter a custom email not in the list.
-                    </small>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                      <input type="checkbox" checked={notifySendEmail} onChange={e => setNotifySendEmail(!!e.target.checked)} />
-                      <span className="text-muted">Send email to this user</span>
-                    </label>
-                  </div>
-                )}
-                <div style={{ marginTop: 8 }}>
-                  <textarea className="textarea" placeholder="Message" value={notifyMessage} onChange={e => setNotifyMessage(e.target.value)} />
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button className="btn primary" onClick={sendNotification}>Send Notification</button>
-                  <button className="btn" onClick={loadAdminNotifications}>Refresh</button>
-                </div>
-                <div className="card" style={{ marginTop: 8 }}>
-                  {notificationsAdmin.length === 0 && <p className="text-muted">No notifications.</p>}
-                  {notificationsAdmin.map(n => (
-                    <div key={n.id} className="card" style={{ marginBottom: 8 }}>
-                      <div><strong>{n.title}</strong></div>
-                      <div className="text-muted">{n.message}</div>
-                      <div className="text-muted">{n.target_email || 'All'} • {new Date(n.created_at).toLocaleString()}</div>
-                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                        <button className="btn" onClick={() => deleteNotification(n.id)}>Delete</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
+        {activeTab === 'notifications' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Notifications</div>
+            <div className="grid two">
+              <div>
+                <input className="input" placeholder="Title" value={notifyTitle} onChange={e => setNotifyTitle(e.target.value)} />
+              </div>
+              <div>
+                <select className="select" value={notifyTargetType} onChange={e => setNotifyTargetType(e.target.value)}>
+                  <option value="all">All</option>
+                  <option value="email">Email</option>
+                  <option value="app">App</option>
+                </select>
+              </div>
+            </div>
+            {notifyTargetType === 'email' && (
+              <div style={{ marginTop: 8 }}>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Select user email</div>
+                <CustomSelect
+                  key={notifyFormResetKey}
+                  value={notifyEmail}
+                  onChange={v => setNotifyEmail(String(v || ''))}
+                  ariaLabel="Target email"
+                  placeholder={userEmailOptionsCache.length ? 'Pick an email...' : 'No users loaded yet'}
+                  options={userEmailOptionsCache.map(e => ({ value: e, label: e }))}
+                  searchable={true}
+                  allowCustom={true}
+                  virtualized={true}
+                  maxDropdownHeight={420}
+                />
+                <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                  Tip: start typing to filter. You can also enter a custom email not in the list.
+                </small>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                  <input type="checkbox" checked={notifySendEmail} onChange={e => setNotifySendEmail(!!e.target.checked)} />
+                  <span className="text-muted">Send email to this user</span>
+                </label>
+              </div>
             )}
+            <div style={{ marginTop: 8 }}>
+              <textarea className="textarea" placeholder="Message" value={notifyMessage} onChange={e => setNotifyMessage(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button className="btn primary" onClick={sendNotification}>Send Notification</button>
+              <button className="btn" onClick={loadAdminNotifications}>Refresh</button>
+            </div>
+            <div className="card" style={{ marginTop: 8 }}>
+              {notificationsAdmin.length === 0 && <p className="text-muted">No notifications.</p>}
+              {notificationsAdmin.map(n => (
+                <div key={n.id} className="card" style={{ marginBottom: 8 }}>
+                  <div><strong>{n.title}</strong></div>
+                  <div className="text-muted">{n.message}</div>
+                  <div className="text-muted">{n.target_email || 'All'} • {new Date(n.created_at).toLocaleString()}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button className="btn" onClick={() => deleteNotification(n.id)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Chat */}
         {activeTab === 'chat' && (
