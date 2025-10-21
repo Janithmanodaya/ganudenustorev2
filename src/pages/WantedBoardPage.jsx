@@ -28,9 +28,7 @@ export default function WantedBoardPage() {
   const [filterPriceMax, setFilterPriceMax] = useState('');
   const [browseFiltersDef, setBrowseFiltersDef] = useState({ keys: [], valuesByKey: {} });
   const [browseFilters, setBrowseFilters] = useState({});
-  const [subCategoryQuery, setSubCategoryQuery] = useState('');
   const [modelQuery, setModelQuery] = useState('');
-  const subCategorySelected = Array.isArray(browseFilters.sub_category) ? browseFilters.sub_category : [];
   const modelSelected = Array.isArray(browseFilters.model) ? browseFilters.model : [];
   const jobTypeSelected = Array.isArray(browseFilters.job_type) ? browseFilters.job_type : [];
   const [locQuery, setLocQuery] = useState('');
@@ -172,7 +170,6 @@ export default function WantedBoardPage() {
       const keys = Array.from(seenKeys);
       setBrowseFiltersDef({ keys, valuesByKey });
       // Reset input queries when category changes
-      setSubCategoryQuery('');
       setModelQuery('');
       if (!filterCategory) {
         setBrowseFilters({});
@@ -382,23 +379,7 @@ export default function WantedBoardPage() {
     }
   }
 
-  // Suggestions for sub_category: prefer dynamic values from Wanted ads by selected category
-  const subCategoryOptions = useMemo(() => {
-    const q = (subCategoryQuery || '').toLowerCase().trim();
-    const fromRequests = Array.from(new Set(
-      (requests || [])
-        .filter(r => !filterCategory || String(r.category || '') === String(filterCategory))
-        .flatMap(r => {
-          const f = parseFilters(r.filters_json);
-          const arr = Array.isArray(f.sub_category) ? f.sub_category : [];
-          return arr.map(v => String(v).trim()).filter(Boolean);
-        })
-    ));
-    const fallback = (browseFiltersDef.valuesByKey['sub_category'] || []).map(v => String(v));
-    const arr = fromRequests.length ? fromRequests : fallback;
-    if (!q) return arr.slice(0, 25);
-    return arr.filter(v => v.toLowerCase().includes(q)).slice(0, 25);
-  }, [requests, filterCategory, browseFiltersDef, subCategoryQuery]);
+  
   const modelOptions = useMemo(() => {
     const q = (modelQuery || '').toLowerCase().trim();
     // Build dynamic model list from Wanted ads instead of homepage/listings filters
@@ -931,47 +912,7 @@ export default function WantedBoardPage() {
                 {/* Dynamic sub_category/job_type tag inputs + other keys */}
                 {filterCategory && browseFiltersDef.keys.length > 0 && (
                   <>
-                    {/* Sub-category multi-select tags (skip here for Job; Job sub-category is rendered above explicitly) */}
-                    {filterCategory !== 'Job' && (
-                      <div>
-                        <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Sub-category</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-                          {subCategorySelected.map((tag, idx) => (
-                            <span key={`subcat-${tag}-${idx}`} className="pill">
-                              {tag}
-                              <button
-                                type="button"
-                                className="btn"
-                                onClick={() => {
-                                  const next = subCategorySelected.filter((t, i) => !(t === tag && i === idx));
-                                  updateBrowseFilter('sub_category', next);
-                                }}
-                                aria-label="Remove"
-                                style={{ padding: '2px 6px', marginLeft: 6 }}
-                              >✕</button>
-                            </span>
-                          ))}
-                        </div>
-                        <div style={{ marginTop: 4 }}>
-                          <CustomSelect
-                            value=""
-                            onChange={(val) => {
-                              const v = String(val || '').trim();
-                              if (!v) return;
-                              const next = Array.from(new Set([...subCategorySelected, v]));
-                              updateBrowseFilter('sub_category', next);
-                            }}
-                            ariaLabel="Add sub-category"
-                            placeholder="Add sub-category..."
-                            options={subCategoryOptions.map(v => ({ value: v, label: v }))}
-                            searchable={true}
-                            allowCustom={true}
-                            virtualized={true}
-                            maxDropdownHeight={420}
-                          />
-                        </div>
-                      </div>
-                    )}
+                    
 
                     {/* Other dynamic keys as selects */}
                     {(() => {

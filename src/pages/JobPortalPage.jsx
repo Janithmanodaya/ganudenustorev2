@@ -30,6 +30,56 @@ export default function JobPortalPage() {
   const limit = 10
   const [cardSlideIndex, setCardSlideIndex] = useState({})
   const [searchSuggestions, setSearchSuggestions] = useState([])
+  const [checkingTalent, setCheckingTalent] = useState(false)
+
+  function getUser() {
+    try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null }
+  }
+  function buildAuthHeaders() {
+    const user = getUser()
+    const token = localStorage.getItem('auth_token')
+    if (token) return { Authorization: `Bearer ${token}` }
+    if (user?.email) return { 'X-User-Email': user.email }
+    return {}
+  }
+
+  async function handleListTalent() {
+    try {
+      const user = getUser()
+      if (!user?.email) {
+        navigate('/jobs/post-employee')
+        return
+      }
+      setCheckingTalent(true)
+      // First: if a draft exists, continue it
+      try {
+        const rd = await fetch('/api/listings/my-drafts?employee_profile=1', { headers: buildAuthHeaders() })
+        const dd = await rd.json().catch(() => ({}))
+        if (rd.ok && Array.isArray(dd.results) && dd.results.length > 0) {
+          const d = dd.results[0]
+          navigate(`/verify-employee?draftId=${encodeURIComponent(d.id)}`)
+          return
+        }
+      } catch (_) {}
+      // Then: if an active/pending profile exists, open it
+      const r = await fetch('/api/listings/my', { headers: buildAuthHeaders() })
+      const data = await r.json().catch(() => ({}))
+      if (r.ok && Array.isArray(data.results)) {
+        const found = data.results.find(x => (x.employee_profile === 1 || x.employee_profile === true) || (String(x.main_category || '') === 'Job' && isTalentProfile(x)))
+        if (found) {
+          const slug = String(found.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'listing'
+          navigate(`/listing/${found.id}-${slug}`)
+          return
+        }
+      }
+      // Else: go to create
+      navigate('/jobs/post-employee')
+    } catch (_) {
+      navigate('/jobs/post-employee')
+    } finally {
+      setCheckingTalent(false)
+    }
+  }
 
   function onSearch(e) {
     e.preventDefault()
@@ -225,6 +275,7 @@ export default function JobPortalPage() {
     <>
     <div className="center">
       {loading && <LoadingOverlay message="Loading jobs..." />}
+      {checkingTalent && <LoadingOverlay message="Checking your profile..." />}
       <div className="card" style={{ padding: 0, overflow: 'hidden', ...white }}>
         <div style={{
           background: 'radial-gradient(1000px 300px at 10% -20%, rgba(0,209,255,0.25), transparent 60%), radial-gradient(1000px 300px at 90% 0%, rgba(108,127,247,0.25), transparent 60%), linear-gradient(180deg, rgba(18,22,31,0.9), rgba(18,22,31,0.6))',
@@ -277,7 +328,7 @@ export default function JobPortalPage() {
           <div className="grid two" style={{ marginTop: 18 }}>
             <button
               className="btn accent"
-              onClick={() => navigate('/jobs/post-employee')}
+              onClick={handleListTalent}
               style={{ padding: '18px', fontSize: 16, ...white }}
             >
               👤 List Talent

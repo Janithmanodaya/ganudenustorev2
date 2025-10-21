@@ -1672,7 +1672,7 @@ router.get('/my', requireUser, (req, res) => {
     const email = req.user.email;
 
     const rows = db.prepare(`
-      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views, is_urgent
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views, is_urgent, employee_profile
       FROM listings
       WHERE LOWER(owner_email) = LOWER(?)
       ORDER BY created_at DESC
@@ -1689,13 +1689,73 @@ router.get('/my', requireUser, (req, res) => {
       }
       const imgs = listImagesStmt.all(r.id);
       const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.path)).filter(Boolean) : [];
-      return { ...r, thumbnail_url, small_images, urgent: !!r.is_urgent, is_urgent: !!r.is_urgent };
+      return { ...r, thumbnail_url, small_images, urgent: !!r.is_urgent, is_urgent: !!r.is_urgent, employee_profile: Number(r.employee_profile) === 1 };
     });
 
     res.json({ results });
   } catch (e) {
     console.error('[listings] /my error:', e && e.message ? e.message : e);
     res.status(500).json({ error: 'Failed to load your listings' });
+  }
+});
+
+// List current user's drafts (optionally only employee profiles)
+router.get('/my-drafts', requireUser, (req, res) => {
+  try {
+    const email = req.user.email;
+    const emp = String(req.query.employee_profile || '').toLowerCase();
+    let sql = `
+      SELECT id, main_category, title, description, owner_email, created_at, employee_profile, resume_file_url
+      FROM listing_drafts
+      WHERE LOWER(owner_email) = LOWER(?)
+    `;
+    const params = [email];
+    if (emp === '1' || emp === 'true' || emp === 'yes') {
+      sql += ' AND employee_profile = 1';
+    }
+    sql += ' ORDER BY created_at DESC LIMIT 50';
+    const rows = db.prepare(sql).all(params);
+    const results = rows.map(r => ({ ...r, employee_profile: Number(r.employee_profile) === 1 }));
+    res.json({ results });
+  } catch (e) {
+    console.error('[listings] /my-drafts error:', e && e.message ? e.message : e);
+    res.status(500).json({ error: 'Failed to load your drafts' });
+  }
+});
+
+// Delete a draft (owner only)
+router.delete('/draft/:id', requireUser, (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid ID' });
+    const email = req.user.email;
+
+    const draft = db.prepare('SELECT * FROM listing_drafts WHERE id = ?').get(id);
+    if (!draft) return res.status(404).json({ error: 'Draft not found' });
+    if (String(draft.owner_email || '').toLowerCase().trim() !== String(email)) {
+      return res.status(403).json({ error: 'Not authorized to delete this draft' });
+    }
+
+    // Delete associated draft images from disk
+    try {
+      const images = db.prepare('SELECT path FROM listing_draft_images WHERE draft_id = ?').all(id);
+      for (const img of images) {
+        if (img?.path) { try { fs.unlinkSync(img.path); } catch (_) {} }
+      }
+    } catch (_) {}
+    // Delete resume file if present
+    try {
+      if (draft.resume_file_url) { fs.unlinkSync(draft.resume_file_url); }
+    } catch (_) {}
+
+    // Remove DB rows
+    db.prepare('DELETE FROM listing_draft_images WHERE draft_id = ?').run(id);
+    db.prepare('DELETE FROM listing_drafts WHERE id = ?').run(id);
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[listings] DELETE /draft/:id error:', e && e.message ? e.message : e);
+    res.status(500).json({ error: 'Failed to delete draft' });
   }
 });
 
