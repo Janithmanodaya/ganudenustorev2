@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import CustomSelect from '../components/CustomSelect.jsx'
+import { useI18n } from '../components/i18n.jsx'
 
 export default function NewListingPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [sp] = useSearchParams()
   const [mainCategory, setMainCategory] = useState('Vehicle')
   const [title, setTitle] = useState('')
@@ -254,12 +256,12 @@ export default function NewListingPage() {
   }
 
   const helperText = useMemo(() => {
-    if (mainCategory === 'Job') return 'Step 1 • Provide details and 1 company logo/banner image.'
+    if (mainCategory === 'Job') return t('newListing.helperJob')
     if (mainCategory === 'Mobile' || mainCategory === 'Electronic' || mainCategory === 'Home Garden') {
-      return 'Step 1 • Provide details and up to 4 photos. Continue to review and publish.'
+      return t('newListing.helperSimple')
     }
-    return 'Step 1 • Provide details and up to 5 photos. Continue to review and publish.'
-  }, [mainCategory])
+    return t('newListing.helperDefault')
+  }, [mainCategory, t])
 
   // Render grid of image slots with + for empty
   function ImageSlots() {
@@ -323,7 +325,7 @@ export default function NewListingPage() {
   return (
     <div className="center">
       <div className="card">
-        <div className="h1">Create New Listing</div>
+        <div className="h1">{t('newListing.title')}</div>
         <p className="text-muted">{helperText}</p>
 
         <form onSubmit={onNext} className="grid two">
@@ -350,17 +352,17 @@ export default function NewListingPage() {
           {/* Tag buyer requests (optional) */}
           <div className="card" style={{ marginTop: 8 }}>
             <div className="h2" style={{ marginTop: 0 }}>
-              {mainCategory === 'Job' ? 'Talent Requests (optional)' : 'Buyer Requests (optional)'}
+              {mainCategory === 'Job' ? t('newListing.talentRequests') : t('newListing.buyerRequests')}
             </div>
             {mainCategory === 'Job' ? (
-              <p className="text-muted">Select up to 3 Talent requests so candidates get notified after admin approval.</p>
+              <p className="text-muted">{t('newListing.talentInfo')}</p>
             ) : (
-              <p className="text-muted">Select up to 3 Wanted requests so buyers get notified after admin approval.</p>
+              <p className="text-muted">{t('newListing.buyerInfo')}</p>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <input
                 className="input"
-                placeholder="Search requests by title"
+                placeholder={t('newListing.searchRequestsPlaceholder')}
                 value={wantedQuery}
                 onChange={e => setWantedQuery(e.target.value)}
                 style={{ minWidth: 220 }}
@@ -369,16 +371,17 @@ export default function NewListingPage() {
                 <CustomSelect
                   value={wantedSelectId}
                   onChange={v => setWantedSelectId(String(v || ''))}
-                  ariaLabel="Pick a request"
-                  placeholder="Pick a request"
+                  ariaLabel={t('newListing.pickRequest')}
+                  placeholder={t('newListing.pickRequest')}
                   options={[
-                    { value: '', label: 'Pick a request' },
+                    { value: '', label: t('newListing.pickRequest') },
                     ...filteredWanted.map(w => ({ value: String(w.id), label: w.title }))
                   ]}
                   searchable={true}
                   virtualized={true}
                   maxDropdownHeight={420}
-                />
+              _code  new/</>
+/>
               </div>
               <button
                 className="btn"
@@ -428,9 +431,9 @@ export default function NewListingPage() {
       {showAuthPrompt && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div className="card" style={{ maxWidth: 420 }}>
-            <div className="h2">Login required</div>
-            <p className="text-muted">You must be logged in to create a listing. Please login to continue.</p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <div className="h2">{t('auth.loginRequir')}</  div>
+           <ep className="text-muted">{t('auth.loginRequiredMessa')}</Plp>
+           <odiv style={{ display:   <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button className="btn primary" onClick={() => navigate('/auth')}>Go to Login</button>
             </div>
           </div>
@@ -440,8 +443,8 @@ export default function NewListingPage() {
       {processing && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200 }}>
           <div className="card" style={{ maxWidth: 420, textAlign: 'center' }}>
-            <div className="h2" style={{ marginTop: 0 }}>Processing your listing</div>
-            <p className="text-muted">Extracting details...</p>
+            <div className="h2" style={{ marginTop: 0 }}>{t('newListing.processing')}</div>
+            <p className="text-muted">{t('newListing.processingExtracting')}</p>
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
               <div
                 style={{

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import CustomSelect from '../components/CustomSelect.jsx'
+import { useI18n } from '../components/i18n.jsx'
 import useSEO from '../components/useSEO.js'
 
 export default function SearchResultsPage() {
@@ -9,6 +10,7 @@ export default function SearchResultsPage() {
   const q = sp.get('q') || ''
   const category = sp.get('category') || ''
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [advCategory, setAdvCategory] = useState(category)
 
   // SEO for search page via helper
@@ -182,10 +184,10 @@ export default function SearchResultsPage() {
   }
 
   const heading = useMemo(() => {
-    const base = 'Search Results'
+    const base = t('search.headingBase')
     if (category) return `${base} • ${category}`
     return base
-  }, [category])
+  }, [category, t])
 
   // Build pagination window (around 5 pages centered on current)
   const pageWindow = [page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1)
@@ -234,7 +236,7 @@ export default function SearchResultsPage() {
 
   return (
     <div className="center">
-      {loading && <LoadingOverlay message="Searching listings..." />}
+      {loading && <LoadingOverlay message={t('search.loading')} />}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{
           padding: 18,
@@ -246,13 +248,13 @@ export default function SearchResultsPage() {
           {/* Advanced toggle */}
           <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center' }}>
             <button className="btn" type="button" onClick={() => setShowAdvanced(s => !s)}>
-              {showAdvanced ? 'Hide Advanced Search' : 'Advanced Search'}
+              {showAdvanced ? t('search.hideAdvanced') : t('search.advanced')}
             </button>
           </div>
 
           {showAdvanced && (
             <>
-              <div className="h2" style={{ marginTop: 8 }}>Advanced</div>
+              <div className="h2" style={{ marginTop: 8 }}>{t('search.advancedTitle')}</div>
               <form onSubmit={onApplyAdvanced} className="grid two">
                 <div>
                   <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Category</div>
@@ -391,7 +393,8 @@ export default function SearchResultsPage() {
         </div>
 
         <div style={{ padding: 18 }}>
-          <div className="h2" style={{ marginTop: 0 }}>Results</div>
+          <div className="h2" style={{ marginTop: 0 }}>{t('search.resul')}</ts_codedinewv</>
+iv>
           <div className="grid three">
             {results.map(r => {
               let expires = ''
@@ -451,8 +454,9 @@ export default function SearchResultsPage() {
                               boxShadow: '0 4px 12px rgba(239,68,68,0.25)'
                             }}
                           >
-                            Urgent
-                          </span>
+                            {t('common.urgent')}
+                        </  s_codepanewn</>
+            </span>
                         )}
                       </div>
                     )}
@@ -473,11 +477,12 @@ export default function SearchResultsPage() {
                 );
               }
             })}
-            {results.length === 0 && <p className="text-muted">No results yet.</p>}
+            {results.length === 0 & <<p className="text-muted">{t('search.noResul')}</t_codespnew></}
+
           </div>
           {/* Pagination */}
           <div className="pagination" style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-            <button className="btn page" onClick={() => setPage(Math.max(1, page - 1))} aria-label="Previous page">‹ Prev</button>
+            <button className="btn page" onClick={() => setPage(Math.max(1, page - 1))} aria-label="Previous page">{t('commontton>
             {pageWindow.map(p => (
               <button
                 key={p}
@@ -488,7 +493,8 @@ export default function SearchResultsPage() {
                 {p}
               </button>
             ))}
-            <button className="btn page" onClick={() => setPage(page + 1)} aria-label="Next page">Next ›</button>
+            <button className="btn page" onClick={() => setPage(page + 1)} aria-label="Next page">{t('common.ne')}</xtbut_codetonewn</>
+
           </div>
 
           {status && <p style={{ marginTop: 8 }}>{status}</p>}
