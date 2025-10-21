@@ -5,6 +5,11 @@ import CustomSelect from '../components/CustomSelect.jsx'
 export default function AdminPage() {
   const navigate = useNavigate()
   const [adminEmail, setAdminEmail] = useState('')
+  const [authToken, setAuthToken] = useState('')
+  const [allowed, setAllowed] = useState(false)
+  const [status, setStatus] = useState(null)
+
+  // Config
   const [maskedKey, setMaskedKey] = useState(null)
   const [geminiApiKey, setGeminiApiKey] = useState('')
   const [bankDetails, setBankDetails] = useState('')
@@ -13,64 +18,17 @@ export default function AdminPage() {
   const [bankName, setBankName] = useState('')
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [emailOnApprove, setEmailOnApprove] = useState(false)
-  // Maintenance mode
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false)
   const [maintenanceMessage, setMaintenanceMessage] = useState('')
-  const [status, setStatus] = useState(null)
-  const [allowed, setAllowed] = useState(false)
-  const [authToken, setAuthToken] = useState('')
 
-  // Helper: build admin headers consistently with bearer token when available
-  function getAdminHeaders(extra = {}) {
-    const h = { 'X-Admin-Email': adminEmail }
-    if (authToken) h['Authorization'] = `Bearer ${authToken}`
-    return { ...h, ...extra }
-  }
+  // Dashboard/metrics
+  const [metrics, setMetrics] = useState(null)
+  const [rangeDays, setRangeDays] = useState(7)
 
-  // Helper: safely parse JSON; tolerate HTML/plain text without throwing to keep admin dashboard responsive.
-  async function safeJson(r) {
-    if (!r) throw new Error('No response')
-    const headers = r.headers
-    const ctRaw = headers && typeof headers.get === 'function' ? headers.get('content-type') : ''
-    const ct = String(ctRaw || '').toLowerCase()
+  // Tabs
+  const [activeTab, setActiveTab] = useState('dashboard')
 
-    // If server says JSON, try to parse; otherwise fall back gracefully.
-    if (ct.includes('application/json')) {
-      try {
-        return await r.json()
-      } catch (_) {
-        // Treat invalid JSON as empty object to avoid noisy errors
-        return {}
-      }
-    }
-
-    // Fallbacks for empty/HTML/plain-text responses (e.g., 204 No Content, HTML error pages, or simple OK text)
-    let text = ''
-    try { text = await r.text() } catch (_) {}
-
-    const trimmed = String(text || '').trim()
-    if (!trimmed || r.status === 204) {
-      // Empty body: treat as success with no payload
-      return {}
-    }
-
-    // Try to parse JSON even without the content-type header
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try { return JSON.parse(trimmed) } catch (_) {}
-    }
-
-    // Detect HTML error pages (e.g., index.html from dev server/proxy)
-    const isHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.includes('<html')
-    if (isHtml) {
-      // Return empty object to avoid noisy global errors on admin UI
-      return {}
-    }
-
-    // Plain text response: return as a simple object to avoid generic errors
-    return { message: trimmed }
-  }
-
-  // Approval queue state
+  // Approvals
   const [pending, setPending] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [detail, setDetail] = useState(null)
@@ -78,49 +36,150 @@ export default function AdminPage() {
   const [rejectReason, setRejectReason] = useState('')
   const [urgentFlag, setUrgentFlag] = useState(false)
 
-  // Banners
-  const [banners, setBanners] = useState([])
-  const fileRef = useRef(null)
-  const backupFileRef = useRef(null)
-
-  // Dashboard metrics
-  const [metrics, setMetrics] = useState(null)
-  const [rangeDays, setRangeDays] = useState(7)
-
-  // Users management
+  // Users
   const [users, setUsers] = useState([])
   const [userQuery, setUserQuery] = useState('')
   const [suspendDays, setSuspendDays] = useState(7)
+  const [userEmailOptionsCache, setUserEmailOptionsCache] = useState([])
+  const [userSelect, setUserSelect] = useState('')
   const [userAds, setUserAds] = useState({})
   const [expandedUserIds, setExpandedUserIds] = useState([])
-  const [userSelect, setUserSelect] = useState('')
-  const [userAdsFilters, setUserAdsFilters] = useState({}) // userId -> { q, category, location, priceMin, priceMax }
-  const [userEmailOptionsCache, setUserEmailOptionsCache] = useState([])
+  const [userAdsFilters, setUserAdsFilters] = useState({})
 
-  // Reports management
+  // Reports
   const [reports, setReports] = useState([])
   const [reportFilter, setReportFilter] = useState('pending')
 
-  // Notifications (admin)
+  // Banners
+  const [banners, setBanners] = useState([])
+  const fileRef = useRef(null)
+
+  // Notifications
   const [notificationsAdmin, setNotificationsAdmin] = useState([])
   const [notifyTitle, setNotifyTitle] = useState('')
   const [notifyMessage, setNotifyMessage] = useState('')
-  const [notifyTargetType, setNotifyTargetType] = useState('all') // 'all' | 'email'
+  const [notifyTargetType, setNotifyTargetType] = useState('all')
   const [notifyEmail, setNotifyEmail] = useState('')
   const [unreadCount, setUnreadCount] = useState(0)
 
-  // Chat management (admin)
+  // Chat
   const [conversations, setConversations] = useState([])
   const [selectedChatEmail, setSelectedChatEmail] = useState('')
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState('')
 
-  // Tabs
-  const [activeTab, setActiveTab] = useState('dashboard')
+  // Backup
+  const backupFileRef = useRef(null)
 
+  // Helpers
+  function getAdminHeaders(extra = {}) {
+    const h = { 'X-Admin-Email': adminEmail }
+    if (authToken) h['Authorization'] = `Bearer ${authToken}`
+    return { ...h, ...extra }
+  }
+  async function safeJson(r) {
+    if (!r) throw new Error('No response')
+    const ct = String((r.headers && r.headers.get && r.headers.get('content-type')) || '').toLowerCase()
+    if (ct.includes('application/json')) {
+      try { return await r.json() } catch (_) { return {} }
+    }
+    let text = ''
+    try { text = await r.text() } catch (_) {}
+    const trimmed = String(text || '').trim()
+    if (!trimmed || r.status === 204) return {}
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try { return JSON.parse(trimmed) } catch (_) { /* fallthrough */ }
+    }
+    const isHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.includes('<html')
+    if (isHtml) return {}
+    return { message: trimmed }
+  }
+
+  // Auth/init
+  useEffect(() => {
+    async function init() {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || 'null')
+        const token = localStorage.getItem('auth_token') || ''
+        const email = user?.email || ''
+        if (token) setAuthToken(token)
+        if (!email) {
+          setAllowed(false)
+          return
+        }
+        try {
+          const r = await fetch(`/api/auth/status?t=${Date.now()}`, {
+            headers: { 'Authorization': token ? `Bearer ${token}` : undefined, 'Cache-Control': 'no-store' },
+            cache: 'no-store'
+          })
+          if (!r.ok) {
+            if (user && user.is_admin && user.email) {
+              setAllowed(true)
+              setAdminEmail(user.email)
+            } else {
+              setAllowed(false)
+            }
+            return
+          }
+          const data = await r.json().catch(() => ({}))
+          const isAdmin = !!data.is_admin
+          if (isAdmin) {
+            setAllowed(true)
+            setAdminEmail(email)
+          } else {
+            setAllowed(false)
+          }
+        } catch (_) {
+          if (user && user.is_admin && user.email) {
+            setAllowed(true)
+            setAdminEmail(user.email)
+          } else {
+            setAllowed(false)
+          }
+        }
+      } catch (_) {
+        setAllowed(false)
+      }
+    }
+    init()
+  }, [])
+
+  // Load initial data when allowed
+  useEffect(() => {
+    if (!allowed || !adminEmail || !authToken) return
+    fetchConfig()
+    loadMetrics(rangeDays)
+    loadPending()
+    loadBanners()
+    loadUsers('')
+    loadReports(reportFilter)
+    loadAdminNotifications()
+    loadConversations()
+    fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': `Bearer ${authToken}` } })
+      .then(async r => { const d = await safeJson(r); setUnreadCount(Number(d.unread_count) || 0) })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed, adminEmail, authToken])
+
+  // Notifications auto-refresh when on tab
+  useEffect(() => {
+    if (!allowed || !adminEmail || activeTab !== 'notifications') return
+    const refresh = () => {
+      loadAdminNotifications()
+      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
+        .then(async r => { const d = await safeJson(r); setUnreadCount(Number(d.unread_count) || 0) })
+        .catch(() => {})
+    }
+    refresh()
+    const timer = setInterval(refresh, 15000)
+    return () => clearInterval(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed, adminEmail, activeTab])
+
+  // Config
   async function fetchConfig() {
     try {
-      const r = await fetch('/api/admin/config', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
+      const r = await fetch('/api/admin/config', { headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load config')
       setMaskedKey(data.gemini_api_key_masked)
@@ -130,14 +189,12 @@ export default function AdminPage() {
       setBankName(data.bank_name || '')
       setWhatsappNumber(data.whatsapp_number || '')
       setEmailOnApprove(!!data.email_on_approve)
-      // Maintenance
       setMaintenanceEnabled(!!data.maintenance_mode)
       setMaintenanceMessage(String(data.maintenance_message || ''))
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function saveConfig() {
     try {
       const payload = {
@@ -150,15 +207,10 @@ export default function AdminPage() {
         emailOnApprove,
         maintenanceMode: !!maintenanceEnabled,
         maintenanceMessage: String(maintenanceMessage || '')
-   _code  new </}
-
+      }
       const r = await fetch('/api/admin/config', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Email': adminEmail,
-          'Authorization': authToken ? `Bearer ${authToken}` : undefined
-        },
+        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       })
       const data = await safeJson(r)
@@ -170,13 +222,9 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function testGemini() {
     try {
-      const r = await fetch('/api/admin/test-gemini', {
-        method: 'POST',
-        headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined }
-      })
+      const r = await fetch('/api/admin/test-gemini', { method: 'POST', headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error?.message || data.error || 'Failed to test API key')
       setStatus(`API key OK. Models available: ${data.models_count}`)
@@ -185,9 +233,22 @@ export default function AdminPage() {
     }
   }
 
+  // Metrics
+  async function loadMetrics(days = rangeDays) {
+    try {
+      const r = await fetch(`/api/admin/metrics?days=${encodeURIComponent(days)}`, { headers: getAdminHeaders() })
+      const data = await safeJson(r)
+      if (!r.ok) throw new Error(data.error || 'Failed to load metrics')
+      setMetrics(data)
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+
+  // Approvals
   async function loadPending() {
     try {
-      const r = await fetch('/api/admin/pending', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
+      const r = await fetch('/api/admin/pending', { headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load pending')
       setPending(data.items || [])
@@ -195,7 +256,6 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function loadDetail(id) {
     try {
       const r = await fetch(`/api/admin/pending/${encodeURIComponent(id)}`, { headers: getAdminHeaders() })
@@ -208,15 +268,12 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function saveEdits() {
     try {
       const r = await fetch(`/api/admin/pending/${encodeURIComponent(selectedId)}/update`, {
         method: 'POST',
         headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          structured_json: editStructured
-        })
+        body: JSON.stringify({ structured_json: editStructured, seo_title: '', meta_description: '', seo_keywords: '' })
       })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to save edits')
@@ -226,13 +283,9 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function approve() {
     try {
-      const r = await fetch(`/api/admin/pending/${encodeURIComponent(selectedId)}/approve`, {
-        method: 'POST',
-        headers: getAdminHeaders()
-      })
+      const r = await fetch(`/api/admin/pending/${encodeURIComponent(selectedId)}/approve`, { method: 'POST', headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to approve')
       setStatus('Approved.')
@@ -243,7 +296,6 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function reject() {
     try {
       const r = await fetch(`/api/admin/pending/${encodeURIComponent(selectedId)}/reject`, {
@@ -263,55 +315,18 @@ export default function AdminPage() {
     }
   }
 
-  async function loadBanners() {
-    try {
-      const r = await fetch('/api/admin/banners', { headers: getAdminHeaders() })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load banners')
-      setBanners(data.results || [])
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
-  }
-
-  async function loadMetrics(days = rangeDays) {
-    try {
-      const r = await fetch(`/api/admin/metrics?days=${encodeURIComponent(days)}`, { headers: getAdminHeaders() })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load metrics')
-      setMetrics(data)
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
-  }
-
+  // Users
   async function loadUsers(q = '') {
     try {
       const r = await fetch(`/api/admin/users?q=${encodeURIComponent(q)}`, { headers: getAdminHeaders() })
-      let data = {}
-      try {
-        data = await safeJson(r)
-      } catch (_) {
-        data = {}
-      }
-      if (!r.ok) {
-        // Do not surface global status errors for users; keep dashboard responsive
-        return
-      }
+      const data = await safeJson(r)
+      if (!r.ok) return
       const results = Array.isArray(data.results) ? data.results : []
       setUsers(results)
-      // Merge found emails into a persistent cache so the dropdown doesn't shrink after filtering
       const emails = Array.from(new Set(results.map(u => String(u.email || '').trim()).filter(Boolean)))
-      setUserEmailOptionsCache(prev => {
-        const set = new Set(prev)
-        emails.forEach(e => set.add(e))
-        return Array.from(set)
-      })
-    } catch (_) {
-      // Silent failure to avoid blocking the dashboard
-    }
+      setUserEmailOptionsCache(prev => Array.from(new Set([...prev, ...emails])))
+    } catch (_) {}
   }
-
   async function banUser(id) {
     try {
       const r = await fetch(`/api/admin/users/${id}/ban`, { method: 'POST', headers: getAdminHeaders() })
@@ -322,7 +337,6 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function unbanUser(id) {
     try {
       const r = await fetch(`/api/admin/users/${id}/unban`, { method: 'POST', headers: getAdminHeaders() })
@@ -333,8 +347,7 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
-  async function suspend7Days(id) {
+  async function suspendUser(id) {
     try {
       const r = await fetch(`/api/admin/users/${id}/suspend`, {
         method: 'POST',
@@ -348,7 +361,6 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function unsuspendUser(id) {
     try {
       const r = await fetch(`/api/admin/users/${id}/unsuspend`, { method: 'POST', headers: getAdminHeaders() })
@@ -359,8 +371,6 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
-  // Admin: load a user's ads; ensure only the user's own ads are shown
   async function loadUserAds(user) {
     try {
       const userId = (typeof user === 'object' && user !== null) ? user.id : user
@@ -368,13 +378,11 @@ export default function AdminPage() {
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to load user ads')
       const rows = Array.isArray(data.results) ? data.results : []
-      // Trust the backend to return listings for the requested user; display them directly.
       setUserAds(prev => ({ ...prev, [userId]: rows }))
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   function toggleExpandUser(userId) {
     setExpandedUserIds(prev => {
       const has = prev.includes(userId)
@@ -386,11 +394,9 @@ export default function AdminPage() {
       return next
     })
   }
-
   function updateUserAdsFilter(userId, patch) {
     setUserAdsFilters(prev => ({ ...prev, [userId]: { ...(prev[userId] || {}), ...patch } }))
   }
-
   function getFilteredUserAds(userId) {
     const ads = Array.isArray(userAds[userId]) ? userAds[userId] : []
     const f = userAdsFilters[userId] || {}
@@ -410,57 +416,16 @@ export default function AdminPage() {
     })
   }
 
-  async function adminDeleteListing(listingId, userId) {
-    const yes = window.confirm('Delete this listing?')
-    if (!yes) return
-    try {
-      const r = await fetch(`/api/admin/listings/${listingId}`, { method: 'DELETE', headers: getAdminHeaders() })
-      const d = await safeJson(r)
-      if (!r.ok) throw new Error(d.error || 'Failed to delete listing')
-      setStatus('Listing deleted.')
-      // refresh user's ads
-      loadUserAds({ id: userId })
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
-  }
-
-  async function adminSetUrgent(listingId, urgent, userId) {
-    try {
-      const r = await fetch(`/api/admin/listings/${listingId}/urgent`, {
-        method: 'POST',
-        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ urgent: !!urgent })
-      })
-      const d = await safeJson(r)
-      if (!r.ok) throw new Error(d.error || 'Failed to update urgent')
-      setStatus(urgent ? 'Marked as urgent.' : 'Urgent removed.')
-      loadUserAds({ id: userId })
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
-  }
-
+  // Reports
   async function loadReports(filter = 'pending') {
     try {
       const r = await fetch(`/api/admin/reports?status=${encodeURIComponent(filter)}`, { headers: getAdminHeaders() })
-      let data = {}
-      try {
-        data = await safeJson(r)
-      } catch (_) {
-        data = {}
-      }
-      if (!r.ok) {
-        // Avoid blocking the dashboard if reports endpoint fails
-        return
-      }
+      const data = await safeJson(r)
+      if (!r.ok) return
       const results = Array.isArray(data.results) ? data.results : []
       setReports(results)
-    } catch (_) {
-      // Silent on errors
-    }
+    } catch (_) {}
   }
-
   async function resolveReport(id) {
     try {
       const r = await fetch(`/api/admin/reports/${id}/resolve`, { method: 'POST', headers: getAdminHeaders() })
@@ -471,7 +436,6 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function deleteReport(id) {
     const yes = window.confirm('Delete this report?')
     if (!yes) return
@@ -485,23 +449,24 @@ export default function AdminPage() {
     }
   }
 
+  // Banners
+  async function loadBanners() {
+    try {
+      const r = await fetch('/api/admin/banners', { headers: getAdminHeaders() })
+      const data = await safeJson(r)
+      if (!r.ok) throw new Error(data.error || 'Failed to load banners')
+      setBanners(data.results || [])
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
   async function onUploadBanner(file) {
     if (!file) return
     try {
       const fd = new FormData()
       fd.append('image', file)
-      const r = await fetch('/api/admin/banners', {
-        method: 'POST',
-        headers: getAdminHeaders(),
-        body: fd
-      })
-      // If server returns HTML, we want a friendly error
-      let data = {}
-      try {
-        data = await safeJson(r)
-      } catch (err) {
-        throw err
-      }
+      const r = await fetch('/api/admin/banners', { method: 'POST', headers: getAdminHeaders(), body: fd })
+      const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to upload banner')
       setStatus('Banner uploaded.')
       loadBanners()
@@ -511,7 +476,6 @@ export default function AdminPage() {
       if (fileRef.current) fileRef.current.value = ''
     }
   }
-
   async function toggleBanner(id, active) {
     try {
       const r = await fetch(`/api/admin/banners/${id}/active`, {
@@ -526,15 +490,11 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function deleteBanner(id) {
     const yes = window.confirm('Delete this banner?')
     if (!yes) return
     try {
-      const r = await fetch(`/api/admin/banners/${id}`, {
-        method: 'DELETE',
-        headers: getAdminHeaders()
-      })
+      const r = await fetch(`/api/admin/banners/${id}`, { method: 'DELETE', headers: getAdminHeaders() })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to delete banner')
       loadBanners()
@@ -543,95 +503,16 @@ export default function AdminPage() {
     }
   }
 
-  // Backup & Restore
-  async function createBackup() {
-    try {
-      const r = await fetch('/api/admin/backup', {
-        method: 'POST',
-        headers: getAdminHeaders()
-      })
-      const ct = (r.headers && typeof r.headers.get === 'function') ? String(r.headers.get('content-type') || '').toLowerCase() : ''
-      if (!r.ok) {
-        let msg = 'Failed to create backup'
-        try {
-          if (ct.includes('application/json')) {
-            const d = await r.json()
-            msg = d?.error || msg
-          } else {
-            const t = await r.text()
-            if (t) msg = t
-          }
-        } catch (_) {}
-        throw new Error(msg)
-      }
-      const blob = await r.blob()
-      const cd = (r.headers && typeof r.headers.get === 'function') ? String(r.headers.get('content-disposition') || '') : ''
-      let filename = 'ganudenu-backup.zip'
-      const m = cd.match(/filename="([^"]+)"/)
-      if (m && m[1]) filename = m[1]
-
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      setTimeout(() => {
-        document.body.removeChild(a)
-        window.URL.revokeObjectURL(url)
-      }, 0)
-      setStatus('Backup downloaded.')
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
-  }
-
-  async function restoreFromBackup(file) {
-    if (!file) return
-    try {
-      const fd = new FormData()
-      fd.append('backup', file)
-      const r = await fetch('/api/admin/restore', {
-        method: 'POST',
-        headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined },
-        body: fd
-      })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to restore from backup')
-      setStatus('Restore completed successfully.')
-      // Refresh some data after restore
-      loadMetrics(rangeDays)
-      loadPending()
-      loadAdminNotifications()
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    } finally {
-      if (backupFileRef.current) backupFileRef.current.value = ''
-    }
-  }
-
-  // Notifications (admin)
+  // Notifications
   async function loadAdminNotifications() {
     try {
       const r = await fetch('/api/admin/notifications', { headers: getAdminHeaders() })
-      let data = {}
-      try {
-        data = await safeJson(r)
-      } catch (_) {
-        // If backend returns HTML/plain text, ignore and keep current notifications
-        data = {}
-      }
-      if (!r.ok) {
-        // Silent fail to avoid breaking the whole dashboard status
-        return
-      }
+      const data = await safeJson(r)
+      if (!r.ok) return
       const results = Array.isArray(data.results) ? data.results : []
       setNotificationsAdmin(results)
-    } catch (_) {
-      // Silent on errors — don't spam the Status card
-    }
+    } catch (_) {}
   }
-
   async function sendNotification() {
     if (!notifyTitle.trim() || !notifyMessage.trim()) {
       setStatus('Title and message are required.')
@@ -660,7 +541,6 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function deleteNotification(id) {
     const yes = window.confirm('Delete this notification?')
     if (!yes) return
@@ -674,29 +554,15 @@ export default function AdminPage() {
     }
   }
 
-  // Chat management (admin)
+  // Chat
   async function loadConversations() {
     try {
-      // Chats admin endpoints require a valid bearer token; if missing, skip silently
-      if (!authToken) {
-        setConversations([])
-        return
-      }
+      if (!authToken) { setConversations([]); return }
       const r = await fetch('/api/chats/admin/conversations', { headers: { 'X-Admin-Email': adminEmail, 'Authorization': `Bearer ${authToken}` } })
-      let data = {}
-      try {
-        data = await safeJson(r)
-      } catch (_) {
-        data = {}
-      }
-      // If the backend returns a non-OK (e.g., token expired), do not surface a global error
-      if (!r.ok) {
-        return
-      }
+      const data = await safeJson(r)
+      if (!r.ok) return
       setConversations(Array.isArray(data.results) ? data.results : [])
-    } catch (_e) {
-      // Silent on errors to avoid noisy Status card on dashboard
-    }
+    } catch (_) {}
   }
   async function loadChatMessages(email) {
     try {
@@ -709,7 +575,6 @@ export default function AdminPage() {
       setStatus(`Error: ${e.message}`)
     }
   }
-
   async function sendAdminReply() {
     const msg = chatInput.trim()
     if (!msg || !selectedChatEmail) return
@@ -728,137 +593,59 @@ export default function AdminPage() {
     }
   }
 
-  // On mount, require logged-in admin (refresh status to avoid stale localStorage)
-  useEffect(() => {
-    async function init() {
-      try {
-        const user = JSON.parse(localStorage.getItem('user') || 'null')
-        const token = localStorage.getItem('auth_token') || ''
-        const email = user?.email || ''
-        if (token) setAuthToken(token)
-        if (!email) {
-          setAllowed(false)
-          return
-        }
-        // Refresh admin status from backend with bearer token when available
+  // Backup/Restore
+  async function createBackup() {
+    try {
+      const r = await fetch('/api/admin/backup', { method: 'POST', headers: getAdminHeaders() })
+      if (!r.ok) {
+        let msg = 'Failed to create backup'
         try {
-          const r = await fetch(`/api/auth/status?t=${Date.now()}`, {
-            headers: { 'Authorization': token ? `Bearer ${token}` : undefined, 'Cache-Control': 'no-store' },
-            cache: 'no-store'
-          })
-
-          // If backend responds with non-OK, fall back to local admin flag without overwriting it.
-          if (!r.ok) {
-            if (user && user.is_admin && user.email) {
-              setAllowed(true)
-              setAdminEmail(user.email)
-            } else {
-              setAllowed(false)
-            }
-            return
-          }
-
-          const data = await r.json().catch(() => ({}))
-          const hasFlag = Object.prototype.hasOwnProperty.call(data, 'is_admin')
-          const isAdmin = hasFlag ? !!data.is_admin : (user && user.is_admin ? true : false)
-
-          // Only update localStorage when we have a definitive admin flag from backend
-          if (hasFlag) {
-            const nextUser = { ...(user || {}), is_admin: isAdmin, email }
-            try { localStorage.setItem('user', JSON.stringify(nextUser)) } catch (_) {}
-          }
-
-          if (isAdmin) {
-            setAllowed(true)
-            setAdminEmail(email)
-          } else {
-            setAllowed(false)
-          }
-        } catch (_) {
-          // Network failure: fallback to local check
-          if (user && user.is_admin && user.email) {
-            setAllowed(true)
-            setAdminEmail(user.email)
-          } else {
-            setAllowed(false)
-          }
-        }
-      } catch (_) {
-        setAllowed(false)
+          const ct = (r.headers && r.headers.get && r.headers.get('content-type')) ? String(r.headers.get('content-type')).toLowerCase() : ''
+          if (ct.includes('application/json')) { const d = await r.json(); msg = d?.error || msg }
+          else { const t = await r.text(); if (t) msg = t }
+        } catch (_) {}
+        throw new Error(msg)
       }
+      const blob = await r.blob()
+      const cd = (r.headers && r.headers.get && r.headers.get('content-disposition')) ? String(r.headers.get('content-disposition')) : ''
+      let filename = 'ganudenu-backup.zip'
+      const m = cd.match(/filename="([^"]+)"/)
+      if (m && m[1]) filename = m[1]
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      setTimeout(() => {
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+      }, 0)
+      setStatus('Backup downloaded.')
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
     }
-    init()
-  }, [])
-
-  useEffect(() => {
-    if (allowed && adminEmail) {
-      // Avoid hitting admin endpoints without a bearer token to prevent "Missing Authorization bearer token" errors.
-      if (!authToken) {
-        return
-      }
-      fetchConfig()
-      loadPending()
-      loadBanners()
+  }
+  async function restoreFromBackup(file) {
+    if (!file) return
+    try {
+      const fd = new FormData()
+      fd.append('backup', file)
+      const r = await fetch('/api/admin/restore', { method: 'POST', headers: { 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined }, body: fd })
+      const data = await safeJson(r)
+      if (!r.ok) throw new Error(data.error || 'Failed to restore from backup')
+      setStatus('Restore completed successfully.')
       loadMetrics(rangeDays)
-      loadUsers('')
-      loadReports(reportFilter)
+      loadPending()
       loadAdminNotifications()
-      // preload conversations
-      loadConversations()
-      // initial unread count
-      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': `Bearer ${authToken}` } })
-        .then(async r => {
-          try {
-            const d = await safeJson(r)
-            setUnreadCount(Number(d.unread_count) || 0)
-          } catch (e) {
-            // ignore when backend down
-          }
-        })
-        .catch(() => {})
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    } finally {
+      if (backupFileRef.current) backupFileRef.current.value = ''
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, adminEmail, authToken])
-
-  // Auto-refresh notifications when on the Notifications tab (and update unread count)
-  useEffect(() => {
-    if (!allowed || !adminEmail) return
-    if (activeTab !== 'notifications') return
-    const refresh = () => {
-      loadAdminNotifications()
-      fetch('/api/notifications/unread-count', { headers: { 'X-User-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined } })
-        .then(async r => {
-          try {
-            const d = await safeJson(r)
-            setUnreadCount(Number(d.unread_count) || 0)
-          } catch (e) {
-            // ignore transient errors
-          }
-        })
-        .catch(() => {})
-    }
-    // initial refresh on entering tab
-    refresh()
-    const timer = setInterval(refresh, 15000) // every 15s
-    return () => clearInterval(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, adminEmail, activeTab])
-
-  if (!allowed) {
-    return (
-      <div className="center">
-        <div className="card">
-          <div className="h1">Admin Dashboard</div>
-          <p className="text-muted">Access denied. Admins only.</p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn primary" onClick={() => navigate('/auth')}>Go to Login</button>
-            <button className="btn" onClick={() => navigate('/')}>Home</button>
-          </div>
-        </div>
-      </div>
-    )
   }
 
+  // UI Components
   function BarChart({ data, color = '#6c7ff7' }) {
     if (!Array.isArray(data) || data.length === 0) return <p className="text-muted">No data</p>
     const max = Math.max(1, ...data.map(d => d.count || 0))
@@ -878,7 +665,6 @@ export default function AdminPage() {
       </div>
     )
   }
-
   function SparklineBars({ data, color = '#6c7ff7' }) {
     if (!Array.isArray(data) || data.length === 0) return null
     const max = Math.max(1, ...data.map(d => d.count || 0))
@@ -893,17 +679,12 @@ export default function AdminPage() {
       </div>
     )
   }
-
   function StackedBars({ a, b, aLabel = 'A', bLabel = 'B', aColor = '#34d399', bColor = '#ef4444' }) {
     const len = Math.max((a && a.length) || 0, (b && b.length) || 0)
     const merged = Array.from({ length: len }, (_, i) => {
       const ai = Array.isArray(a) ? a[i] : undefined
       const bi = Array.isArray(b) ? b[i] : undefined
-      return {
-        date: (ai && ai.date) || (bi && bi.date) || '',
-        a: (ai && ai.count) || 0,
-        b: (bi && bi.count) || 0
-      }
+      return { date: (ai && ai.date) || (bi && bi.date) || '', a: (ai && ai.count) || 0, b: (bi && bi.count) || 0 }
     })
     const max = Math.max(1, ...merged.map(x => x.a + x.b))
     return (
@@ -937,7 +718,6 @@ export default function AdminPage() {
       </div>
     )
   }
-
   function HorizontalBars({ items }) {
     if (!Array.isArray(items) || items.length === 0) return <p className="text-muted">No data</p>
     const max = Math.max(1, ...items.map(i => i.value || 0))
@@ -961,95 +741,17 @@ export default function AdminPage() {
     )
   }
 
-  function AdminPaymentRules({ adminEmail, onStatus }) {
-    const [rules, setRules] = useState([])
-    const [loading, setLoading] = useState(false)
-
-    async function loadRules() {
-      setLoading(true)
-      try {
-        const r = await fetch('/api/admin/config', { headers: getAdminHeaders() })
-        const data = await safeJson(r)
-        if (!r.ok) throw new Error(data.error || 'Failed to load rules')
-        setRules(Array.isArray(data.payment_rules) ? data.payment_rules : [])
-      } catch (e) {
-        onStatus && onStatus(`Error: ${e.message}`)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    useEffect(() => {
-      if (adminEmail) loadRules()
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [adminEmail])
-
-    function updateRule(idx, patch) {
-      setRules(prev => prev.map((r, i) => i === idx ? { ...r, ...patch } : r))
-    }
-
-    async function saveRules() {
-      try {
-        const payload = {
-          paymentRules: rules.map(r => ({
-            category: r.category,
-            amount: Number(r.amount) || 0,
-            enabled: !!r.enabled
-          }))
-        }
-        const r = await fetch('/api/admin/config', {
-          method: 'POST',
-          headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify(payload)
-        })
-        const data = await safeJson(r)
-        if (!r.ok) throw new Error(data.error || 'Failed to save rules')
-        onStatus && onStatus('Payment rules updated.')
-        loadRules()
-      } catch (e) {
-        onStatus && onStatus(`Error: ${e.message}`)
-      }
-    }
-
+  if (!allowed) {
     return (
-      <div className="card" style={{ marginTop: 8 }}>
-        {loading && <p className="text-muted">Loading payment rules...</p>}
-        {!loading && rules.length === 0 && <p className="text-muted">No rules found.</p>}
-        {!loading && rules.length > 0 && (
-          <>
-            {rules.map((r, idx) => (
-              <div key={r.category} className="card" style={{ marginBottom: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                  <strong style={{ whiteSpace: 'nowrap' }}>{r.category}</strong>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <input
-                      type="checkbox"
-                      checked={!!r.enabled}
-                      onChange={e => updateRule(idx, { enabled: e.target.checked ? 1 : 0 })}
-                    />
-                    <span className="text-muted">Enabled</span>
-                  </label>
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <div style={{ flex: 1 }}>
-                    <label className="text-muted">Amount (Rs.)</label>
-                    <input
-                      className="input"
-                      type="number"
-                      min="0"
-                      value={r.amount}
-                      onChange={e => updateRule(idx, { amount: Math.max(0, Number(e.target.value || 0)) })}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn primary" onClick={saveRules}>Save Payment Rules</button>
-              <button className="btn" onClick={loadRules}>Refresh</button>
-            </div>
-          </>
-        )}
+      <div className="center">
+        <div className="card">
+          <div className="h1">Admin Dashboard</div>
+          <p className="text-muted">Access denied. Admins only.</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn primary" onClick={() => navigate('/auth')}>Go to Login</button>
+            <button className="btn" onClick={() => navigate('/')}>Home</button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -1097,7 +799,6 @@ export default function AdminPage() {
         {/* Dashboard */}
         {activeTab === 'dashboard' && (
           <>
-            <div className="h2" style={{ marginTop: 8 }}>Dashboard</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
               <span className="text-muted">Range:</span>
               <select className="select" style={{ maxWidth: 180 }} value={String(rangeDays)} onChange={e => { const v = Number(e.target.value); setRangeDays(v); loadMetrics(v); }}>
@@ -1108,10 +809,49 @@ export default function AdminPage() {
               <button className="btn" onClick={() => loadMetrics(rangeDays)}>Refresh</button>
             </div>
 
+            {/* Payment & Bank Settings */}
+            <div className="card" style={{ marginTop: 8 }}>
+              <div className="h2" style={{ marginTop: 0 }}>Payment & Bank Settings</div>
+              <div className="grid two" style={{ gap: 8 }}>
+                <div>
+                  <label className="text-muted">Bank Name</label>
+                  <input className="input" placeholder="e.g., Bank of Ceylon" value={bankName} onChange={e => setBankName(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-muted">Account Name</label>
+                  <input className="input" placeholder="e.g., Ganudenu Pvt Ltd" value={bankAccountName} onChange={e => setBankAccountName(e.target.value)} />
+                </div>
+              </div>
+              <div className="grid two" style={{ gap: 8, marginTop: 8 }}>
+                <div>
+                  <label className="text-muted">Account Number</label>
+                  <input className="input" placeholder="e.g., 1234567890" value={bankAccountNumber} onChange={e => setBankAccountNumber(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-muted">WhatsApp Number</label>
+                  <input className="input" placeholder="e.g., +94 7X XXX XXXX" value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)} />
+                </div>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <label className="text-muted">Legacy Bank Details (combined text)</label>
+                <textarea className="textarea" placeholder="Optional combined details shown to users if set" value={bankDetails} onChange={e => setBankDetails(e.target.value)} />
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <input type="checkbox" checked={!!emailOnApprove} onChange={e => setEmailOnApprove(!!e.target.checked)} />
+                  <span className="text-muted">Email on approve (when Facebook share succeeds)</span>
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn primary" onClick={saveConfig}>Save Settings</button>
+                <button className="btn" onClick={fetchConfig}>Refresh</button>
+              </div>
+            </div>
+
             {!metrics && <p className="text-muted">Loading analytics...</p>}
             {metrics && (
               <>
-                <div className="grid three">
+                <div className="grid three" style={{ marginTop: 12 }}>
                   <div className="card">
                     <div className="h2">Users</div>
                     <div className="text-muted">Total: {metrics.totals.totalUsers}</div>
@@ -1144,21 +884,6 @@ export default function AdminPage() {
                   <div className="card" style={{ overflowX: 'auto' }}>
                     <div className="h2">Reports (last {metrics.params?.days}d): {metrics.rangeTotals.reportsInRange}</div>
                     <SparklineBars data={metrics.series.reports} color="#e58e26" />
-                  </div>
-                </div>
-
-                <div className="grid three" style={{ marginTop: 12 }}>
-                  <div className="card" style={{ overflowX: 'auto' }}>
-                    <div className="h2">Signups (last {metrics.params?.days} days)</div>
-                    <BarChart data={metrics.series.signups} color="#6c7ff7" />
-                  </div>
-                  <div className="card" style={{ overflowX: 'auto' }}>
-                    <div className="h2">Listings Created (last {metrics.params?.days} days)</div>
-                    <BarChart data={metrics.series.listingsCreated} color="#00d1ff" />
-                  </div>
-                  <div className="card" style={{ overflowX: 'auto' }}>
-                    <div className="h2">Reports (last {metrics.params?.days} days)</div>
-                    <BarChart data={metrics.series.reports} color="#e58e26" />
                   </div>
                 </div>
 
@@ -1215,14 +940,7 @@ export default function AdminPage() {
             <div className="grid two" style={{ marginTop: 8 }}>
               <div>
                 <label className="text-muted">Suspend days</label>
-                <input
-                  className="input"
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={suspendDays}
-                  onChange={e => setSuspendDays(Math.max(1, Math.min(365, Number(e.target.value || 1))))}
-                />
+                <input className="input" type="number" min="1" max="365" value={suspendDays} onChange={e => setSuspendDays(Math.max(1, Math.min(365, Number(e.target.value || 1))))} />
               </div>
               <div className="text-muted" style={{ display: 'flex', alignItems: 'center' }}>
                 This value is used when clicking “Suspend” on a user.
@@ -1238,137 +956,37 @@ export default function AdminPage() {
                       <strong>{u.email}</strong> {u.username ? <span className="text-muted">• @{u.username}</span> : null}
                     </div>
                     <div className="text-muted">ID: {u.id} • Admin: {u.is_admin ? 'Yes' : 'No'} • Created: {new Date(u.created_at).toLocaleString()}</div>
-                    <div className="text-muted">UID: {u.user_uid || '—'} • Verified: {u.is_verified ? 'Yes' : 'No'}</div>
-                    <div className="text-muted">
-                      Status: {u.is_banned ? 'Banned' : (u.suspended_until && u.suspended_until > new Date().toISOString() ? `Suspended until ${new Date(u.suspended_until).toLocaleString()}` : 'Active')}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                      <button className="btn" onClick={() => banUser(u.id)}>Ban</button>
+                      <button className="btn" onClick={() => unbanUser(u.id)}>Unban</button>
+                      <button className="btn" onClick={() => suspendUser(u.id)}>Suspend</button>
+                      <button className="btn" onClick={() => unsuspendUser(u.id)}>Unsuspend</button>
+                      <button className="btn" onClick={() => toggleExpandUser(u.id)}>{expandedUserIds.includes(u.id) ? 'Hide Ads' : 'Show Ads'}</button>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-                      {!u.is_banned && <button className="btn" onClick={() => banUser(u.id)}>Ban</button>}
-                      {u.is_banned && <button className="btn" onClick={() => unbanUser(u.id)}>Unban</button>}
-                      {/* Show Unsuspend if currently suspended */}
-                      {u.suspended_until && (new Date(u.suspended_until) > new Date()) ? (
-                        <button className="btn" onClick={() => unsuspendUser(u.id)}>Unsuspend</button>
-                      ) : (
-                        <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend {suspendDays} days</button>
-                      )}
-                      {/* Verify controls */}
-                      {!u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/verify`, { method: 'POST', headers: getAdminHeaders() }); const d = await safeJson(r); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Verify</button>}
-                      {u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/unverify`, { method: 'POST', headers: getAdminHeaders() }); const d = await safeJson(r); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Unverify</button>}
-                      {/* View user's ads */}
-                      <button className="btn" onClick={() => toggleExpandUser(u.id)}>
-                        {expandedUserIds.includes(u.id) ? 'Hide Ads' : 'View Ads'}
-                      </button>
-                    </div>
-
-                    {/* User's ads list */}
                     {expandedUserIds.includes(u.id) && (
                       <div className="card" style={{ marginTop: 8 }}>
-                        <div className="h2" style={{ marginTop: 0 }}>Ads by user</div>
-
-                        {/* Filters within user's ads */}
-                        {Array.isArray(userAds[u.id]) && userAds[u.id].length > 0 && (
-                          <div style={{ marginBottom: 8 }}>
-                            <div className="grid two">
-                              <div>
-                                <input
-                                  className="input"
-                                  placeholder="Search within ads..."
-                                  value={(userAdsFilters[u.id]?.q || '')}
-                                  onChange={e => updateUserAdsFilter(u.id, { q: e.target.value })}
-                                />
-                              </div>
-                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                                {(() => {
-                                  const ads = Array.isArray(userAds[u.id]) ? userAds[u.id] : []
-                                  const cats = Array.from(new Set(ads.map(a => String(a.main_category || '').trim()).filter(Boolean)))
-                                  const locs = Array.from(new Set(ads.map(a => String(a.location || '').trim()).filter(Boolean)))
-                                  return (
-                                    <>
-                                      <div style={{ minWidth: 200, flex: '0 0 200px' }}>
-                                        <CustomSelect
-                                          value={(userAdsFilters[u.id]?.category || '')}
-                                          onChange={v => updateUserAdsFilter(u.id, { category: String(v || '') })}
-                                          ariaLabel="Category"
-                                          placeholder="Category"
-                                          options={[{ value: '', label: 'Any' }, ...cats.map(c => ({ value: c, label: c }))]}
-                                          searchable={true}
-                                          allowCustom={true}
-                                        />
-                                      </div>
-                                      <div style={{ minWidth: 200, flex: '0 0 200px' }}>
-                                        <CustomSelect
-                                          value={(userAdsFilters[u.id]?.location || '')}
-                                          onChange={v => updateUserAdsFilter(u.id, { location: String(v || '') })}
-                                          ariaLabel="Location"
-                                          placeholder="Location"
-                                          options={[{ value: '', label: 'Any' }, ...locs.map(l => ({ value: l, label: l }))]}
-                                          searchable={true}
-                                          allowCustom={true}
-                                        />
-                                      </div>
-                                      
-                                    </>
-                                  )
-                                })()}
-                              </div>
-                            </div>
+                        <div className="h2">Ads</div>
+                        <div className="grid two" style={{ gap: 8 }}>
+                          <input className="input" placeholder="Filter text..." onChange={e => updateUserAdsFilter(u.id, { q: e.target.value })} />
+                          <input className="input" placeholder="Location..." onChange={e => updateUserAdsFilter(u.id, { location: e.target.value })} />
+                        </div>
+                        <div className="grid two" style={{ gap: 8, marginTop: 8 }}>
+                          <input className="input" placeholder="Category..." onChange={e => updateUserAdsFilter(u.id, { category: e.target.value })} />
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input className="input" placeholder="Price min" onChange={e => updateUserAdsFilter(u.id, { priceMin: e.target.value })} />
+                            <input className="input" placeholder="Price max" onChange={e => updateUserAdsFilter(u.id, { priceMax: e.target.value })} />
                           </div>
-                        )}
-
-                        {!userAds[u.id] && <p className="text-muted">Loading ads...</p>}
-                        {userAds[u.id] && getFilteredUserAds(u.id).length === 0 && <p className="text-muted">No ads found.</p>}
-                        {Array.isArray(userAds[u.id]) && getFilteredUserAds(u.id).map(ad => (
-                          <div key={ad.id} className="card" style={{ marginBottom: 8, display: 'flex', gap: 12 }}>
-                            {ad.thumbnail_url && (
-                              <img src={ad.thumbnail_url} alt={ad.title} style={{ width: 100, height: 75, objectFit: 'cover', borderRadius: 6 }} />
-                            )}
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ad.title}</strong>
-                                {(ad.is_urgent || ad.urgent) && (
-                                  <span className="pill" style={{ background: 'rgba(239,68,68,0.15)', color: '#fecaca' }}>Urgent</span>
-                                )}
-                              </div>
-                              <div className="text-muted">#{ad.id} • {ad.main_category} • {ad.location || '—'} • {ad.price != null ? `Rs. ${Number(ad.price).toLocaleString('en-US')}` : 'N/A'} • {ad.status}</div>
-                              <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-                                <button className="btn" onClick={() => adminDeleteListing(ad.id, u.id)}>Delete</button>
-                                <button
-                                  className="btn"
-                                  onClick={() => adminSetUrgent(ad.id, !(ad.is_urgent || ad.urgent), u.id)}
-                                >
-                                  {(ad.is_urgent || ad.urgent) ? 'Remove Urgent' : 'Mark Urgent'}
-                                </button>
-                                <button className="btn" onClick={() => navigate(`/listing/${ad.id}`)}>Open</button>
-                              </div>
+                        </div>
+                        <div style={{ marginTop: 8 }}>
+                          {(getFilteredUserAds(u.id) || []).map(ad => (
+                            <div key={ad.id} className="card" style={{ marginBottom: 8 }}>
+                              <div><strong>#{ad.id}</strong> {ad.title}</div>
+                              <div className="text-muted">{ad.main_category} • {ad.location} • {ad.status}</div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     )}
-                  </div>
-                ))}
-              </div>
-              <div className="card">
-                <div className="h2">Reports</div>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                  <select className="select" value={reportFilter} onChange={e => { setReportFilter(e.target.value); loadReports(e.target.value); }}>
-                    <option value="pending">Pending</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="">All</option>
-                  </select>
-                  <button className="btn" onClick={() => loadReports(reportFilter)}>Refresh</button>
-                </div>
-                {reports.length === 0 && <p className="text-muted">No reports.</p>}
-                {reports.map(r => (
-                  <div key={r.id} className="card" style={{ marginBottom: 8 }}>
-                    <div><strong>Listing #{r.listing_id}</strong> • <span className="text-muted">{new Date(r.ts).toLocaleString()}</span></div>
-                    <div className="text-muted">Reporter: {r.reporter_email || 'anonymous'}</div>
-                    <div style={{ marginTop: 6 }}>{r.reason}</div>
-                    <div className="text-muted" style={{ marginTop: 6 }}>Status: {r.status || 'pending'}</div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                      {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Mark Resolved</button>}
-                      <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -1380,51 +998,50 @@ export default function AdminPage() {
         {activeTab === 'reports' && (
           <>
             <div className="h2" style={{ marginTop: 8 }}>Reports</div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <select className="select" value={reportFilter} onChange={e => { setReportFilter(e.target.value); loadReports(e.target.value); }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <select className="select" value={reportFilter} onChange={e => { const f = e.target.value; setReportFilter(f); loadReports(f) }}>
                 <option value="pending">Pending</option>
                 <option value="resolved">Resolved</option>
-                <option value="">All</option>
+                <option value="all">All</option>
               </select>
               <button className="btn" onClick={() => loadReports(reportFilter)}>Refresh</button>
             </div>
-            {reports.length === 0 && <p className="text-muted">No reports.</p>}
-            {reports.map(r => (
-              <div key={r.id} className="card" style={{ marginBottom: 8 }}>
-                <div><strong>Listing #{r.listing_id}</strong> • <span className="text-muted">{new Date(r.ts).toLocaleString()}</span></div>
-                <div className="text-muted">Reporter: {r.reporter_email || 'anonymous'}</div>
-                <div style={{ marginTop: 6 }}>{r.reason}</div>
-                <div className="text-muted" style={{ marginTop: 6 }}>Status: {r.status || 'pending'}</div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                  {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Mark Resolved</button>}
-                  <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
+            <div className="card" style={{ marginTop: 8 }}>
+              {reports.length === 0 && <p className="text-muted">No reports.</p>}
+              {reports.map(r => (
+                <div key={r.id} className="card" style={{ marginBottom: 8 }}>
+                  <div><strong>#{r.id}</strong> Listing #{r.listing_id}</div>
+                  <div className="text-muted">{r.reason}</div>
+                  <div className="text-muted">{new Date(r.ts).toLocaleString()}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Resolve</button>}
+                    <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </>
         )}
 
         {/* Banners */}
         {activeTab === 'banners' && (
           <>
-            <div className="h2" style={{ marginTop: 8 }}>Homepage Banners</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-              <button className="btn" onClick={() => fileRef.current?.click()}>Upload Banner</button>
-              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onUploadBanner((e.target.files && e.target.files[0]) || null)} />
-              <small className="text-muted">Recommended wide ratio (e.g., 3:1). JPG or PNG, up to 5MB.</small>
+            <div className="h2" style={{ marginTop: 8 }}>Banners</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="file" ref={fileRef} onChange={e => onUploadBanner(e.target.files?.[0])} />
+              <button className="btn" onClick={loadBanners}>Refresh</button>
             </div>
-            <div className="grid three">
+            <div className="card" style={{ marginTop: 8 }}>
+              {banners.length === 0 && <p className="text-muted">No banners.</p>}
               {banners.map(b => (
-                <div key={b.id} className="card">
-                  {b.url && <img src={b.url} alt={`Banner ${b.id}`} style={{ width: '100%', borderRadius: 8, objectFit: 'cover' }} />}
-                  <div className="text-muted" style={{ marginTop: 6 }}>Active: {b.active ? 'Yes' : 'No'}</div>
+                <div key={b.id} className="card" style={{ marginBottom: 8 }}>
+                  <div className="text-muted">#{b.id} • {b.url}</div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                     <button className="btn" onClick={() => toggleBanner(b.id, b.active)}>{b.active ? 'Deactivate' : 'Activate'}</button>
                     <button className="btn" onClick={() => deleteBanner(b.id)}>Delete</button>
                   </div>
                 </div>
               ))}
-              {banners.length === 0 && <p className="text-muted">No banners yet.</p>}
             </div>
           </>
         )}
@@ -1432,104 +1049,82 @@ export default function AdminPage() {
         {/* Notifications */}
         {activeTab === 'notifications' && (
           <>
-            <div className="h2" style={{ marginTop: 8 }}>Send Notification</div>
+            <div className="h2" style={{ marginTop: 8 }}>Notifications</div>
             <div className="grid two">
-              <input className="input" placeholder="Title" value={notifyTitle} onChange={e => setNotifyTitle(e.target.value)} />
-              <select className="select" value={notifyTargetType} onChange={e => setNotifyTargetType(e.target.value)}>
-                <option value="all">Send to all users</option>
-                <option value="email">Send to specific email</option>
-              </select>
+              <div>
+                <input className="input" placeholder="Title" value={notifyTitle} onChange={e => setNotifyTitle(e.target.value)} />
+              </div>
+              <div>
+                <select className="select" value={notifyTargetType} onChange={e => setNotifyTargetType(e.target.value)}>
+                  <option value="all">All</option>
+                  <option value="email">Email</option>
+                </select>
+              </div>
             </div>
             {notifyTargetType === 'email' && (
               <div style={{ marginTop: 8 }}>
-                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Select user email</div>
-                <CustomSelect
-                  value={notifyEmail}
-                  onChange={v => setNotifyEmail(String(v))}
-                  ariaLabel="Target email"
-                  placeholder={users.length ? 'Pick an email...' : 'No users loaded'}
-                  options={(() => {
-                    const emails = Array.from(new Set((users || []).map(u => String(u.email || '').trim()).filter(Boolean)))
-                    return emails.map(e => ({ value: e, label: e }))
-                  })()}
-                  searchable={true}
-                  allowCustom={true}
-                />
-                <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
-                  Tip: start typing to filter. You can also enter a custom email not in the list.
-                </small>
+                <input className="input" placeholder="Target email" value={notifyEmail} onChange={e => setNotifyEmail(e.target.value)} />
               </div>
             )}
-            <textarea className="textarea" placeholder="Message" value={notifyMessage} onChange={e => setNotifyMessage(e.target.value)} style={{ marginTop: 8 }} />
+            <div style={{ marginTop: 8 }}>
+              <textarea className="textarea" placeholder="Message" value={notifyMessage} onChange={e => setNotifyMessage(e.target.value)} />
+            </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button className="btn primary" onClick={sendNotification}>Send</button>
+              <button className="btn primary" onClick={sendNotification}>Send Notification</button>
               <button className="btn" onClick={loadAdminNotifications}>Refresh</button>
             </div>
-
-            <div className="h2" style={{ marginTop: 16 }}>Recent Notifications</div>
-            {notificationsAdmin.length === 0 && <p className="text-muted">No notifications yet.</p>}
-            {notificationsAdmin.map(n => (
-              <div key={n.id} className="card" style={{ marginBottom: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                  <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title}</strong>
-                  <small className="text-muted">{new Date(n.created_at).toLocaleString()}</small>
+            <div className="card" style={{ marginTop: 8 }}>
+              {notificationsAdmin.length === 0 && <p className="text-muted">No notifications.</p>}
+              {notificationsAdmin.map(n => (
+                <div key={n.id} className="card" style={{ marginBottom: 8 }}>
+                  <div><strong>{n.title}</strong></div>
+                  <div className="text-muted">{n.message}</div>
+                  <div className="text-muted">{n.target_email || 'All'} • {new Date(n.created_at).toLocaleString()}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button className="btn" onClick={() => deleteNotification(n.id)}>Delete</button>
+                  </div>
                 </div>
-                <div className="text-muted" style={{ marginTop: 6 }}>To: {n.target_email ? n.target_email : 'All users'}</div>
-                <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.message}</div>
-                <div style={{ marginTop: 8 }}>
-                  <button className="btn" onClick={() => deleteNotification(n.id)}>Delete</button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </>
         )}
 
-        {/* Chat Management */}
+        {/* Chat */}
         {activeTab === 'chat' && (
           <>
-            <div className="h2" style={{ marginTop: 8 }}>User Chat (last 7 days)</div>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button className="btn" onClick={loadConversations}>Refresh</button>
-                </div>
-                {conversations.length === 0 && <p className="text-muted" style={{ marginTop: 8 }}>No conversations.</p>}
+            <div className="h2" style={{ marginTop: 8 }}>Admin Chat</div>
+            <div className="grid two">
+              <div className="card">
+                <div className="h2">Conversations</div>
+                {conversations.length === 0 && <p className="text-muted">No conversations.</p>}
                 {conversations.map(c => (
-                  <div key={c.user_email} className="card" style={{ marginTop: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                      <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.user_email}</strong>
-                      <small className="text-muted">{new Date(c.last_ts).toLocaleString()}</small>
-                    </div>
-                    <div className="text-muted" style={{ marginTop: 6 }}>{c.last_sender === 'admin' ? 'Admin: ' : 'User: '}{c.last_message}</div>
-                    <div style={{ marginTop: 8 }}>
-                      <button className="btn" onClick={() => loadChatMessages(c.user_email)}>Open</button>
-                    </div>
+                  <div key={c.email} className="card" style={{ marginBottom: 8 }}>
+                    <div><strong>{c.email}</strong></div>
+                    <div className="text-muted">{c.last_message || ''}</div>
+                    <button className="btn" style={{ marginTop: 6 }} onClick={() => loadChatMessages(c.email)}>Open</button>
                   </div>
                 ))}
               </div>
-              <div style={{ flex: 1 }}>
-                <div className="h2">Conversation</div>
-                {!selectedChatEmail && <p className="text-muted">Select a conversation.</p>}
-                {selectedChatEmail && (
+              <div className="card">
+                <div className="h2">Messages</div>
+                {selectedChatEmail ? (
                   <>
-                    <div className="pill">With: {selectedChatEmail}</div>
-                    <div style={{ maxHeight: 360, overflowY: 'auto', marginTop: 8 }}>
+                    <div className="text-muted">Chatting with {selectedChatEmail}</div>
+                    <div style={{ maxHeight: 300, overflowY: 'auto', marginTop: 8 }}>
                       {chatMessages.map(m => (
-                        <div key={m.id} className="card" style={{ marginBottom: 6, background: m.sender === 'admin' ? 'rgba(108,127,247,0.12)' : 'rgba(0,209,255,0.10)', borderColor: 'transparent' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-                            <strong>{m.sender === 'admin' ? 'Admin' : selectedChatEmail}</strong>
-                            <small className="text-muted">{new Date(m.created_at).toLocaleString()}</small>
-                          </div>
-                          <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{m.message}</div>
+                        <div key={m.id} className="card" style={{ marginBottom: 6 }}>
+                          <div><strong>{m.sender}</strong> • {new Date(m.created_at).toLocaleString()}</div>
+                          <div className="text-muted">{m.message}</div>
                         </div>
                       ))}
-                      {chatMessages.length === 0 && <p className="text-muted">No messages yet.</p>}
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                      <input className="input" placeholder="Type a reply..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendAdminReply(); } }} />
+                      <input className="input" placeholder="Type a message..." value={chatInput} onChange={e => setChatInput(e.target.value)} />
                       <button className="btn primary" onClick={sendAdminReply}>Send</button>
                     </div>
                   </>
+                ) : (
+                  <p className="text-muted">Select a conversation.</p>
                 )}
               </div>
             </div>
@@ -1539,10 +1134,163 @@ export default function AdminPage() {
         {/* AI Config */}
         {activeTab === 'ai' && (
           <>
-            <div className="h2" style={{ marginTop: 8 }}>AI & Payments Configuration</div>
+            <div className="h2" style={{ marginTop: 8 }}>AI Configuration</div>
             <div className="grid two">
-              <input className="input" placeholder="Gemini API Key" value={geminiApiKey} onChange={e => setGeminiApiKey(e.target.value)} />
-              <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
+              <div>
+                <label className="text-muted">Gemini API key</label>
+                <input className="input" placeholder="Enter API key (not stored in plaintext)" value={geminiApiKey} onChange={e => setGeminiApiKey(e.target.value)} />
+              </div>
+              <div className="text-muted" style={{ display: 'flex', alignItems: 'center' }}>
+                {maskedKey ? `Configured: ${maskedKey}` : 'No key configured'}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button className="btn primary" onClick={saveConfig}>Save Config</button>
+              <button className="btn" onClick={testGemini}>Test Gemini</button>
+              <button className="btn" onClick={fetchConfig}>Refresh</button>
+            </div>
+
+            {/* Maintenance Mode */}
+            <div className="card" style={{ marginTop: 16 }}>
+              <div className="h2" style={{ marginTop: 0 }}>Maintenance Mode</div>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={!!maintenanceEnabled}
+                  onChange={e => setMaintenanceEnabled(!!e.target.checked)}
+                />
+                <span className="text-muted">Enable maintenance (blocks public pages and APIs)</span>
+              </label>
+              <div style={{ marginTop: 8 }}>
+                <label className="text-muted">Message (optional)</label>
+                <input
+                  className="input"
+                  placeholder="e.g., Upgrading database..."
+                  value={maintenanceMessage}
+                  onChange={e => setMaintenanceMessage(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <button className="btn primary" onClick={saveConfig}>Save Maintenance Settings</button>
+                <button
+                  className="btn"
+                  onClick={async () => {
+                    try {
+                      const r = await fetch('/api/admin/maintenance', {
+                        method: 'POST',
+                        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify({ enabled: !!maintenanceEnabled, message: maintenanceMessage })
+                      })
+                      const d = await safeJson(r)
+                      if (!r.ok) throw new Error(d.error || 'Failed to update maintenance')
+                      setStatus(maintenanceEnabled ? 'Maintenance enabled.' : 'Maintenance disabled.')
+                    } catch (e) {
+                      setStatus(`Error: ${e.message}`)
+                    }
+                  }}
+                >
+                  Apply Now
+                </button>
+                <button
+                  className="btn"
+                  onClick={async () => {
+                    try {
+                      const r = await fetch('/api/admin/maintenance', { headers: getAdminHeaders() })
+                      const d = await safeJson(r)
+                      if (!r.ok) throw new Error(d.error || 'Failed to load maintenance state')
+                      setMaintenanceEnabled(!!d.enabled)
+                      setMaintenanceMessage(String(d.message || ''))
+                      setStatus('Maintenance state refreshed.')
+                    } catch (e) {
+                      setStatus(`Error: ${e.message}`)
+                    }
+                  }}
+                >
+                  Refresh State
+                </button>
+              </div>
+              <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                While enabled, only /api/admin/* and /api/health are accessible. All other routes serve the maintenance page.
+              </small>
+            </div>
+          </>
+        )}
+
+        {/* Backup */}
+        {activeTab === 'backup' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Backup & Restore</div>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>Full Backup</div>
+              <p className="text-muted">Creates a ZIP file containing the entire database (consistent snapshot), all uploads (images), and secure config. Download the file and keep it safe.</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn primary" onClick={createBackup}>Create Full Backup</button>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 8 }}>
+              <div className="h2" style={{ marginTop: 0 }}>Restore from Backup</div>
+              <p className="text-muted">Restoring will replace the entire database contents and merge uploads from the backup. Make sure you trust the backup file.</p>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button className="btn" onClick={() => backupFileRef.current?.click()}>Choose Backup (.zip)</button>
+                <input
+                  ref={backupFileRef}
+                  type="file"
+                  accept=".zip,application/zip"
+                  style={{ display: 'none' }}
+                  onChange={e => restoreFromBackup(e.target.files?.[0])}
+                />
+                <small className="text-muted">Recommended: use the most recent backup. Max size 500MB.</small>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Approvals */}
+        {activeTab === 'approvals' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Pending Approvals</div>
+            <div className="card">
+              {pending.length === 0 && <p className="text-muted">No pending items.</p>}
+              {pending.map(p => (
+                <div key={p.id} className="card" style={{ marginBottom: 8 }}>
+                  <div><strong>#{p.id}</strong> {p.title}</div>
+                  <div className="text-muted">{p.main_category} • {new Date(p.created_at).toLocaleString()}</div>
+                  <button className="btn" style={{ marginTop: 6 }} onClick={() => loadDetail(p.id)}>Open</button>
+                </div>
+              ))}
+            </div>
+            {detail && (
+              <div className="card" style={{ marginTop: 8 }}>
+                <div className="h2">Edit Listing #{selectedId}</div>
+                <div className="text-muted">Category: {detail.listing.main_category}</div>
+                <div className="text-muted">Title: {detail.listing.title}</div>
+                <div style={{ marginTop: 8 }}>
+                  <label className="text-muted">Structured JSON</label>
+                  <textarea className="textarea" value={editStructured} onChange={e => setEditStructured(e.target.value)} />
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button className="btn primary" onClick={saveEdits}>Save</button>
+                  <button className="btn" onClick={() => setDetail(null)}>Close</button>
+                </div>
+                <div style={{ marginTop: 12 }}>
+                  <label className="text-muted">Reject reason</label>
+                  <input className="input" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button className="btn" onClick={approve}>Approve</button>
+                  <button className="btn" onClick={reject}>Reject</button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {status && <p style={{ marginTop: 8 }}>{status}</p>}
+      </div>
+    </div>
+  )
+}>Save Configuration</button>
             </div>
             <div style={{ marginTop: 8 }}>
               <button className="btn" onClick={testGemini}>Test API Key</button>
