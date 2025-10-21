@@ -26,6 +26,53 @@ dotenv.config();
 
 const app = express();
 
+// --- Maintenance mode helpers ---
+function getMaintenanceConfig() {
+  try {
+    const row = db.prepare('SELECT maintenance_mode, maintenance_message FROM admin_config WHERE id = 1').get();
+    return {
+      enabled: !!(row && row.maintenance_mode),
+      message: row?.maintenance_message || ''
+    };
+  } catch (_) {
+    return { enabled: false, message: '' };
+  }
+}
+
+// Render maintenance HTML (from data/maintenance.html if present; otherwise default)
+function renderMaintenancePage() {
+  try {
+    const p = path.resolve(process.cwd(), 'data', 'maintenance.html');
+    if (fs.existsSync(p)) {
+      return fs.readFileSync(p, 'utf8');
+    }
+  } catch (_) {}
+  const domain = process.env.PUBLIC_DOMAIN || 'https://ganudenu.store';
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Maintenance - Ganudenu</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:#0b1220;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center}
+    .card{max-width:720px;padding:32px 28px;border-radius:16px;background:linear-gradient(180deg,#121a2e,#0b1220);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    h1{margin:0 0 8px;font-size:28px;letter-spacing:.3px}
+    p{margin:6px 0 0;color:#ccd3e2;line-height:1.6}
+    .small{margin-top:16px;font-size:12px;color:#9fb0cf}
+    a{color:#58a6ff;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>We’re performing maintenance</h1>
+    <p>Ganudenu is temporarily unavailable while we upgrade our systems. Please check back in a little while.</p>
+    <p class="small">If you are an administrator, you can manage maintenance from the <a href="${domain}/admin">Admin Panel</a>.</p>
+  </div>
+</body>
+</html>`;
+}
+
 // Trust proxy: configurable hops
 app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
 
@@ -164,8 +211,7 @@ db.prepare(`
     bank_details TEXT,
     whatsapp_number TEXT
   )
-`).run();
-
+`).run();>
 // Ensure new columns exist for older databases
 try {
   const cols = db.prepare(`PRAGMA table_info(admin_config)`).all();
@@ -175,7 +221,7 @@ try {
   if (!hasWhats) db.prepare(`ALTER TABLE admin_config ADD COLUMN whatsapp_number TEXT`).run();
   const hasEmailApprove = cols.some(c => c.name === 'email_on_approve');
   if (!hasEmailApprove) db.prepare(`ALTER TABLE admin_config ADD COLUMN email_on_approve INTEGER NOT NULL DEFAULT 0`).run();
-} catch (_) {}
+  const hasMaint = cols.some(c => c.name {}
 
 db.prepare(`
   CREATE TABLE IF NOT EXISTS payment_rules (
@@ -263,6 +309,26 @@ app.use('/api/auth', authLimiter, authRouter);
 
 const adminLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 app.use('/api/admin', adminLimiter, adminRouter);
+
+// --- Global maintenance-mode gate (allow admin and health; block everything else) ---
+app.use((req, res, next) => {
+  const { enabled, message } = getMaintenanceConfig();
+  if (!enabled) return next();
+
+  // Allow admin API and health check to function
+  const p = String(req.path || '');
+  if (p.startsWith('/api/admin') || p === '/api/health') {
+    return next();
+  }
+
+  // For API calls, return JSON 503
+  if (p.startsWith('/api/')) {
+    return res.status(503).json({ error: 'Service under maintenance', message });
+  }
+
+  // For other GET requests, serve maintenance page
+  res.status(503).type('text/html').send(renderMaintenancePage());
+});
 
 const listingsLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
 app.use('/api/listings', listingsLimiter, listingsRouter);
