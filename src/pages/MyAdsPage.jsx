@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Modal from '../components/Modal.jsx'
 import useSEO from '../components/useSEO.js'
+import { useI18n } from '../components/i18n.jsx'
 
 export default function MyAdsPage() {
   const [items, setItems] = useState([])
   const [status, setStatus] = useState(null)
   const [rejectModal, setRejectModal] = useState({ open: false, reason: '', title: '' })
   const navigate = useNavigate()
+  const { t } = useI18n()
 
   // SEO for My Ads via helper
   useSEO({
@@ -33,7 +35,7 @@ export default function MyAdsPage() {
     try {
       const user = JSON.parse(localStorage.getItem('user') || 'null')
       if (!user?.email) {
-        setStatus('Please login to view your ads.')
+        setStatus(t('auth.loginRequiredMessage'))
         return
       }
       if (!silent) setStatus(null)
@@ -155,7 +157,7 @@ export default function MyAdsPage() {
                   boxShadow: '0 4px 12px rgba(239,68,68,0.25)'
                 }}
               >
-                Urgent
+                {t('common.urgent')}
               </span>
             )}
           </div>
@@ -182,7 +184,7 @@ export default function MyAdsPage() {
         </div>
         {st === 'Rejected' && item.reject_reason ? (
           <div className="card" style={{ background: 'rgba(239,68,68,0.08)', borderColor: '#ef44441a' }}>
-            <strong>Reject Reason:</strong>
+            <strong>{t('myAds.rejectReason')}:</strong>
             <div className="text-muted" style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{item.reject_reason}</div>
           </div>
         ) : null}
@@ -246,7 +248,7 @@ export default function MyAdsPage() {
   return (
     <div className="center">
       <div className="card">
-        <div className="h1">My Ads</div>
+        <div className="h1">{t('myAds.title')}</div>
         {status && <p className="text-muted">{status}</p>}
 
         {/* Your Ad Progress dashboard */}
@@ -265,7 +267,7 @@ export default function MyAdsPage() {
           {/* Progress bar */}
           {totals.total > 0 && (
             <div style={{ marginTop: 10 }}>
-              <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Approval progress</div>
+              <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>{t('myAds.approvalProgress')}</div>
               <div style={{ height: 10, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', position: 'relative' }}>
                 <div
                   style={{
@@ -282,7 +284,7 @@ export default function MyAdsPage() {
 
           {/* Last 7 days stacked mini-bars */}
           <div style={{ marginTop: 12 }}>
-            <div className="text-muted" style={{ fontSize: 12, marginBottom: 6 }}>Last 7 days (by created date)</div>
+            <div className="text-muted" style={{ fontSize: 12, marginBottom: 6 }}>{t('myAds.last7days')}</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 8, alignItems: 'end' }}>
               {last7.map(day => {
                 const total = day.approved + day.pending + day.rejected
@@ -303,29 +305,28 @@ export default function MyAdsPage() {
         </div>
 
         <div className="card" style={{ marginTop: 8 }}>
-          <div className="h2" style={{ marginTop: 0 }}>Pending Approval</div>
+          <div className="h2" style={{ marginTop: 0 }}>{t('myAds.pendingTitle')}</div>
           <p className="text-muted" style={{ marginTop: 4 }}>Click a pending ad to go to the payment page and complete publishing.</p>
           <div className="grid three" style={{ marginTop: 12 }}>
             {pending.map(renderCard)}
-            {pending.length === 0 && <p className="text-muted">No pending ads.</p>}
+            {pending.length === 0 && <p className="text-muted">{t('myAds.noPending')}</p>}
           </div>
         </div>
 
         <div className="card" style={{ marginTop: 12 }}>
-          <div className="h2" style={{ marginTop: 0 }}>Approved</div>
-          <p className="text-muted" style={{ marginTop: 4 }}>Click an approved ad to view the live listing.</p>
-          <div className="grid three" style={{ marginTop: 12 }}>
+         <<div className="h2" style={{ marginTop: 0 }}>{t('myAds.approvedTit')}</p div>
+         <-p className="text-muted" style={{ marginTop: 4 }}>Click an approved ad to view the live listi.</v p>
+         <idiv className="grid three" style={{ marginTop: 12 }}>
             {approved.map(renderCard)}
-            {approved.length === 0 && <p className="text-muted">No approved ads.</p>}
-          </div>
+            {approved.length === 0 & <-p className="text-muted">{t('my        </div>
         </div>
 
         <div className="card" style={{ marginTop: 12 }}>
-          <div className="h2" style={{ marginTop: 0 }}>Rejected</div>
+          <div className="h2" style={{ marginTop: 0 }}>{t('myAds.rejectedTitle')}</div>
           <p className="text-muted" style={{ marginTop: 4 }}>Click a rejected ad to see the reason.</p>
           <div className="grid three" style={{ marginTop: 12 }}>
             {rejected.map(renderCard)}
-            {rejected.length === 0 && <p className="text-muted">No rejected ads.</p>}
+            {rejected.length === 0 && <p className="text-muted">{t('myAds.noRejected')}</p>}
           </div>
         </div>
       </div>
@@ -336,8 +337,8 @@ export default function MyAdsPage() {
         onClose={() => setRejectModal({ open: false, reason: '', title: '' })}
       >
         <div className="card" style={{ background: 'rgba(239,68,68,0.08)', borderColor: '#ef44441a' }}>
-          <strong>Reject Reason</strong>
-          <div className="text-muted" style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{rejectModal.reason}</div>
+         <<strong>{t('myAds.rejectReas')}</  strong>
+         <mdiv className="text-muted" style={{ whiteSpace: 'pre-wrap',6 }}>{rejectModal.reason}</div>
         </div>
       </Modal>
     </div>

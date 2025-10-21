@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import { getSimilarListings, trackView } from '../components/recommendations.js'
+import { useI18n } from '../components/i18n.jsx'
 
 export default function ViewListingPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { t } = useI18n()
   // Support both legacy "/listing/:id" and SEO-friendly "/listing/:id-:slug"
   const listingId = (() => {
     const raw = String(id || '')
@@ -700,13 +702,13 @@ export default function ViewListingPage() {
   const isInteracting = (pinching || dragging || zoom > 1)
   return (
     <div className="center viewlisting has-actionbar">
-      {loading && <LoadingOverlay message="Loading listing..." />}
+      {loading && <LoadingOverlay message={t('view.loading')} />}
       {showLogin && (
         <div className="card" style={{ position: 'sticky', top: 8, zIndex: 5, marginBottom: 12 }}>
-          <div className="h2">Please login</div>
-          <p className="text-muted">You must be logged in to view contact details and interact with sellers.</p>
-          <a className="btn primary" href="/auth">Go to Login</a>
-          <button className="btn" onClick={() => setShowLogin(false)} style={{ marginLeft: 8 }}>Dismiss</button>
+          <div className="h2">{t('auth.pleaseLogin')}</div>
+          <p className="text-muted">{t('auth.loginSeeContact')}</p>
+          <a className="btn primary" href="/auth">{t('auth.goToLogin')}</a>
+          <button className="btn" onClick={() => setShowLogin(false)} style={{ marginLeft: 8 }}>{t('common.dismiss')}</button>
         </div>
       )}
 
@@ -735,7 +737,7 @@ export default function ViewListingPage() {
                       {listing.main_category && <span className="pill">{listing.main_category}</span>}
                       {listing.location && <span className="pill">{listing.location}</span>}
                       {sellerUsername && (
-                        <a className="pill" href={`/seller/${encodeURIComponent(sellerUsername)}`} title="View seller profile">Seller: {sellerUsername}</a>
+                        <a className="pill" href={`/seller/${encodeURIComponent(sellerUsername)}`} title="View seller profile">{t('view.seller')}: {sellerUsername}</a>
                       )}
                       {Number.isFinite(Number(listing?.views)) && <span className="pill">👁️ {Number(listing.views).toLocaleString('en-US')}</span>}
                     </>
@@ -750,7 +752,7 @@ export default function ViewListingPage() {
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto', marginTop: 6 }}>
                         {listing.main_category && <span className="pill">{listing.main_category}</span>}
                         {sellerUsername && (
-                          <a className="pill" href={`/seller/${encodeURIComponent(sellerUsername)}`} title="View seller profile">Seller: {sellerUsername}</a>
+                          <a className="pill" href={`/seller/${encodeURIComponent(sellerUsername)}`} title="View seller profile">{t('view.seller')}: {sellerUsername}</a>
                         )}
                       </div>
                     </>
@@ -769,13 +771,13 @@ export default function ViewListingPage() {
                 title={favorited ? 'Remove favorite' : 'Add favorite'}
                 type="button"
               >
-                ★ {favorited ? 'Favorited' : 'Favorite'}
+                ★ {favorited ? t('view.favorited') : t('view.favorite')}
               </button>
               <button
                 className="btn"
                 onClick={onShare}
                 aria-label="Share listing link"
-                title="Share"
+                title={t('common.share')}
                 type="button"
               >
                 🔗
@@ -790,7 +792,7 @@ export default function ViewListingPage() {
           <div className="grid two" style={{ marginTop: 0 }}>
             {/* Left: Gallery + Description */}
             <div>
-              <div className="h2">Gallery</div>
+              <div className="h2">{t('view.gallery')}</div>
               {images.length > 0 ? (
                 <div className="carousel">
                   <div className="carousel-main">
@@ -812,12 +814,12 @@ export default function ViewListingPage() {
                       style={{ cursor: 'zoom-in' }}
                     />
                   ) : (
-                      <div className="carousel-empty text-muted">No preview available</div>
+                      <div className="carousel-empty text-muted">{t('view.noPreview')}</div>
                     )}
                     {images.length > 1 && (
                       <>
-                        <button className="btn nav prev" onClick={prevImage} aria-label="Previous image">‹</button>
-                        <button className="btn nav next" onClick={nextImage} aria-label="Next image">›</button>
+                        <button className="btn nav prev" onClick={prevImage} aria-label={t('common.prevImage')}>‹</button>
+                        <button className="btn nav next" onClick={nextImage} aria-label={t('common.nextImage')}>›</button>
                       </>
                     )}
                   </div>
@@ -843,11 +845,11 @@ export default function ViewListingPage() {
                 </div>
               ) : (
                 <div className="card" style={{ textAlign: 'center' }}>
-                  <div className="text-muted">No images uploaded for this listing.</div>
+                  <div className="text-muted">{t('view.noImages')}</div>
                 </div>
               )}
 
-              <div className="h2" style={{ marginTop: 16 }}>Description</div>
+              <div className="h2" style={{ marginTop: 16 }}>{t('view.description')}</div>
               {/* Desktop full description (preserve line breaks + **bold**) */}
               <div className="desc-desktop">
                 <div dangerouslySetInnerHTML={renderDescHTML(listing?.enhanced_description || listing?.description)} />
@@ -866,7 +868,7 @@ export default function ViewListingPage() {
                 )}
                 {String(listing?.enhanced_description || listing?.description || '').length > 180 && (
                   <button type="button" className="btn" onClick={() => setDescOpen(o => !o)}>
-                    {descOpen ? 'Show less' : 'Read more'}
+                    {descOpen ? t('common.showLess') : t('common.readMore')}
                   </button>
                 )}
               </div>
@@ -877,8 +879,8 @@ export default function ViewListingPage() {
               {/* Contact (mobile-first duplicate, hidden on desktop via CSS) */}
               {listing?.phone ? (
                 <div className="card contact-mobile" style={{ marginTop: 0 }}>
-                  <div className="h2" style={{ marginTop: 0 }}>Contact</div>
-                  {sellerUsername && <div className="text-muted" style={{ marginBottom: 6 }}>Seller: {sellerUsername}</div>}
+                  <div className="h2" style={{ marginTop: 0 }}>{t('view.contact')}</div>
+                  {sellerUsername && <div className="text-muted" style={{ marginBottom: 6 }}>{t('view.seller')}: {sellerUsername}</div>}
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <a
                       className="btn primary"
@@ -886,13 +888,13 @@ export default function ViewListingPage() {
                     >
                       {formatPhoneDisplay(listing.phone)}
                     </a>
-                    {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
+                    {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>{t('view.emailSeller')}</a>}
                   </div>
                 </div>
               ) : null}
 
-              <div className="h2" style={{ marginTop: 16 }}>Key Details</div>
-              {structuredEntries.length === 0 && !isPropertyCat && <p className="text-muted">No structured data available.</p>}
+              <div className="h2" style={{ marginTop: 16 }}>{t('view.keyDetails')}</div>
+              {structuredEntries.length === 0 && !isPropertyCat && <p className="text-muted">{t('view.noStructuredData')}</p>}
               <div className="details-grid">
                 {/* Property extras shown first if present */}
                 {isPropertyCat && propAddress && (
@@ -927,8 +929,8 @@ export default function ViewListingPage() {
               {/* Contact info card (desktop) */}
               {listing?.phone && (
                 <div className="card contact-desktop" style={{ marginTop: 16 }}>
-                  <div className="h2" style={{ marginTop: 0 }}>Contact</div>
-                  {sellerUsername && <div className="text-muted" style={{ marginBottom: 6 }}>Seller: {sellerUsername}</div>}
+                  <div className="h2" style={{ marginTop: 0 }}>{t('view.contact')}</div>
+                  {sellerUsername && <div className="text-muted" style={{ marginBottom: 6 }}>{t('view.seller')}: {sellerUsername}</div>}
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <a
                       className="btn primary"
@@ -936,21 +938,21 @@ export default function ViewListingPage() {
                     >
                       {formatPhoneDisplay(listing.phone)}
                     </a>
-                    {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>Email seller</a>}
+                    {listing?.email && <a className="btn" href={`mailto:${listing.email}`}>{t('view.emailSeller')}</a>}
                   </div>
                 </div>
               )}
 
               {/* Desktop: Report button moved under contact card, right-aligned */}
               <div className="report-desktop" style={{ marginTop: 8, textAlign: 'right' }}>
-                <button className="btn" onClick={onReport} type="button">Report this listing</button>
+                <button className="btn" onClick={onReport} type="button">{t('view.reportListing')}</button>
               </div>
             </div>
           </div>
 
           {/* Similar listings */}
           <div style={{ marginTop: 16 }}>
-            <div className="h2" style={{ marginTop: 0 }}>Similar listings</div>
+            <div className="h2" style={{ marginTop: 0 }}>{t('view.similarListings')}</div>
             {similarLoading && (
               <div className="grid three">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -1014,7 +1016,7 @@ export default function ViewListingPage() {
                                 boxShadow: '0 4px 12px rgba(239,68,68,0.25)'
                               }}
                             >
-                              Urgent
+                              {t('common.urgent')}
                             </span>
                           )}
                         </div>
@@ -1034,7 +1036,7 @@ export default function ViewListingPage() {
                     </div>
                   )
                 })}
-                {similar.length === 0 && <p className="text-muted">No similar listings found.</p>}
+                {similar.length === 0 && <p className="text-muted">{t('view.noSimilar')}</p>}
               </div>
             )}
           </div>
@@ -1042,7 +1044,7 @@ export default function ViewListingPage() {
 
         {/* Mobile: Report button moved away from description read-more, placed at bottom of card */}
         <div className="report-mobile" style={{ margin: '12px 18px 0' }}>
-          <button className="btn" onClick={onReport} type="button">Report this listing</button>
+          <button className="btn" onClick={onReport} type="button">{t('view.reportListing')}</button>
         </div>
 
         {status && <p style={{ marginTop: 8 }}>{status}</p>}
@@ -1125,7 +1127,7 @@ export default function ViewListingPage() {
                 className="btn"
                 type="button"
                 onClick={lbPrev}
-                aria-label="Previous image"
+                aria-label={t('common.prevImage')}
                 style={{
                   position: 'absolute',
                   left: 12,
@@ -1139,7 +1141,7 @@ export default function ViewListingPage() {
                 className="btn"
                 type="button"
                 onClick={lbNext}
-                aria-label="Next image"
+                aria-label={t('common.nextImage')}
                 style={{
                   position: 'absolute',
                   right: 12,
@@ -1157,7 +1159,7 @@ export default function ViewListingPage() {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); lbPrev() }}
-                    aria-label="Previous image"
+                    aria-label={t('common.prevImage')}
                     style={{
                       position: 'absolute',
                       top: 56,
@@ -1177,7 +1179,7 @@ export default function ViewListingPage() {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); lbNext() }}
-                    aria-label="Next image"
+                    aria-label={t('common.nextImage')}
                     style={{
                       position: 'absolute',
                       top: 56,
@@ -1211,7 +1213,7 @@ export default function ViewListingPage() {
             className="btn"
             onClick={onShare}
             aria-label="Share listing link"
-            title="Share"
+            title={t('common.share')}
             type="button"
           >
             🔗
@@ -1223,7 +1225,7 @@ export default function ViewListingPage() {
               aria-label="Call seller"
               title="Call seller"
             >
-              Call
+              {t('common.call')}
             </a>
           )}
         </div>
@@ -1250,7 +1252,7 @@ export default function ViewListingPage() {
               : { right: 20 })
           }}
         >
-          Link copied
+          {t('view.linkCopied')}
         </div>
       )}
     </div>
