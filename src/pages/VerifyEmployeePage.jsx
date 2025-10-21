@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import CustomSelect from '../components/CustomSelect.jsx'
 
 const JOB_SUBCATEGORIES = [
@@ -24,12 +24,13 @@ const JOB_SUBCATEGORIES = [
 
 export default function VerifyEmployeePage() {
   const [sp] = useSearchParams()
+  const navigate = useNavigate()
   const draftId = sp.get('draftId')
   const [draft, setDraft] = useState(null)
   const [seoTitle, setSeoTitle] = useState('')
   const [seoDescription, setSeoDescription] = useState('')
   const [seoKeywords, setSeoKeywords] = useState('')
-  const [status, setStatus] = useState(null)
+ tate(null)
   const [submitted, setSubmitted] = useState(null)
 
   // Publishing essentials
@@ -113,7 +114,18 @@ export default function VerifyEmployeePage() {
   return (
     <div className="center">
       <div className="card">
-        <div className="h1">Review Profile & Publish</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <div className="h1" style={{ marginTop: 0, marginBottom: 0 }}>Review Profile & Publish</div>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => navigate('/jobs/post-employee')}
+            aria-label="Back to post profile"
+            title="Back to post profile"
+          >
+            Back
+          </button>
+        </div>
         {!draft && <p className="text-muted">Loading profile draft...</p>}
 
         {draft && (
