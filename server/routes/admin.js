@@ -1478,13 +1478,13 @@ router.get('/notifications', requireAdmin, (req, res) => {
 });
 
 router.post('/notifications', requireAdmin, async (req, res) => {
-  const { title, message, targetEmail, sendEmail } = req.body || {};
+  const { title, message, targetEmail, sendEmail: sendEmailFlag } = req.body || {};
   if (!title || !message) {
     return res.status(400).json({ error: 'title and message are required' });
   }
 
   // Optional email delivery to a specific user (only if explicitly requested)
-  if (targetEmail && sendEmail) {
+  if (targetEmail && sendEmailFlag) {
     try {
       const to = String(targetEmail).toLowerCase().trim();
       if (to) {
