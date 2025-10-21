@@ -9,7 +9,7 @@ export default function MyAdsPage() {
   const [status, setStatus] = useState(null)
   const [rejectModal, setRejectModal] = useState({ open: false, reason: '', title: '' })
   const navigate = useNavigate()
-  const { t } = useI1_code8nnew(</)
+  const { t } = useI18n()
 
   // SEO for My Ads via helper
   useSEO({
@@ -305,22 +305,20 @@ export default function MyAdsPage() {
         </div>
 
         <div className="card" style={{ marginTop: 8 }}>
-          <div className="h2" style={{ marginTop: 0 }}>{t('myAds.pendingTit')}</  div>
-         <ap className="text-muted" style={{ marginTop: 4 }}>Click a pending ad to go to the payment page and complete publishi.</  p>
-         <sdiv className="grid three" style={{ marginTop: 12 }}>
+          <div className="h2" style={{ marginTop: 0 }}>{t('myAds.pendingTitle')}</div>
+          <p className="text-muted" style={{ marginTop: 4 }}>Click a pending ad to go to the payment page and complete publishing.</p>
+          <div className="grid three" style={{ marginTop: 12 }}>
             {pending.map(renderCard)}
-            {pending.length === 0 & <ap className="text-muted">{t('myAds.noPendi')}</</p>}
-        </  _codedinewv</>
-
+            {pending.length === 0 && <p className="text-muted">{t('myAds.noPending')}</p>}
+          </div>
         </div>
 
         <div className="card" style={{ marginTop: 12 }}>
-          <div className="h2" style={{ marginTop: 0 }}>{t('myAds.approvedTit')}</p div>
-         <-muted" style={{ marginTop: 4 }}>Click an approved ad to view the live listing.</p>
-          <div className="grid three" style={{ marginTop: 12 }}>
+         <<div className="h2" style={{ marginTop: 0 }}>{t('myAds.approvedTit')}</p div>
+         <-p className="text-muted" style={{ marginTop: 4 }}>Click an approved ad to view the live listi.</v p>
+         <idiv className="grid three" style={{ marginTop: 12 }}>
             {approved.map(renderCard)}
-            {approved.length === 0 && <p className="text-muted">No approved ads.</p>}
-          </div>
+            {approved.length === 0 & <-p className="text-muted">{t('my        </div>
         </div>
 
         <div className="card" style={{ marginTop: 12 }}>
@@ -339,8 +337,8 @@ export default function MyAdsPage() {
         onClose={() => setRejectModal({ open: false, reason: '', title: '' })}
       >
         <div className="card" style={{ background: 'rgba(239,68,68,0.08)', borderColor: '#ef44441a' }}>
-          <strong>Reject Reason</strong>
-          <div className="text-muted" style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{rejectModal.reason}</div>
+         <<strong>{t('myAds.rejectReas')}</  strong>
+         <mdiv className="text-muted" style={{ whiteSpace: 'pre-wrap',6 }}>{rejectModal.reason}</div>
         </div>
       </Modal>
     </div>
