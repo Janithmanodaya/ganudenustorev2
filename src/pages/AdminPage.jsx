@@ -237,13 +237,19 @@ export default function AdminPage() {
   // Metrics
   async function loadMetrics(days = rangeDays) {
     try {
-      const r = await fetch(`/api/admin/metrics?days=${encodeURIComponent(days)}`, { headers: getAdminHeaders() })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load metrics')
+      const r = await fetch(`/api/admin/metrics?days=${encodeURIComponent(days)}`, { headers: getAdminHeaders(), cache: 'no-store' })
+      let data = {}
+      try {
+        data = await safeJson(r)
+      } catch (_) {
+        data = {}
+      }
+      // If backend is down/maintenance, avoid global errors; keep dashboard responsive.
+      if (!r.ok) {
+        return
+      }
       setMetrics(data)
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
+    } catch (_) {
   }
 
   // Approvals
