@@ -250,7 +250,8 @@ export default function AdminPage() {
       }
       setMetrics(data)
     } catch (_) {
-  }
+      // Silent on errors
+    }
 
   // Approvals
   async function loadPending() {
@@ -266,8 +267,12 @@ export default function AdminPage() {
       if (!r.ok) {
         return
       }
-      const items =}
-  }
+      const items = Array.isArray(data.items) ? data.items : []
+      setPending(items)
+    } catch (_) {
+      // Silent on errors to keep dashboard responsive
+    }_code
+ new </}
   async function loadDetail(id) {
     try {
       const r = await fetch(`/api/admin/pending/${encodeURIComponent(id)}`, { headers: getAdminHeaders() })
