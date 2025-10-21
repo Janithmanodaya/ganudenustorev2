@@ -80,7 +80,7 @@ try {
 router.post('/employee/draft', upload.array('images', 2), async (req, res) => {
   try {
     const files = req.files || [];
-    const { name, target_title, summary } = req.body || {};
+    const { name, target_title, summary, location } = req.body || {};
     const ownerEmail = String(req.header('X-User-Email') || '').toLowerCase().trim();
 
     if (!ownerEmail) return res.status(400).json({ error: 'Missing user email' });
@@ -172,6 +172,17 @@ router.post('/employee/draft', upload.array('images', 2), async (req, res) => {
       seoJsonBlob = JSON.stringify({ seo_title: seoTitle, meta_description: seoDescription, seo_keywords: seoKeywords }, null, 2);
     } catch (_) {
       seoJsonBlob = JSON.stringify({ seo_title: seoTitle, meta_description: seoDescription, seo_keywords: seoKeywords }, null, 2);
+    }
+
+    // If a location was provided by the user, ensure it's present in the structured JSON for the verify step
+    try {
+      const obj = JSON.parse(structuredJSON || '{}');
+      if (location && String(location).trim()) {
+        obj.location = String(location).trim();
+      }
+      structuredJSON = JSON.stringify(obj, null, 2);
+    } catch (_) {
+      // ignore and keep original structuredJSON
     }
 
     const ts = new Date().toISOString();

@@ -1672,7 +1672,7 @@ router.get('/my', requireUser, (req, res) => {
     const email = req.user.email;
 
     const rows = db.prepare(`
-      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views, is_urgent
+      SELECT id, main_category, title, description, seo_description, structured_json, price, pricing_type, location, thumbnail_path, status, valid_until, created_at, reject_reason, views, is_urgent, employee_profile
       FROM listings
       WHERE LOWER(owner_email) = LOWER(?)
       ORDER BY created_at DESC
@@ -1689,7 +1689,7 @@ router.get('/my', requireUser, (req, res) => {
       }
       const imgs = listImagesStmt.all(r.id);
       const small_images = Array.isArray(imgs) ? imgs.map(x => filePathToUrl(x.path)).filter(Boolean) : [];
-      return { ...r, thumbnail_url, small_images, urgent: !!r.is_urgent, is_urgent: !!r.is_urgent };
+      return { ...r, thumbnail_url, small_images, urgent: !!r.is_urgent, is_urgent: !!r.is_urgent, employee_profile: Number(r.employee_profile) === 1 };
     });
 
     res.json({ results });
