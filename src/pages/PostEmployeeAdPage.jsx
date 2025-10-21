@@ -12,7 +12,8 @@ export default function PostEmployeeAdPage() {
   const [status, setStatus] = useState(null)
   const [processing, setProcessing] = useState(false)
 
-  // If an employee profile already exists, show management UI instead of the form
+  // If an employee profile or draft already exists, show management UI instead of the form
+  const [existingDraft, setExistingDraft] = useState(null)
   const [existingProfile, setExistingProfile] = useState(null)
   const [checkingExisting, setCheckingExisting] = useState(true)
 
@@ -50,10 +51,19 @@ export default function PostEmployeeAdPage() {
       try {
         const user = getUser()
         if (!user?.email) { setCheckingExisting(false); return }
+        // Check for existing draft first
+        try {
+          const rd = await fetch('/api/listings/my-drafts?employee_profile=1', { headers: buildAuthHeaders() })
+          const dd = await rd.json().catch(() => ({}))
+          if (rd.ok && Array.isArray(dd.results) && dd.results.length > 0) {
+            setExistingDraft(dd.results[0])
+            return
+          }
+        } catch (_) {}
+        // Then check for an active/pending profile
         const r = await fetch('/api/listings/my', { headers: buildAuthHeaders() })
         const data = await r.json().catch(() => ({}))
         if (r.ok && Array.isArray(data.results)) {
-          // Prefer explicit server flag if present, else heuristic
           const found = data.results.find(x => (x.employee_profile === 1 || x.employee_profile === true) || (String(x.main_category || '') === 'Job' && isTalentProfile(x)))
           if (found) setExistingProfile(found)
         }
@@ -122,6 +132,25 @@ export default function PostEmployeeAdPage() {
       setStatus('Profile deleted. You can create a new one now.')
     } catch (e) {
       alert(e.message || 'Failed to delete')
+    }
+  }
+
+  async function handleDeleteDraft(id) {
+    const user = getUser()
+    if (!user?.email) { alert('Please login first.'); return }
+    const ok = window.confirm('Delete your Employee Profile draft? This cannot be undone.')
+    if (!ok) return
+    try {
+      const r = await fetch(`/api/listings/draft/${id}`, {
+        method: 'DELETE',
+        headers: buildAuthHeaders()
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data?.error || 'Delete failed')
+      setExistingDraft(null)
+      setStatus('Draft deleted. You can create a new one now.')
+    } catch (e) {
+      alert(e.message || 'Failed to delete draft')
     }
   }
 
@@ -238,6 +267,30 @@ export default function PostEmployeeAdPage() {
         <div className="h1">Post Employee Profile (Free)</div>
         {checkingExisting ? (
           <p className="text-muted">Checking for an existing profile...</p>
+        ) : existingDraft ? (
+          <>
+            <p className="text-muted" style={{ marginTop: 0 }}>
+              You have an Employee Profile draft. You can continue or delete it below.
+            </p>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>{existingDraft.title}</div>
+              <div className="text-muted" style={{ marginBottom: 6 }}>
+                Created: {existingDraft.created_at ? new Date(existingDraft.created_at).toLocaleString() : '—'}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => navigate(`/verify-employee?draftId=${encodeURIComponent(existingDraft.id)}`)}
+                >
+                  Continue to Review & Publish
+                </button>
+                <button className="btn" type="button" onClick={() => handleDeleteDraft(existingDraft.id)} style={{ background: '#f44336', color: '#fff' }}>
+                  Delete Draft
+                </button>
+              </div>
+            </div>
+          </>
         ) : existingProfile ? (
           <>
             <p className="text-muted" style={{ marginTop: 0 }}>

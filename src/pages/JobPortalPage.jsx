@@ -51,6 +51,17 @@ export default function JobPortalPage() {
         return
       }
       setCheckingTalent(true)
+      // First: if a draft exists, continue it
+      try {
+        const rd = await fetch('/api/listings/my-drafts?employee_profile=1', { headers: buildAuthHeaders() })
+        const dd = await rd.json().catch(() => ({}))
+        if (rd.ok && Array.isArray(dd.results) && dd.results.length > 0) {
+          const d = dd.results[0]
+          navigate(`/verify-employee?draftId=${encodeURIComponent(d.id)}`)
+          return
+        }
+      } catch (_) {}
+      // Then: if an active/pending profile exists, open it
       const r = await fetch('/api/listings/my', { headers: buildAuthHeaders() })
       const data = await r.json().catch(() => ({}))
       if (r.ok && Array.isArray(data.results)) {
@@ -61,6 +72,7 @@ export default function JobPortalPage() {
           return
         }
       }
+      // Else: go to create
       navigate('/jobs/post-employee')
     } catch (_) {
       navigate('/jobs/post-employee')
