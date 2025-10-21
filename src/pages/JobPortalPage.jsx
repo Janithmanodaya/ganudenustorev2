@@ -3,9 +3,11 @@ import { useNavigate, Link } from 'react-router-dom'
 import CustomSelect from '../components/CustomSelect.jsx'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import useSEO from '../components/useSEO.js'
+import { useI18n } from '../components/i18n.jsx'
 
 export default function JobPortalPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [q, setQ] = useState('')
   // Dynamic job filters
 
@@ -16,7 +18,7 @@ export default function JobPortalPage() {
   // SEO for job portal via helper
   useSEO({
     title: 'Jobs — Ganudenu Marketplace',
-    description: 'Find jobs or list vacancies in Sri Lanka. Search roles across IT, Marketing, Sales, Accounting, and more.',
+    description: t('jobPortal.heroVacancySub'),
     canonical: 'https://ganudenu.store/jobs'
   })
   const [filtersDef, setFiltersDef] = useState({ keys: [], valuesByKey: {} })
@@ -274,8 +276,8 @@ export default function JobPortalPage() {
   return (
     <>
     <div className="center">
-      {loading && <LoadingOverlay message="Loading jobs..." />}
-      {checkingTalent && <LoadingOverlay message="Checking your profile..." />}
+      {loading && <LoadingOverlay message={t('jobPortal.loading')} />}
+      {checkingTalent && <LoadingOverlay message={t('jobPortal.checkingProfile')} />}
       <div className="card" style={{ padding: 0, overflow: 'hidden', ...white }}>
         <div style={{
           background: 'radial-gradient(1000px 300px at 10% -20%, rgba(0,209,255,0.25), transparent 60%), radial-gradient(1000px 300px at 90% 0%, rgba(108,127,247,0.25), transparent 60%), linear-gradient(180deg, rgba(18,22,31,0.9), rgba(18,22,31,0.6))',
@@ -283,12 +285,12 @@ export default function JobPortalPage() {
           ...white
         }}>
           <div className="h1" style={{ textAlign: 'center', marginBottom: 8, ...white }}>
-            {searchMode === 'talent' ? 'Find great talent or list your profile' : 'Find your next role or list your vacancy'}
+            {searchMode === 'talent' ? t('jobPortal.heroTalent') : t('jobPortal.heroVacancy')}
           </div>
           <p style={{ textAlign: 'center', marginTop: 0, ...white }}>
             {searchMode === 'talent'
-              ? 'Search candidate profiles or publish your own in minutes.'
-              : 'Explore opportunities or publish openings in minutes.'}
+              ? t('jobPortal.heroTalentSub')
+              : t('jobPortal.heroVacancySub')}
           </p>
 
           {/* Mode toggle: Search Vacancies vs Search Talent */}
@@ -297,17 +299,17 @@ export default function JobPortalPage() {
               className={`btn ${searchMode === 'vacancy' ? 'primary' : ''}`}
               type="button"
               onClick={() => setSearchMode('vacancy')}
-              title="Search job vacancies"
+              title={t('jobPortal.searchVacancies')}
             >
-              🔎 Search Vacancies
+              {t('jobPortal.searchVacancies')}
             </button>
             <button
               className={`btn ${searchMode === 'talent' ? 'primary' : ''}`}
               type="button"
               onClick={() => setSearchMode('talent')}
-              title="Search candidate profiles"
+              title={t('jobPortal.searchTalent')}
             >
-              🔎 Search Talent
+              {t('jobPortal.searchTalent')}
             </button>
           </div>
 
@@ -322,7 +324,7 @@ export default function JobPortalPage() {
             <datalist id="job-suggest">
               {Array.isArray(searchSuggestions) ? searchSuggestions.map(s => <option key={s} value={s} />) : null}
             </datalist>
-            <button className="btn primary" type="submit" style={white}>Search</button>
+            <button className="btn primary" type="submit" style={white}>{t('common.search')}</button>
           </form>
 
           <div className="grid two" style={{ marginTop: 18 }}>
@@ -331,22 +333,22 @@ export default function JobPortalPage() {
               onClick={handleListTalent}
               style={{ padding: '18px', fontSize: 16, ...white }}
             >
-              👤 List Talent
-              <div style={{ fontWeight: 500, marginTop: 4, fontSize: 13, ...white }}>Upload your profile to get discovered</div>
+              {t('jobPortal.listTalent')}
+              <div style={{ fontWeight: 500, marginTop: 4, fontSize: 13, ...white }}>{t('jobPortal.listTalentSub')}</div>
             </button>
             <button
               className="btn primary"
               onClick={() => navigate('/new?category=Job')}
               style={{ padding: '18px', fontSize: 16, ...white }}
             >
-              📢 List Vacancy
-              <div style={{ fontWeight: 500, marginTop: 4, fontSize: 13, ...white }}>Post your job and reach candidates</div>
+              {t('jobPortal.listVacancy')}
+              <div style={{ fontWeight: 500, marginTop: 4, fontSize: 13, ...white }}>{t('jobPortal.listVacancySub')}</div>
             </button>
           </div>
         </div>
 
         <div style={{ padding: 18, ...white }}>
-          <div className="h2" style={{ marginTop: 0, ...white }}>Quick filters</div>
+          <div className="h2" style={{ marginTop: 0, ...white }}>{t('jobPortal.quickFilters')}</div>
           <div className="quick-cats" style={{ justifyContent: 'flex-start' }}>
             <button className="btn" onClick={() => quick('Software Engineer')} style={white}>💻 Software</button>
             <button className="btn" onClick={() => quick('Marketing')} style={white}>📣 Marketing</button>
@@ -361,7 +363,7 @@ export default function JobPortalPage() {
             <div className="grid two">
               {/* Title selector (searchable, allows custom) */}
               <div>
-                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Title</div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{t('jobPortal.titleLabel')}</div>
                 <CustomSelect
                   value={q}
                   onChange={val => setQ(val)}
@@ -381,7 +383,8 @@ export default function JobPortalPage() {
 
               {/* Salary Type (normalized: pricing_type) */}
               <div>
-                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Salary Type</div>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>{t('jobPortal.salaryTy')}</pe_codedinewv</>
+div>
                 <CustomSelect
                   value={filters['pricing_type'] || ''}
                   onChange={val => updateFilter('pricing_type', val)}
@@ -402,15 +405,16 @@ export default function JobPortalPage() {
                 <input
                   className="input"
                   type="number"
-                  placeholder="Min salary"
+                  placeholder={t('jobPortal.minSalary')}
                   value={salaryMin}
                   onChange={e => setSalaryMin(e.target.value)}
                   style={{ width: 160 }}
-                />
+              _code  new/</>
+  />
                 <input
                   className="input"
                   type="number"
-                  placeholder="Max salary"
+                  placeholder={t('jobPortal.maxSalary')}
                   value={salaryMax}
                   onChange={e => setSalaryMax(e.target.value)}
                   style={{ width: 160 }}
@@ -439,14 +443,14 @@ export default function JobPortalPage() {
                   </div>
                 ))}
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn compact" type="button" onClick={() => setFilters({})} style={{ flex: '0 0 auto' }}>Clear</button>
-                <button className="btn compact" type="button" onClick={resetJobFilters} title="Reset all job filters" style={{ flex: '0 0 auto' }}>Reset</button>
-                <button className="btn primary compact" type="button" onClick={applyJobFilters} style={{ flex: '0 0 auto' }}>Apply</button>
+                <button className="btn compact" type="button" onClick={() => setFilters({})} style={{ flex: '0 0 auto' }}>{t('common.reset')}</button>
+                <button className="btn compact" type="button" onClick={resetJobFilters} title="Reset all job filters" style={{ flex: '0 0 auto' }}>{t('common.resetFilters')}</button>
+                <button className="btn primary compact" type="button" onClick={applyJobFilters} style={{ flex: '0 0 auto' }}>{t('common.apply')}</button>
               </div>
             </div>
           </div>
 
-          <div className="h2" style={{ marginTop: 12, ...white }}>Results</div>
+          <div className="h2" style={{ marginTop: 12, ...white }}>{t('common.results')}</div>
           <div className="grid three">
             {visibleResults.map(item => {
               const imgs = Array.isArray(item.small_images) ? item.small_images : []
@@ -526,7 +530,12 @@ export default function JobPortalPage() {
                 </div>
               )
             })}
-            {visibleResults.length === 0 && <p className="text-muted">No {searchMode === 'talent' ? 'talent profiles' : 'job vacancies'} found.</p>}
+            {visibleResults.length === 0 && (
+             <xp className="text-muted">
+                {searchMode === 'talent' ? t('jobPortal.noTalent') : t('jobPortal.noVacancies')}
+            </  p>
+          _code  new)</}
+p>}
           </div>
 
           {/* Pagination */}
@@ -542,7 +551,7 @@ export default function JobPortalPage() {
                 {p}
               </button>
             ))}
-            <button className="btn page" onClick={() => setPage(page + 1)} aria-label="Next page">Next ›</button>
+            <button className="btn page" onClick={() => setPage(page + 1)} aria-label="Next page">{t('common.next')}</button>
           </div>
 
           {status && <p style={{ marginTop: 8 }}>{status}</p>}
@@ -553,14 +562,14 @@ export default function JobPortalPage() {
     {/* Mobile sticky reset action bar for Job Portal */}
     {hasActiveJobFilters && (
       <div className="mobile-actionbar" aria-label="Job filter actions">
-        <button className="btn" type="button" onClick={resetJobFilters} title="Reset all job filters">Reset filters</button>
+        <button className="btn" type="button" onClick={resetJobFilters} title="Reset all job filters">{t('common.resetFilters')}</button>
         <button
           className="btn"
           type="button"
           onClick={() => { try { const el = filtersCardRef.current; if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }) } catch (_) {} }}
-          title="Show filters"
+          title={t('common.filters')}
         >
-          Filters
+          {t('common.filters')}
         </button>
       </div>
     )}

@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useSearchParams, Link, useNavigate } from 'react-router-dom'
 import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import CustomSelect from '../components/CustomSelect.jsx'
+import { useI18n } from '../components/i18n.jsx'
 
 export default function JobSearchResultsPage() {
   const navigate = useNavigate()
+  const { t } = useI18n()
   const [sp, setSp] = useSearchParams()
   const qParam = sp.get('q') || ''
   const [q, setQ] = useState(qParam)
@@ -116,9 +118,9 @@ export default function JobSearchResultsPage() {
   }
 
   const heading = useMemo(() => {
-    const base = 'Job Search'
+    const base = t('jobSearch.heading')
     return qParam ? `${base} • “${qParam}”` : base
-  }, [qParam])
+  }, [qParam, t])
 
   // Apply client-side filter
   const filtered = useMemo(() => {
@@ -140,14 +142,14 @@ export default function JobSearchResultsPage() {
 
   return (
     <div className="center">
-      {loading && <LoadingOverlay message="Searching jobs..." />}
+      {loading && <LoadingOverlay message={t('jobSearch.loading')} />}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
        <div style={{
           padding: 18,
           background: 'linear-gradient(180deg, rgba(18,22,31,0.9), rgba(18,22,31,0.6))'
         }}>
           <div className="h1" style={{ textAlign: 'center' }}>{heading}</div>
-          <p className="text-muted" style={{ textAlign: 'center', marginTop: 4 }}>Search roles and refine with job-specific filters.</p>
+          <p className="text-muted" style={{ textAlign: 'center', marginTop: 4 }}>{t('jobSearch.subtitle')}</p>
 
           {/* In-page filter (client-side) */}
           <div className="grid two" style={{ marginTop: 12 }}>
@@ -158,7 +160,7 @@ export default function JobSearchResultsPage() {
               onChange={e => setLocalFilter(e.target.value)}
             />
             <button className="btn" type="button" onClick={() => setShowAdvanced(s => !s)}>
-              {showAdvanced ? 'Hide Advanced Search' : 'Advanced Search'}
+              {showAdvanced ? t('search.hideAdvanced') : t('search.advanced')}
             </button>
           </div>
 
@@ -235,14 +237,14 @@ export default function JobSearchResultsPage() {
                   virtualized={true}
                   maxDropdownHeight={420}
                 />
-                <button className="btn primary" type="submit">Apply</button>
+                <button className="btn primary" type="submit">{t('common.apply')}</button>
               </div>
             </form>
           )}
         </div>
 
         <div style={{ padding: 18 }}>
-          <div className="h2" style={{ marginTop: 0 }}>Results</div>
+          <div className="h2" style={{ marginTop: 0 }}>{t('common.results')}</div>
           <div className="grid two">
             {filtered.map(job => {
               // Extract possible job-specific info from structured_json if present
@@ -286,13 +288,13 @@ export default function JobSearchResultsPage() {
                 </div>
               )
             })}
-            {filtered.length === 0 && <p className="text-muted">No jobs found.</p>}
+            {filtered.length === 0 && <p className="text-muted">{t('jobSearch.noJobs')}</p>}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
-            <button className="btn" onClick={() => setPage(Math.max(1, page - 1))}>Prev</button>
+            <button className="btn" onClick={() => setPage(Math.max(1, page - 1))}>{t('common.prev')}</button>
             <div className="text-muted">Page {page}</div>
-            <button className="btn" onClick={() => setPage(page + 1)}>Next</button>
+            <button className="btn" onClick={() => setPage(page + 1)}>{t('common.next')}</button>
           </div>
 
           {status && <p style={{ marginTop: 8 }}>{status}</p>}

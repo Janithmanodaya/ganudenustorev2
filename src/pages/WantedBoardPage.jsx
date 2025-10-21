@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import CustomSelect from '../components/CustomSelect.jsx';
 import { useNavigate } from 'react-router-dom';
+import { useI18n } from '../components/i18n.jsx';
 
 const CATEGORIES = ['Vehicle', 'Property', 'Job', 'Electronic', 'Mobile', 'Home Garden', 'Other'];
 
 export default function WantedBoardPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [userEmail, setUserEmail] = useState('');
   const [tab, setTab] = useState('browse'); // 'browse' | 'post' | 'mine'
   const [loading, setLoading] = useState(false);
@@ -706,9 +708,9 @@ export default function WantedBoardPage() {
               'linear-gradient(180deg, rgba(18,22,31,0.9), rgba(18,22,31,0.6))'
           }}
         >
-          <h1 className="h1" style={{ textAlign: 'center', marginBottom: 8 }}>Wanted Board</h1>
+          <h1 className="h1" style={{ textAlign: 'center', marginBottom: 8 }}>{t('wanted.title')}</h1>
           <p className="text-muted" style={{ textAlign: 'center', marginTop: 0 }}>
-            Buyers post requests for items they’re looking for. When a new ad matches, both sides are notified immediately.
+            {t('wanted.subtitle')}
           </p>
 
           {/* Quick categories (same style as Home) */}
@@ -724,9 +726,9 @@ export default function WantedBoardPage() {
 
           {/* Tabs */}
           <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <button className={`btn ${tab === 'browse' ? 'active' : ''}`} onClick={() => setTab('browse')}>Browse Requests</button>
-            <button className={`btn ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>Post a Request</button>
-            <button className={`btn ${tab === 'mine' ? 'active' : ''}`} onClick={() => setTab('mine')}>My Requests</button>
+            <button className={`btn ${tab === 'browse' ? 'active' : ''}`} onClick={() => setTab('browse')}>{t('wanted.tabBrowse')}</button>
+            <button className={`btn ${tab === 'post' ? 'active' : ''}`} onClick={() => setTab('post')}>{t('wanted.tabPost')}</button>
+            <button className={`btn ${tab === 'mine' ? 'active' : ''}`} onClick={() => setTab('mine')}>{t('wanted.tabMine')}</button>
           </div>
         </div>
       </div>
@@ -738,7 +740,7 @@ export default function WantedBoardPage() {
             <div>
               {hasActiveBrowseFilters && (
                 <button className="btn compact" type="button" onClick={resetBrowseFilters} title="Reset all filters" style={{ flex: '0 0 auto' }}>
-                  Reset filters
+                  {t('common.resetFilters')}
                 </button>
               )}
             </div>
@@ -751,7 +753,7 @@ export default function WantedBoardPage() {
                 style={{ minWidth: 200 }}
               />
               <button className="btn" type="button" onClick={() => setShowFilters(s => !s)}>
-                {showFilters ? 'Hide Filters' : 'Filters'}
+                {showFilters ? t('common.hideFilters') : t('common.filters')}
               </button>
             </div>
           </div>
@@ -968,20 +970,20 @@ export default function WantedBoardPage() {
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button className="btn accent compact" type="button" onClick={() => setShowFilters(false)} style={{ flex: '0 0 auto' }}>
-                    Apply
-                  </button>
-                  <button className="btn compact" type="button" onClick={resetBrowseFilters} style={{ flex: '0 0 auto' }}>
-                    Reset
-                  </button>
+                    {t('common.apply')}
+                </  button>
+                 <abutton className="btn compact" type="button" onClick={resetBrowseFilters} style={{ flex: '0 0 auto' }}>
+                    {t('common.reset')}
+                </  but_codetonewn</>
                 </div>
               </div>
             </div>
           )}
 
-          {loading && <div className="pill">Loading...</div>}
+          {loading & <<div className="pill">{t('wanted.loadi')}</  div>}
           {!loading && filteredRequests.length === 0 && (
-            <p className="text-muted">No open requests match your filters.</p>
-          )}
+           <ep className="text-muted">{t('wanted.noMatch')}</s.p>
+        _code}
 
           {/* Redesigned cards to match HomePage grid and style */}
           {!loading && filteredRequests.length > 0 && (
@@ -1067,7 +1069,7 @@ export default function WantedBoardPage() {
                         title="Post a new ad for this request"
                         aria-label="Post a new ad for this request"
                       >
-                        Post Ad
+                        {t('wanted.postAd')}
                       </button>
                       {canOffer && (
                         <>
@@ -1092,8 +1094,9 @@ export default function WantedBoardPage() {
                             />
                           </div>
                           <button className="btn" onClick={() => sendOffer(r.id)} disabled={!offerSelections[r.id] || offerSending[r.id]}>
-                            {offerSending[r.id] ? 'Sending...' : 'Offer this ad'}
-                          </button>
+                            {offerSending[r.id] ? t('common.apply') : t('wanted.offerThisAd')}
+                        </  but_codetonewn</>
+             </button>
                         </>
                       )}
                     </div>
@@ -1112,7 +1115,7 @@ export default function WantedBoardPage() {
                 aria-label="Previous page"
                 disabled={page <= 1}
               >
-                ‹ Prev
+                {t('common.prev')}
               </button>
               {pageWindow.map(p => (
                 <button
@@ -1130,7 +1133,7 @@ export default function WantedBoardPage() {
                 aria-label="Next page"
                 disabled={page >= totalPages}
               >
-                Next ›
+                {t('common.next')}
               </button>
             </div>
           )}
