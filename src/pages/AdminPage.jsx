@@ -614,6 +614,8 @@ export default function AdminPage() {
       setChatInput('')
       setChatMessages(prev => [...prev, { id: Date.now(), sender: 'admin', message: msg, created_at: new Date().toISOString() }])
       setStatus(sendEmailOnReply ? 'Reply sent. Email and in-app notification requested.' : 'Reply sent. In-app notification created.')
+      // Auto-turn off email notification after each send; admin can re-enable for the next reply.
+      setSendEmailOnReply(false)
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
