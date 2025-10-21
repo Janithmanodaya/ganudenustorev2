@@ -580,20 +580,40 @@ export default function AdminPage() {
     const msg = chatInput.trim()
     if (!msg || !selectedChatEmail) return
     try {
+      // 1) Send chat reply (email optional via checkbox)
       const r = await fetch(`/api/chats/admin/${encodeURIComponent(selectedChatEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Email': adminEmail, 'Authorization': authToken ? `Bearer ${authToken}` : undefined },
-        body: JSON.stringify({ message: msg, notifyEmail: !!sendEmailOnReply })
+        body: JSON.stringify({ message: msg, notifyEmail: !!sendEmailOnReply, notifyInApp: true })
       })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to send')
+
+      // 2) Always create an in-app notification for the user via admin notifications API
+      //    This ensures the user sees a notification in the app, independently of chat delivery.
+      try {
+        const payload = {
+          title: 'Admin replied',
+          message: msg,
+          targetEmail: selectedChatEmail
+        }
+        const nr = await fetch('/api/admin/notifications', {
+          method: 'POST',
+          headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(payload)
+        })
+        // We don't block on errors here; just try to refresh notifications list if OK.
+        if (nr.ok) {
+          loadAdminNotifications()
+        }
+      } catch (_) {
+        // Silent on notification errors; chat reply is the primary action.
+      }
+
+      // 3) Update UI
       setChatInput('')
       setChatMessages(prev => [...prev, { id: Date.now(), sender: 'admin', message: msg, created_at: new Date().toISOString() }])
-      if (sendEmailOnReply) {
-        setStatus('Reply sent and email notification requested.')
-      } else {
-        setStatus('Reply sent.')
-      }
+      setStatus(sendEmailOnReply ? 'Reply sent. Email and in-app notification requested.' : 'Reply sent. In-app notification created.')
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
