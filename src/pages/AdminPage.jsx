@@ -150,7 +150,8 @@ export default function AdminPage() {
         emailOnApprove,
         maintenanceMode: !!maintenanceEnabled,
         maintenanceMessage: String(maintenanceMessage || '')
-      }
+   _code  new </}
+
       const r = await fetch('/api/admin/config', {
         method: 'POST',
         headers: {
@@ -1107,64 +1108,6 @@ export default function AdminPage() {
               <button className="btn" onClick={() => loadMetrics(rangeDays)}>Refresh</button>
             </div>
 
-            {/* Payment & Bank Settings */}
-            <div className="card" style={{ marginTop: 8 }}>
-              <div className="h2" style={{ marginTop: 0 }}>Payment & Bank Settings</div>
-              <div className="grid two" style={{ gap: 8 }}>
-                <div>
-                  <label className="text-muted">Bank Name</label>
-                  <input
-                    className="input"
-                    placeholder="e.g., Bank of Ceylon"
-                    value={bankName}
-                    onChange={e => setBankName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted">Account Name</label>
-                  <input
-                    className="input"
-                    placeholder="e.g., Ganudenu Pvt Ltd"
-                    value={bankAccountName}
-                    onChange={e => setBankAccountName(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="grid two" style={{ gap: 8, marginTop: 8 }}>
-                <div>
-                  <label className="text-muted">Account Number</label>
-                  <input
-                    className="input"
-                    placeholder="e.g., 1234567890"
-                    value={bankAccountNumber}
-                    onChange={e => setBankAccountNumber(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted">WhatsApp Number</label>
-                  <input
-                    className="input"
-                    placeholder="e.g., +94 7X XXX XXXX"
-                    value={whatsappNumber}
-                    onChange={e => setWhatsappNumber(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <label className="text-muted">Legacy Bank Details (combined text)</label>
-                <textarea
-                  className="textarea"
-                  placeholder="Optional combined details shown to users if set"
-                  value={bankDetails}
-                  onChange={e => setBankDetails(e.target.value)}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button className="btn primary" onClick={saveConfig}>Save Settings</button>
-                <button className="btn" onClick={fetchConfig}>Refresh</button>
-              </div>
-            </div>
-
             {!metrics && <p className="text-muted">Loading analytics...</p>}
             {metrics && (
               <>
@@ -1295,3 +1238,593 @@ export default function AdminPage() {
                       <strong>{u.email}</strong> {u.username ? <span className="text-muted">• @{u.username}</span> : null}
                     </div>
                     <div className="text-muted">ID: {u.id} • Admin: {u.is_admin ? 'Yes' : 'No'} • Created: {new Date(u.created_at).toLocaleString()}</div>
+                    <div className="text-muted">UID: {u.user_uid || '—'} • Verified: {u.is_verified ? 'Yes' : 'No'}</div>
+                    <div className="text-muted">
+                      Status: {u.is_banned ? 'Banned' : (u.suspended_until && u.suspended_until > new Date().toISOString() ? `Suspended until ${new Date(u.suspended_until).toLocaleString()}` : 'Active')}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                      {!u.is_banned && <button className="btn" onClick={() => banUser(u.id)}>Ban</button>}
+                      {u.is_banned && <button className="btn" onClick={() => unbanUser(u.id)}>Unban</button>}
+                      {/* Show Unsuspend if currently suspended */}
+                      {u.suspended_until && (new Date(u.suspended_until) > new Date()) ? (
+                        <button className="btn" onClick={() => unsuspendUser(u.id)}>Unsuspend</button>
+                      ) : (
+                        <button className="btn" onClick={() => suspend7Days(u.id)}>Suspend {suspendDays} days</button>
+                      )}
+                      {/* Verify controls */}
+                      {!u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/verify`, { method: 'POST', headers: getAdminHeaders() }); const d = await safeJson(r); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Verify</button>}
+                      {u.is_verified && <button className="btn" onClick={async () => { try { const r = await fetch(`/api/admin/users/${u.id}/unverify`, { method: 'POST', headers: getAdminHeaders() }); const d = await safeJson(r); if (!r.ok) throw new Error(d.error || 'Failed'); loadUsers(userQuery); } catch (e) { setStatus(`Error: ${e.message}`) } }}>Unverify</button>}
+                      {/* View user's ads */}
+                      <button className="btn" onClick={() => toggleExpandUser(u.id)}>
+                        {expandedUserIds.includes(u.id) ? 'Hide Ads' : 'View Ads'}
+                      </button>
+                    </div>
+
+                    {/* User's ads list */}
+                    {expandedUserIds.includes(u.id) && (
+                      <div className="card" style={{ marginTop: 8 }}>
+                        <div className="h2" style={{ marginTop: 0 }}>Ads by user</div>
+
+                        {/* Filters within user's ads */}
+                        {Array.isArray(userAds[u.id]) && userAds[u.id].length > 0 && (
+                          <div style={{ marginBottom: 8 }}>
+                            <div className="grid two">
+                              <div>
+                                <input
+                                  className="input"
+                                  placeholder="Search within ads..."
+                                  value={(userAdsFilters[u.id]?.q || '')}
+                                  onChange={e => updateUserAdsFilter(u.id, { q: e.target.value })}
+                                />
+                              </div>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                {(() => {
+                                  const ads = Array.isArray(userAds[u.id]) ? userAds[u.id] : []
+                                  const cats = Array.from(new Set(ads.map(a => String(a.main_category || '').trim()).filter(Boolean)))
+                                  const locs = Array.from(new Set(ads.map(a => String(a.location || '').trim()).filter(Boolean)))
+                                  return (
+                                    <>
+                                      <div style={{ minWidth: 200, flex: '0 0 200px' }}>
+                                        <CustomSelect
+                                          value={(userAdsFilters[u.id]?.category || '')}
+                                          onChange={v => updateUserAdsFilter(u.id, { category: String(v || '') })}
+                                          ariaLabel="Category"
+                                          placeholder="Category"
+                                          options={[{ value: '', label: 'Any' }, ...cats.map(c => ({ value: c, label: c }))]}
+                                          searchable={true}
+                                          allowCustom={true}
+                                        />
+                                      </div>
+                                      <div style={{ minWidth: 200, flex: '0 0 200px' }}>
+                                        <CustomSelect
+                                          value={(userAdsFilters[u.id]?.location || '')}
+                                          onChange={v => updateUserAdsFilter(u.id, { location: String(v || '') })}
+                                          ariaLabel="Location"
+                                          placeholder="Location"
+                                          options={[{ value: '', label: 'Any' }, ...locs.map(l => ({ value: l, label: l }))]}
+                                          searchable={true}
+                                          allowCustom={true}
+                                        />
+                                      </div>
+                                      
+                                    </>
+                                  )
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {!userAds[u.id] && <p className="text-muted">Loading ads...</p>}
+                        {userAds[u.id] && getFilteredUserAds(u.id).length === 0 && <p className="text-muted">No ads found.</p>}
+                        {Array.isArray(userAds[u.id]) && getFilteredUserAds(u.id).map(ad => (
+                          <div key={ad.id} className="card" style={{ marginBottom: 8, display: 'flex', gap: 12 }}>
+                            {ad.thumbnail_url && (
+                              <img src={ad.thumbnail_url} alt={ad.title} style={{ width: 100, height: 75, objectFit: 'cover', borderRadius: 6 }} />
+                            )}
+                            <div style={{ flex: 1 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ad.title}</strong>
+                                {(ad.is_urgent || ad.urgent) && (
+                                  <span className="pill" style={{ background: 'rgba(239,68,68,0.15)', color: '#fecaca' }}>Urgent</span>
+                                )}
+                              </div>
+                              <div className="text-muted">#{ad.id} • {ad.main_category} • {ad.location || '—'} • {ad.price != null ? `Rs. ${Number(ad.price).toLocaleString('en-US')}` : 'N/A'} • {ad.status}</div>
+                              <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                                <button className="btn" onClick={() => adminDeleteListing(ad.id, u.id)}>Delete</button>
+                                <button
+                                  className="btn"
+                                  onClick={() => adminSetUrgent(ad.id, !(ad.is_urgent || ad.urgent), u.id)}
+                                >
+                                  {(ad.is_urgent || ad.urgent) ? 'Remove Urgent' : 'Mark Urgent'}
+                                </button>
+                                <button className="btn" onClick={() => navigate(`/listing/${ad.id}`)}>Open</button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="card">
+                <div className="h2">Reports</div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <select className="select" value={reportFilter} onChange={e => { setReportFilter(e.target.value); loadReports(e.target.value); }}>
+                    <option value="pending">Pending</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="">All</option>
+                  </select>
+                  <button className="btn" onClick={() => loadReports(reportFilter)}>Refresh</button>
+                </div>
+                {reports.length === 0 && <p className="text-muted">No reports.</p>}
+                {reports.map(r => (
+                  <div key={r.id} className="card" style={{ marginBottom: 8 }}>
+                    <div><strong>Listing #{r.listing_id}</strong> • <span className="text-muted">{new Date(r.ts).toLocaleString()}</span></div>
+                    <div className="text-muted">Reporter: {r.reporter_email || 'anonymous'}</div>
+                    <div style={{ marginTop: 6 }}>{r.reason}</div>
+                    <div className="text-muted" style={{ marginTop: 6 }}>Status: {r.status || 'pending'}</div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                      {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Mark Resolved</button>}
+                      <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Reports */}
+        {activeTab === 'reports' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Reports</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <select className="select" value={reportFilter} onChange={e => { setReportFilter(e.target.value); loadReports(e.target.value); }}>
+                <option value="pending">Pending</option>
+                <option value="resolved">Resolved</option>
+                <option value="">All</option>
+              </select>
+              <button className="btn" onClick={() => loadReports(reportFilter)}>Refresh</button>
+            </div>
+            {reports.length === 0 && <p className="text-muted">No reports.</p>}
+            {reports.map(r => (
+              <div key={r.id} className="card" style={{ marginBottom: 8 }}>
+                <div><strong>Listing #{r.listing_id}</strong> • <span className="text-muted">{new Date(r.ts).toLocaleString()}</span></div>
+                <div className="text-muted">Reporter: {r.reporter_email || 'anonymous'}</div>
+                <div style={{ marginTop: 6 }}>{r.reason}</div>
+                <div className="text-muted" style={{ marginTop: 6 }}>Status: {r.status || 'pending'}</div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  {r.status !== 'resolved' && <button className="btn" onClick={() => resolveReport(r.id)}>Mark Resolved</button>}
+                  <button className="btn" onClick={() => deleteReport(r.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Banners */}
+        {activeTab === 'banners' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Homepage Banners</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <button className="btn" onClick={() => fileRef.current?.click()}>Upload Banner</button>
+              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onUploadBanner((e.target.files && e.target.files[0]) || null)} />
+              <small className="text-muted">Recommended wide ratio (e.g., 3:1). JPG or PNG, up to 5MB.</small>
+            </div>
+            <div className="grid three">
+              {banners.map(b => (
+                <div key={b.id} className="card">
+                  {b.url && <img src={b.url} alt={`Banner ${b.id}`} style={{ width: '100%', borderRadius: 8, objectFit: 'cover' }} />}
+                  <div className="text-muted" style={{ marginTop: 6 }}>Active: {b.active ? 'Yes' : 'No'}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button className="btn" onClick={() => toggleBanner(b.id, b.active)}>{b.active ? 'Deactivate' : 'Activate'}</button>
+                    <button className="btn" onClick={() => deleteBanner(b.id)}>Delete</button>
+                  </div>
+                </div>
+              ))}
+              {banners.length === 0 && <p className="text-muted">No banners yet.</p>}
+            </div>
+          </>
+        )}
+
+        {/* Notifications */}
+        {activeTab === 'notifications' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Send Notification</div>
+            <div className="grid two">
+              <input className="input" placeholder="Title" value={notifyTitle} onChange={e => setNotifyTitle(e.target.value)} />
+              <select className="select" value={notifyTargetType} onChange={e => setNotifyTargetType(e.target.value)}>
+                <option value="all">Send to all users</option>
+                <option value="email">Send to specific email</option>
+              </select>
+            </div>
+            {notifyTargetType === 'email' && (
+              <div style={{ marginTop: 8 }}>
+                <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Select user email</div>
+                <CustomSelect
+                  value={notifyEmail}
+                  onChange={v => setNotifyEmail(String(v))}
+                  ariaLabel="Target email"
+                  placeholder={users.length ? 'Pick an email...' : 'No users loaded'}
+                  options={(() => {
+                    const emails = Array.from(new Set((users || []).map(u => String(u.email || '').trim()).filter(Boolean)))
+                    return emails.map(e => ({ value: e, label: e }))
+                  })()}
+                  searchable={true}
+                  allowCustom={true}
+                />
+                <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                  Tip: start typing to filter. You can also enter a custom email not in the list.
+                </small>
+              </div>
+            )}
+            <textarea className="textarea" placeholder="Message" value={notifyMessage} onChange={e => setNotifyMessage(e.target.value)} style={{ marginTop: 8 }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button className="btn primary" onClick={sendNotification}>Send</button>
+              <button className="btn" onClick={loadAdminNotifications}>Refresh</button>
+            </div>
+
+            <div className="h2" style={{ marginTop: 16 }}>Recent Notifications</div>
+            {notificationsAdmin.length === 0 && <p className="text-muted">No notifications yet.</p>}
+            {notificationsAdmin.map(n => (
+              <div key={n.id} className="card" style={{ marginBottom: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                  <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title}</strong>
+                  <small className="text-muted">{new Date(n.created_at).toLocaleString()}</small>
+                </div>
+                <div className="text-muted" style={{ marginTop: 6 }}>To: {n.target_email ? n.target_email : 'All users'}</div>
+                <div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.message}</div>
+                <div style={{ marginTop: 8 }}>
+                  <button className="btn" onClick={() => deleteNotification(n.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* Chat Management */}
+        {activeTab === 'chat' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>User Chat (last 7 days)</div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button className="btn" onClick={loadConversations}>Refresh</button>
+                </div>
+                {conversations.length === 0 && <p className="text-muted" style={{ marginTop: 8 }}>No conversations.</p>}
+                {conversations.map(c => (
+                  <div key={c.user_email} className="card" style={{ marginTop: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.user_email}</strong>
+                      <small className="text-muted">{new Date(c.last_ts).toLocaleString()}</small>
+                    </div>
+                    <div className="text-muted" style={{ marginTop: 6 }}>{c.last_sender === 'admin' ? 'Admin: ' : 'User: '}{c.last_message}</div>
+                    <div style={{ marginTop: 8 }}>
+                      <button className="btn" onClick={() => loadChatMessages(c.user_email)}>Open</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="h2">Conversation</div>
+                {!selectedChatEmail && <p className="text-muted">Select a conversation.</p>}
+                {selectedChatEmail && (
+                  <>
+                    <div className="pill">With: {selectedChatEmail}</div>
+                    <div style={{ maxHeight: 360, overflowY: 'auto', marginTop: 8 }}>
+                      {chatMessages.map(m => (
+                        <div key={m.id} className="card" style={{ marginBottom: 6, background: m.sender === 'admin' ? 'rgba(108,127,247,0.12)' : 'rgba(0,209,255,0.10)', borderColor: 'transparent' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                            <strong>{m.sender === 'admin' ? 'Admin' : selectedChatEmail}</strong>
+                            <small className="text-muted">{new Date(m.created_at).toLocaleString()}</small>
+                          </div>
+                          <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{m.message}</div>
+                        </div>
+                      ))}
+                      {chatMessages.length === 0 && <p className="text-muted">No messages yet.</p>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <input className="input" placeholder="Type a reply..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendAdminReply(); } }} />
+                      <button className="btn primary" onClick={sendAdminReply}>Send</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* AI Config */}
+        {activeTab === 'ai' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>AI & Payments Configuration</div>
+            <div className="grid two">
+              <input className="input" placeholder="Gemini API Key" value={geminiApiKey} onChange={e => setGeminiApiKey(e.target.value)} />
+              <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <button className="btn" onClick={testGemini}>Test API Key</button>
+              <div className="text-muted" style={{ marginTop: 8 }}>
+                Current key: {maskedKey || 'none'}
+              </div>
+            </div>
+
+            {/* Maintenance Mode */}
+            <div className="card" style={{ marginTop: 16 }}>
+              <div className="h2" style={{ marginTop: 0 }}>Maintenance Mode</div>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={!!maintenanceEnabled}
+                  onChange={e => setMaintenanceEnabled(!!e.target.checked)}
+                />
+                <span className="text-muted">Enable maintenance (blocks public pages and APIs)</span>
+              </label>
+              <div style={{ marginTop: 8 }}>
+                <label className="text-muted">Message (optional)</label>
+                <input
+                  className="input"
+                  placeholder="e.g., Upgrading database..."
+                  value={maintenanceMessage}
+                  onChange={e => setMaintenanceMessage(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <button className="btn primary" onClick={saveConfig}>Save Maintenance Settings</button>
+                <button
+                  className="btn"
+                  onClick={async () => {
+                    try {
+                      const r = await fetch('/api/admin/maintenance', {
+                        method: 'POST',
+                        headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify({ enabled: !!maintenanceEnabled, message: maintenanceMessage })
+                      })
+                      const d = await safeJson(r)
+                      if (!r.ok) throw new Error(d.error || 'Failed to update maintenance')
+                      setStatus(maintenanceEnabled ? 'Maintenance enabled.' : 'Maintenance disabled.')
+                    } catch (e) {
+                      setStatus(`Error: ${e.message}`)
+                    }
+                  }}
+                >
+                  Apply Now
+                </button>
+                <button
+                  className="btn"
+                  onClick={async () => {
+                    try {
+                      const r = await fetch('/api/admin/maintenance', { headers: getAdminHeaders() })
+                      const d = await safeJson(r)
+                      if (!r.ok) throw new Error(d.error || 'Failed to load maintenance state')
+                      setMaintenanceEnabled(!!d.enabled)
+                      setMaintenanceMessage(String(d.message || ''))
+                      setStatus('Maintenance state refreshed.')
+                    } catch (e) {
+                      setStatus(`Error: ${e.message}`)
+                    }
+                  }}
+                >
+                  Refresh State
+                </button>
+              </div>
+              <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                While enabled, only /api/admin/* and /api/health are accessible. All other routes serve the maintenance page.
+              </small>
+            </div>
+
+            <div className="card" style={{ marginTop: 16 }}>
+              <div className="h2" style={{ marginTop: 0 }}>Payment & Bank Settings</div>
+              <div className="grid two" style={{ gap: 8 }}>
+                <div>
+                  <label className="text-muted">Bank Name</label>
+                  <input
+                    className="input"
+                    placeholder="e.g., Bank of Ceylon"
+                    value={bankName}
+                    onChange={e => setBankName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted">Account Name</label>
+                  <input
+                    className="input"
+                    placeholder="e.g., Ganudenu Pvt Ltd"
+                    value={bankAccountName}
+                    onChange={e => setBankAccountName(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid two" style={{ gap: 8, marginTop: 8 }}>
+                <div>
+                  <label className="text-muted">Account Number</label>
+                  <input
+                    className="input"
+                    placeholder="e.g., 1234567890"
+                    value={bankAccountNumber}
+                    onChange={e => setBankAccountNumber(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-muted">WhatsApp Number (for receipts)</label>
+                  <input
+                    className="input"
+                    placeholder="+94XXXXXXXXX"
+                    value={whatsappNumber}
+                    onChange={e => setWhatsappNumber(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <label className="text-muted">Legacy Bank Details (combined text)</label>
+                <textarea
+                  className="textarea"
+                  placeholder="Optional combined details shown to users if set"
+                  value={bankDetails}
+                  onChange={e => setBankDetails(e.target.value)}
+                />
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!emailOnApprove}
+                    onChange={e => setEmailOnApprove(!!e.target.checked)}
+                  />
+                  <span className="text-muted">Email on approve (when Facebook share succeeds)</span>
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn primary" onClick={saveConfig}>Save Payment Settings</button>
+                <button className="btn" onClick={fetchConfig}>Refresh</button>
+              </div>
+            </div>
+
+            <div className="h2" style={{ marginTop: 16 }}>Category Payment Rules</div>
+            <AdminPaymentRules adminEmail={adminEmail} onStatus={setStatus} />
+
+            <div style={{ marginTop: 8 }}>
+              <button className="btn primary" onClick={saveConfig}>Save Configuration</button>
+            </div>
+          </>
+        )}
+
+        {/* Backup */}
+        {activeTab === 'backup' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Backup & Restore</div>
+            <div className="card">
+              <div className="h2" style={{ marginTop: 0 }}>Full Backup</div>
+              <p className="text-muted">Creates a ZIP file containing the entire database (consistent snapshot), all uploads (images), and secure config. Download the file and keep it safe.</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn primary" onClick={createBackup}>Create Full Backup</button>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 8 }}>
+              <div className="h2" style={{ marginTop: 0 }}>Restore from Backup</div>
+              <p className="text-muted">Restoring will replace the entire database contents and merge uploads from the backup. Make sure you trust the backup file.</p>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button className="btn" onClick={() => backupFileRef.current?.click()}>Choose Backup (.zip)</button>
+                <input
+                  ref={backupFileRef}
+                  type="file"
+                  accept=".zip,application/zip"
+                  style={{ display: 'none' }}
+                  onChange={e => restoreFromBackup((e.target.files && e.target.files[0]) || null)}
+                />
+                <small className="text-muted">Recommended: use the most recent backup. Max size 500MB.</small>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Approvals */}
+        {activeTab === 'approvals' && (
+          <>
+            <div className="h2" style={{ marginTop: 8 }}>Pending Approval Queue</div>
+            <div className="grid two">
+              <div>
+                <div className="h2">Items</div>
+                {pending.length === 0 && <p className="text-muted">No pending items.</p>}
+                {pending.map(item => (
+                  <div key={item.id} className="card" style={{ marginBottom: 8 }}>
+                    <div><strong>{item.title}</strong></div>
+                    <div className="text-muted">Category: {item.main_category}</div>
+                    <div className="text-muted">Price: {item.price != null ? item.price : 'N/A'}</div>
+                    <div className="text-muted">Owner: {item.owner_email || 'unknown'}</div>
+                    <div className="pill" style={{ marginTop: 6 }}>Bank Remark: {item.remark_number || '—'}</div>
+                    <div className="text-muted">{item.seo_description || item.description?.slice(0,160)}</div>
+                    <button className="btn" style={{ marginTop: 8 }} onClick={() => loadDetail(item.id)}>Review</button>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div className="h2">Review & Edit</div>
+                {!detail && <p className="text-muted">Select an item to review.</p>}
+                {detail && (
+                  <>
+                    <p className="text-muted">Title: {detail.listing.title} • Category: {detail.listing.main_category}</p>
+                    <div className="pill">Bank Remark: {detail.listing.remark_number || '—'}</div>
+                    <div className="grid two">
+                      <div>
+                        <div className="h2">Original User Input</div>
+                        <div className="card">
+                          <div><strong>Title</strong>: {detail.listing.title}</div>
+                          <div><strong>Description</strong>:</div>
+                          <p>{detail.listing.description}</p>
+                          {detail.listing.resume_file_url && (
+                            <div className="text-muted">Resume File: {detail.listing.resume_file_url}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="h2">Structured JSON</div>
+                        <textarea className="textarea" value={editStructured} onChange={e => setEditStructured(e.target.value)} />
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 8 }}>
+                      <button className="btn" onClick={saveEdits}>Save Edits</button>
+                      <button className="btn primary" onClick={approve} style={{ marginLeft: 8 }}>Approve</button>
+                    </div>
+                    {/* Urgent toggle for this ad */}
+                    <div className="card" style={{ marginTop: 8 }}>
+                      <div className="h2" style={{ marginTop: 0 }}>Urgent status</div>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={!!urgentFlag}
+                          onChange={e => setUrgentFlag(!!e.target.checked)}
+                        />
+                        <span className="text-muted">Mark this ad as Urgent</span>
+                      </label>
+                      <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                        <button
+                          className="btn"
+                          onClick={async () => {
+                            try {
+                              const r = await fetch(`/api/admin/listings/${encodeURIComponent(selectedId)}/urgent`, {
+                                method: 'POST',
+                                headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
+                                body: JSON.stringify({ urgent: !!urgentFlag })
+                              })
+                              const d = await safeJson(r)
+                              if (!r.ok) throw new Error(d.error || 'Failed to update urgent')
+                              setStatus(urgentFlag ? 'Marked as urgent.' : 'Urgent removed.')
+                            } catch (e) {
+                              setStatus(`Error: ${e.message}`)
+                            }
+                          }}
+                        >
+                          Save Urgent
+                        </button>
+                        <span className="pill" style={{ marginLeft: 'auto' }}>{urgentFlag ? 'Urgent: ON' : 'Urgent: OFF'}</span>
+                      </div>
+                      <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
+                        Urgent ads show a small “Urgent” badge on listing cards for higher visibility.
+                      </small>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <input className="input" placeholder="Reject reason (required)" value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
+                      <button className="btn" onClick={reject} style={{ marginTop: 6 }}>Reject</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {status && (
+          <div className="card" style={{ marginTop: 12 }}>
+            <div className="h2">Status</div>
+            <p>{status}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
