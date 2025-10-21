@@ -249,13 +249,18 @@ export default function AdminPage() {
   // Approvals
   async function loadPending() {
     try {
-      const r = await fetch('/api/admin/pending', { headers: getAdminHeaders() })
-      const data = await safeJson(r)
-      if (!r.ok) throw new Error(data.error || 'Failed to load pending')
-      setPending(data.items || [])
-    } catch (e) {
-      setStatus(`Error: ${e.message}`)
-    }
+      const r = await fetch('/api/admin/pending', { headers: getAdminHeaders(), cache: 'no-store' })
+      let data = {}
+      try {
+        data = await safeJson(r)
+      } catch (_) {
+        data = {}
+      }
+      // If backend responds non-OK (e.g., maintenance), avoid global status errors.
+      if (!r.ok) {
+        return
+      }
+      const items =}
   }
   async function loadDetail(id) {
     try {
