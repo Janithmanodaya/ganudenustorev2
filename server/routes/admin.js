@@ -75,26 +75,68 @@ const upload = multer({
 
 // Get current Gemini API key (masked)
 router.get('/config', requireAdmin, (req, res) => {
-  const row = db.prepare('SELECT bank_details, whatsapp_number, email_on_approve, maintenance_mode, maintenance_message, bank_account_number, bank_account_name, bank_name FROM admin_config WHERE id = 1').get();
-  // Load payment rules
-  let rules = [];
   try {
-    rules = db.prepare(`SELECT category, amount, enabled FROM payment_rules ORDER BY category ASC`).all();
-  } catch (_) {
-    rules = [];
+    const row = db.prepare(`
+      SELECT bank_details, whatsapp_number, email_on_approve, maintenance_mode, maintenance_message,
+             bank_account_number, bank_account_name, bank_name
+      FROM admin_config
+      WHERE id = 1
+    `).get() || {};
+
+    // Load payment rules (best-effort)
+    let rules = [];
+    try {
+      rules = db.prepare(`SELECT category, amount, enabled FROM payment_rules ORDER BY category ASC`).all();
+    } catch (_) {
+      rules = [];
+    }
+
+    // Optional: return masked Gemini key if present in secure storage
+    let gemini_api_key_masked = null;
+    try {
+      const { getSecret } = require('../lib/secure-config.js');
+      const key = getSecret('gemini_api_key');
+      if (key && typeof key === 'string') {
+        const s = key.trim();
+        if (s.length <= 8) {
+          gemini_api_key_masked = '****';
+        } else {
+          gemini_api_key_masked = `${s.slice(0, 4)}••••${s.slice(-4)}`;
+        }
+      }
+    } catch (_) {
+      gemini_api_key_masked = null;
+    }
+
+    return res.json({
+      bank_details: row.bank_details || '',
+      bank_account_number: row.bank_account_number || '',
+      bank_account_name: row.bank_account_name || '',
+      bank_name: row.bank_name || '',
+      whatsapp_number: row.whatsapp_number || '',
+      email_on_approve: !!row.email_on_approve,
+      maintenance_mode: !!row.maintenance_mode,
+      maintenance_message: row.maintenance_message || '',
+      payment_rules: rules,
+      secrets_managed: true,
+      gemini_api_key_masked
+    });
+  } catch (e) {
+    // Return a safe JSON payload instead of 500 to keep admin UI responsive
+    return res.json({
+      bank_details: '',
+      bank_account_number: '',
+      bank_account_name: '',
+      bank_name: '',
+      whatsapp_number: '',
+      email_on_approve: false,
+      maintenance_mode: false,
+      maintenance_message: '',
+      payment_rules: [],
+      secrets_managed: true,
+      gemini_api_key_masked: null
+    });
   }
-  res.json({
-    bank_details: row?.bank_details || '',
-    bank_account_number: row?.bank_account_number || '',
-    bank_account_name: row?.bank_account_name || '',
-    bank_name: row?.bank_name || '',
-    whatsapp_number: row?.whatsapp_number || '',
-    email_on_approve: !!(row && row.email_on_approve),
-    maintenance_mode: !!(row && row.maintenance_mode),
-    maintenance_message: row?.maintenance_message || '',
-    payment_rules: rules,
-    secrets_managed: true
-  });
 });
 
 // Save Gemini API key
@@ -1436,26 +1478,29 @@ router.get('/notifications', requireAdmin, (req, res) => {
 });
 
 router.post('/notifications', requireAdmin, async (req, res) => {
-  const { title, message, targetEmail } = req.body || {};
+  const { title, message, targetEmail, sendEmail: sendEmailFlag } = req.body || {};
   if (!title || !message) {
     return res.status(400).json({ error: 'title and message are required' });
   }
 
-  // If sending to a specific email, send a real email using the same mailer used for OTP
-  if (targetEmail) {
+  // Optional email delivery to a specific user (only if explicitly requested)
+  if (targetEmail && sendEmailFlag) {
     try {
       const to = String(targetEmail).toLowerCase().trim();
-      // Convert plain text message to basic HTML
-      const html = `<div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
-        <h2 style="margin:0 0 10px 0;">${String(title).trim()}</h2>
-        <div>${String(message).trim().replace(/\\n/g, '<br/>')}</div>
-      </div>`;
-      const sent = await sendEmail(to, String(title).trim(), html);
-      if (!sent?.ok) {
-        return res.status(502).json({ error: sent?.error || 'Failed to send email.' });
+      if (to) {
+        const html = `<div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;">
+          <h2 style="margin:0 0 10px 0;">${String(title).trim()}</h2>
+          <div>${String(message).trim().replace(/\\n/g, '<br/>')}</div>
+        </div>`;
+        const sent = await sendEmail(to, String(title).trim(), html);
+        if (!sent?.ok) {
+          // Continue with in-app notification even if email fails
+          console.warn('[admin:notifications] email send failed:', sent?.error || sent);
+        }
       }
     } catch (e) {
-      return res.status(502).json({ error: 'Failed to send email.' });
+      console.warn('[admin:notifications] email error:', e && e.message ? e.message : e);
+      // Do not fail the request; still create in-app notification
     }
   }
 
@@ -1463,7 +1508,12 @@ router.post('/notifications', requireAdmin, async (req, res) => {
     db.prepare(`
       INSERT INTO notifications (title, message, target_email, created_at)
       VALUES (?, ?, ?, ?)
-    `).run(String(title).trim(), String(message).trim(), targetEmail ? String(targetEmail).toLowerCase().trim() : null, new Date().toISOString());
+    `).run(
+      String(title).trim(),
+      String(message).trim(),
+      targetEmail ? String(targetEmail).toLowerCase().trim() : null,
+      new Date().toISOString()
+    );
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: 'Failed to create notification' });

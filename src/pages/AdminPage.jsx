@@ -60,6 +60,8 @@ export default function AdminPage() {
   const [notifyMessage, setNotifyMessage] = useState('')
   const [notifyTargetType, setNotifyTargetType] = useState('all')
   const [notifyEmail, setNotifyEmail] = useState('')
+  const [notifySendEmail, setNotifySendEmail] = useState(false)
+  const [notifyFormResetKey, setNotifyFormResetKey] = useState(0)
   const [unreadCount, setUnreadCount] = useState(0)
 
   // Chat
@@ -252,6 +254,7 @@ export default function AdminPage() {
     } catch (_) {
       // Silent on errors
     }
+  }
 
   // Approvals
   async function loadPending() {
@@ -396,6 +399,23 @@ export default function AdminPage() {
       if (!r.ok) throw new Error(data.error || 'Failed to load user ads')
       const rows = Array.isArray(data.results) ? data.results : []
       setUserAds(prev => ({ ...prev, [userId]: rows }))
+    } catch (e) {
+      setStatus(`Error: ${e.message}`)
+    }
+  }
+  async function deleteUserAd(listingId, userId) {
+    const yes = window.confirm('Delete this ad? This cannot be undone.')
+    if (!yes) return
+    try {
+      const r = await fetch(`/api/admin/listings/${listingId}`, { method: 'DELETE', headers: getAdminHeaders() })
+      const data = await safeJson(r)
+      if (!r.ok) throw new Error(data.error || 'Failed to delete listing')
+      setStatus('Ad deleted.')
+      setUserAds(prev => {
+        const rows = Array.isArray(prev[userId]) ? prev[userId] : []
+        const nextRows = rows.filter(x => x.id !== listingId)
+        return { ...prev, [userId]: nextRows }
+      })
     } catch (e) {
       setStatus(`Error: ${e.message}`)
     }
@@ -548,7 +568,8 @@ export default function AdminPage() {
       const payload = {
         title: notifyTitle.trim(),
         message: notifyMessage.trim(),
-        targetEmail: notifyTargetType === 'email' ? notifyEmail.trim().toLowerCase() : null
+        targetEmail: notifyTargetType === 'email' ? notifyEmail.trim().toLowerCase() : null,
+        sendEmail: notifyTargetType === 'email' ? !!notifySendEmail : false
       }
       const r = await fetch('/api/admin/notifications', {
         method: 'POST',
@@ -557,9 +578,7 @@ export default function AdminPage() {
       })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to send notification')
-      setStatus('Notification sent.')
-      setNotifyTitle('')
-      setNotifyMessage('')
+     age('')
       setNotifyTargetType('all')
       setNotifyEmail('')
       loadAdminNotifications()
@@ -1033,7 +1052,14 @@ export default function AdminPage() {
                         <div style={{ marginTop: 8 }}>
                           {(getFilteredUserAds(u.id) || []).map(ad => (
                             <div key={ad.id} className="card" style={{ marginBottom: 8 }}>
-                              <div><strong>#{ad.id}</strong> {ad.title}</div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  <strong>#{ad.id}</strong> {ad.title}
+                                </div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <button className="btn" onClick={() => deleteUserAd(ad.id, u.id)}>Delete Ad</button>
+                                </div>
+                              </div>
                               <div className="text-muted">{ad.main_category} • {ad.location} • {ad.status}</div>
                             </div>
                           ))}
@@ -1111,6 +1137,7 @@ export default function AdminPage() {
                 <select className="select" value={notifyTargetType} onChange={e => setNotifyTargetType(e.target.value)}>
                   <option value="all">All</option>
                   <option value="email">Email</option>
+                  <option value="app">App</option>
                 </select>
               </div>
             </div>
@@ -1118,6 +1145,7 @@ export default function AdminPage() {
               <div style={{ marginTop: 8 }}>
                 <div className="text-muted" style={{ marginBottom: 4, fontSize: 12 }}>Select user email</div>
                 <CustomSelect
+                  key={notifyFormResetKey}
                   value={notifyEmail}
                   onChange={v => setNotifyEmail(String(v || ''))}
                   ariaLabel="Target email"
@@ -1131,6 +1159,10 @@ export default function AdminPage() {
                 <small className="text-muted" style={{ display: 'block', marginTop: 6 }}>
                   Tip: start typing to filter. You can also enter a custom email not in the list.
                 </small>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                  <input type="checkbox" checked={notifySendEmail} onChange={e => setNotifySendEmail(!!e.target.checked)} />
+                  <span className="text-muted">Send email to this user</span>
+                </label>
               </div>
             )}
             <div style={{ marginTop: 8 }}>
