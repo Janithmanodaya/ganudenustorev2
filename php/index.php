@@ -159,6 +159,24 @@ switch (true) {
         json_response($result);
         break;
 
+    // Echo utility to inspect connectivity and payloads
+    case $path === '/api/echo': {
+        $headers = [];
+        foreach ($_SERVER as $k => $v) {
+            if (strpos($k, 'HTTP_') === 0) { $headers[$k] = $v; }
+        }
+        $body = json_body();
+        json_response([
+            'ok' => true,
+            'method' => $method,
+            'path' => $path,
+            'headers' => $headers,
+            'query' => (function() { $qs = []; parse_str(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_QUERY) ?? '', $qs); return $qs; })(),
+            'body' => $body
+        ]);
+        break;
+    }
+
     // Health
     case $path === '/api/health':
         json_response(['ok' => true, 'service' => 'ganudenu.store', 'ts' => now_iso()]);
