@@ -6,6 +6,9 @@
 // Resolve project root (one level up from php/)
 $PROJECT_ROOT = dirname(__DIR__);
 
+// Load .env from project root if present
+require_once __DIR__ . '/env.php';
+
 // Database configuration (default to SQLite)
 $DB_DRIVER = getenv('DB_DRIVER') ?: 'sqlite'; // 'sqlite' or 'mysql'
 $DB_HOST   = getenv('DB_HOST')   ?: 'localhost';
