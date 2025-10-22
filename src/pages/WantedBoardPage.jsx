@@ -1019,15 +1019,23 @@ export default function WantedBoardPage() {
                     <div className="text-muted" style={{ marginBottom: 6 }}>{r.category || 'Any'}</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                       <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{r.title}</div>
-                      {r.price_not_matter ? (
-                        <span className="pill">No budget cap</span>
-                      ) : (
-                        (r.price_min != null || r.price_max != null) && (
-                          <div style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
-                            {`LKR ${r.price_min != null ? Number(r.price_min).toLocaleString('en-US') : 'Any'} - ${r.price_max != null ? Number(r.price_max).toLocaleString('en-US') : 'Any'}`}
-                          </div>
-                        )
-                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                        {(() => {
+                          const uname = String(r.poster_username || '').trim();
+                          const userLabel = uname ? `@${uname}` : (r.user_email ? String(r.user_email).split('@')[0] : '');
+                          if (!userLabel) return null;
+                          return <span className="pill" style={{ whiteSpace: 'nowrap' }}>{userLabel}</span>;
+                        })()}
+                        {r.price_not_matter ? (
+                          <span className="pill">No budget cap</span>
+                        ) : (
+                          (r.price_min != null || r.price_max != null) && (
+                            <div style={{ margin: 0, whiteSpace: 'nowrap', fontSize: 14, fontWeight: 700 }}>
+                              {`LKR ${r.price_min != null ? Number(r.price_min).toLocaleString('en-US') : 'Any'} - ${r.price_max != null ? Number(r.price_max).toLocaleString('en-US') : 'Any'}`}
+                            </div>
+                          )
+                        )}
+                      </div>
                     </div>
                     <div className="text-muted" style={{ marginBottom: 6, marginTop: 4 }}>
                       {(() => {
