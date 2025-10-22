@@ -77,7 +77,12 @@ if ($phpVersion -and (Test-Path "$PSScriptRoot\php\index.php")) {
 
   if (-not $started) {
     Write-Host "PHP server did not start or is unreachable on $backendUrl. Falling back to Node backend..."
-    try { if ($phpProc) { Stop-Process -Id $phpProc.Id -Force } } catch { }
+    try {
+      if ($phpProc) {
+        $proc = Get-Process -Id $phpProc.Id -ErrorAction SilentlyContinue
+        if ($proc) { Stop-Process -Id $phpProc.Id -Force }
+      }
+    } catch { }
     $phpProc = $null
   }
 }
