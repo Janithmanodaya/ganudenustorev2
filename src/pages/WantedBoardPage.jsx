@@ -1035,6 +1035,10 @@ export default function WantedBoardPage() {
                         const allLocs = [...locs, r.location].filter(Boolean);
                         if (allLocs.length) parts.push(`Locations: ${Array.from(new Set(allLocs)).join(', ')}`);
                         if (r.category === 'Vehicle' && (r.year_min || r.year_max)) parts.push(`Year: ${r.year_min || 'Any'} - ${r.year_max || 'Any'}`);
+                        // Always show the user name (poster of the wanted request)
+                        const uname = String(r.poster_username || '').trim();
+                        if (uname) parts.push(`Posted by @${uname}`);
+                        else if (r.user_email) parts.push(`Posted by ${String(r.user_email).split('@')[0]}`);
                         if (ageStr) parts.push(ageStr);
                         return parts.join(' • ');
                       })()}

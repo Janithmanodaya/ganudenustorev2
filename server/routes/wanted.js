@@ -288,20 +288,22 @@ router.get('/', (req, res) => {
     const { q = '', category = '', location = '', limit = '50' } = req.query;
     const lim = Math.max(1, Math.min(200, parseInt(String(limit), 10) || 50));
     let sql = `
-      SELECT id, user_email, title, description, category, location, price_min, price_max, price_not_matter,
-             filters_json, locations_json, models_json, year_min, year_max, status, created_at
-      FROM wanted_requests
-      WHERE status = 'open'
+      SELECT w.id, w.user_email, u.username AS poster_username, w.title, w.description, w.category, w.location,
+             w.price_min, w.price_max, w.price_not_matter,
+             w.filters_json, w.locations_json, w.models_json, w.year_min, w.year_max, w.status, w.created_at
+      FROM wanted_requests w
+      LEFT JOIN users u ON LOWER(u.email) = LOWER(w.user_email)
+      WHERE w.status = 'open'
     `;
     const params = [];
-    if (category) { sql += ' AND category = ?'; params.push(String(category)); }
-    if (location) { sql += ' AND (LOWER(location) LIKE ? OR LOWER(COALESCE(locations_json,\'\')) LIKE ?)'; params.push('%' + String(location).toLowerCase() + '%', '%' + String(location).toLowerCase() + '%'); }
+    if (category) { sql += ' AND w.category = ?'; params.push(String(category)); }
+    if (location) { sql += ' AND (LOWER(w.location) LIKE ? OR LOWER(COALESCE(w.locations_json,\'\')) LIKE ?)'; params.push('%' + String(location).toLowerCase() + '%', '%' + String(location).toLowerCase() + '%'); }
     if (q) {
       const term = '%' + String(q).toLowerCase() + '%';
-      sql += ' AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ?)';
+      sql += ' AND (LOWER(w.title) LIKE ? OR LOWER(w.description) LIKE ?)';
       params.push(term, term);
     }
-    sql += ' ORDER BY created_at DESC LIMIT ?';
+    sql += ' ORDER BY w.created_at DESC LIMIT ?';
     params.push(lim);
     const rows = db.prepare(sql).all(params);
     res.json({ results: rows });
@@ -315,11 +317,13 @@ router.get('/my', requireUser, (req, res) => {
   try {
     const email = req.user.email;
     const rows = db.prepare(`
-      SELECT id, user_email, title, description, category, location, price_min, price_max, price_not_matter,
-             filters_json, locations_json, models_json, year_min, year_max, status, created_at
-      FROM wanted_requests
-      WHERE LOWER(user_email) = LOWER(?)
-      ORDER BY id DESC
+      SELECT w.id, w.user_email, u.username AS poster_username, w.title, w.description, w.category, w.location,
+             w.price_min, w.price_max, w.price_not_matter,
+             w.filters_json, w.locations_json, w.models_json, w.year_min, w.year_max, w.status, w.created_at
+      FROM wanted_requests w
+      LEFT JOIN users u ON LOWER(u.email) = LOWER(w.user_email)
+      WHERE LOWER(w.user_email) = LOWER(?)
+      ORDER BY w.id DESC
       LIMIT 200
     `).all(email);
     res.json({ results: rows });

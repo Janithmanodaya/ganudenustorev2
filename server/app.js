@@ -489,19 +489,43 @@ ${urls.map(u => `<url><loc>${u.loc}</loc><lastmod>${xmlEscape(u.lastmod)}</lastm
 async function purgeExpiredListings() {
   try {
     const nowIso = new Date().toISOString();
-    const expired = db.prepare(`SELECT id, thumbnail_path, medium_path FROM listings WHERE valid_until IS NOT NULL AND valid_until < ?`).all(nowIso);
+    const expired = db.prepare(`
+      SELECT id, thumbnail_path, medium_path, og_image_path
+      FROM listings
+      WHERE valid_until IS NOT NULL AND valid_until < ?
+    `).all(nowIso);
+
+    const delImagesStmt = db.prepare(`DELETE FROM listing_images WHERE listing_id = ?`);
+    const clearListingImagesStmt = db.prepare(`
+      UPDATE listings
+      SET thumbnail_path = NULL,
+          medium_path = NULL,
+          og_image_path = NULL,
+          status = 'Archived'
+      WHERE id = ?
+    `);
+
+    let cleaned = 0;
     for (const row of expired) {
-      const images = db.prepare(`SELECT path FROM listing_images WHERE listing_id = ?`).all(row.id);
-      for (const img of images) {
-        if (img.path) { try { fs.unlinkSync(img.path); } catch (_) {} }
-      }
-      if (row.thumbnail_path) { try { fs.unlinkSync(row.thumbnail_path); } catch (_) {} }
-      if (row.medium_path) { try { fs.unlinkSync(row.medium_path); } catch (_) {} }
-      db.prepare(`DELETE FROM listing_images WHERE listing_id = ?`).run(row.id);
-      db.prepare(`DELETE FROM listings WHERE id = ?`).run(row.id);
+      try {
+        const images = db.prepare(`SELECT path FROM listing_images WHERE listing_id = ?`).all(row.id);
+        for (const img of images) {
+          if (img?.path) { try { fs.unlinkSync(img.path); } catch (_) {} }
+        }
+      } catch (_) {}
+
+      if (row?.thumbnail_path) { try { fs.unlinkSync(row.thumbnail_path); } catch (_) {} }
+      if (row?.medium_path) { try { fs.unlinkSync(row.medium_path); } catch (_) {} }
+      if (row?.og_image_path) { try { fs.unlinkSync(row.og_image_path); } catch (_) {} }
+
+      // Remove image rows, keep listing metadata for analytics
+      try { delImagesStmt.run(row.id); } catch (_) {}
+      try { clearListingImagesStmt.run(row.id); } catch (_) {}
+      cleaned++;
     }
-    if (expired.length) {
-      console.log(`[cleanup] Purged ${expired.length} expired listings at ${new Date().toISOString()}`);
+
+    if (cleaned) {
+      console.log(`[cleanup] Archived and removed images for ${cleaned} expired listings at ${new Date().toISOString()}`);
     }
   } catch (e) {
     console.error('[cleanup] Error during purge:', e);
