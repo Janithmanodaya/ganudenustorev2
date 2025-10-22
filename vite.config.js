@@ -3,11 +3,11 @@ import react from '@vitejs/plugin-react'
 
 /**
  * Dev helper: serve a local fallback for /api/maintenance-status when the backend isn't running.
- * - If the backend at http://localhost:5174 responds, we proxy the real response.
+ * - If the backend at http://127.0.0.1:5174 responds, we proxy the real response.
  * - If it doesn't (or times out quickly), we return { enabled: false, message: '' } to avoid noisy proxy errors.
  */
 function devMaintenanceStatusFallback() {
-  const BACKEND = process.env.BACKEND_URL || 'http://localhost:5174'
+  const BACKEND = process.env.BACKEND_URL || 'http://127.0.0.1:5174'
   const TIMEOUT_MS = Number(process.env.MAINTENANCE_STATUS_TIMEOUT_MS || 500)
 
   return {
@@ -68,11 +68,11 @@ export default defineConfig({
     proxy: {
       // Proxy API calls to the backend server to avoid JSON parse errors from Vite's index.html
       '/api': {
-        target: 'http://localhost:5174',
+        target: 'http://127.0.0.1:5174',
         changeOrigin: true
       },
       '/uploads': {
-        target: 'http://localhost:5174',
+        target: 'http://127.0.0.1:5174',
         changeOrigin: true
       }
     }
