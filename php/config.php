@@ -40,7 +40,7 @@ if ($DB_DRIVER === 'sqlite') {
     }
 }
 
-// Connect to DB via PDO
+// Connect to DB via PDO or SQLite3 polyfill
 function db() {
     static $pdo = null;
     global $DB_DRIVER, $DB_HOST, $DB_NAME, $DB_USER, $DB_PASS, $DB_CHARSET;
@@ -49,16 +49,22 @@ function db() {
     try {
         if ($DB_DRIVER === 'sqlite') {
             if (extension_loaded('pdo_sqlite')) {
-                $dsn
+                $dsn = "sqlite:" . $DB_NAME;
+                $pdo = new PDO($dsn);
+                $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+                return $pdo;
+            }
+            // Fallback to SQLite3 wrapper if pdo_sqlite is unavailable
+            if (!extension_loaded('sqlite3')) {
                 http_response_code(500);
                 header('Content-Type: application/json');
-                echo json_encode(['error' => 'Database connection failed', 'details' => 'pdo_sqlite extension is not enabled in PHP. Enable pdo_sqlite in php.ini.']);
+                echo json_encode(['error' => 'Database connection failed', 'details' => 'Neither pdo_sqlite nor sqlite3 extensions are enabled. Enable one of them in php.ini.']);
                 exit;
             }
-            $dsn = "sqlite:" . $DB_NAME;
-            $pdo = new PDO($dsn);
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            require_once __DIR__ . '/db_polyfill.php';
+            $pdo = new PdoLikeSqlite($DB_NAME);
+            return $pdo;
         } else {
             $dsn = "mysql:host={$DB_HOST};dbname={$DB_NAME};charset={$DB_CHARSET}";
             $pdo = new PDO($dsn, $DB_USER, $DB_PASS, [
@@ -66,10 +72,9 @@ function db() {
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
+            return $pdo;
         }
-        return $pdo;
     } catch (Throwable $e) {
-        // Fail gracefully; callers should handle null/exceptional cases
         http_response_code(500);
         header('Content-Type: application/json');
         echo json_encode(['error' => 'Database connection failed', 'details' => $e->getMessage(), 'driver' => $DB_DRIVER, 'db_name' => $DB_NAME]);
