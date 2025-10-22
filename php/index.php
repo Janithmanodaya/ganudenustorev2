@@ -7,6 +7,10 @@
 require __DIR__ . '/config.php';
 require __DIR__ . '/mailer.php';
 
+@error_reporting(E_ALL);
+@ini_set('display_errors', '1');
+@ini_set('max_execution_time', '60'); // avoid short timeouts for normal requests
+
 // Ensure DB schema exists (SQLite default)
 ensure_schema();
 

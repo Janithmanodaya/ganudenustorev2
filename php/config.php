@@ -305,6 +305,20 @@ function ensure_schema(): void {
 function json_response($data, int $status = 200): void {
     http_response_code($status);
     header('Content-Type: application/json');
+    // Basic access logging
+    try {
+        $logDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data';
+        if (is_dir($logDir) || @mkdir($logDir, 0775, true)) {
+            $line = sprintf(
+                "[%s] %s %s -> %d\n",
+                gmdate('c'),
+                $_SERVER['REQUEST_METHOD'] ?? '-',
+                parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '-',
+                $status
+            );
+            @file_put_contents($logDir . DIRECTORY_SEPARATOR . 'server.log', $line, FILE_APPEND);
+        }
+    } catch (Throwable $e) { /* ignore */ }
     echo json_encode($data);
     exit;
 }
@@ -313,6 +327,20 @@ function json_response($data, int $status = 200): void {
 function text_response(string $text, string $contentType = 'text/plain', int $status = 200): void {
     http_response_code($status);
     header("Content-Type: {$contentType}");
+    // Basic access logging
+    try {
+        $logDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data';
+        if (is_dir($logDir) || @mkdir($logDir, 0775, true)) {
+            $line = sprintf(
+                "[%s] %s %s -> %d\n",
+                gmdate('c'),
+                $_SERVER['REQUEST_METHOD'] ?? '-',
+                parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '-',
+                $status
+            );
+            @file_put_contents($logDir . DIRECTORY_SEPARATOR . 'server.log', $line, FILE_APPEND);
+        }
+    } catch (Throwable $e) { /* ignore */ }
     echo $text;
     exit;
 }
