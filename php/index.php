@@ -75,13 +75,26 @@ if (strpos($path, '/uploads/') === 0) {
     exit;
 }
 
-// Global maintenance gate (allow admin, health, maintenance-status and its stream)
+// Global maintenance gate (allow admin, health, maintenance-status(+stream), and notification unread-count(+stream))
 $maint = get_maintenance_config();
 if ($maint['enabled']) {
-    $isAdminPath = str_starts_with($path, '/api/admin');
-    $isHealth = $path === '/api/health';
-    $isMaintStatus = ($path === '/api/maintenance-status') || str_starts_with($path, '/api/maintenance-status/');
-    if (!$isAdminPath && !$isHealth && !$isMaintStatus) {
+    $allowed = [
+        '/api/health',
+        '/api/maintenance-status',
+        '/api/notifications/unread-count',
+    ];
+    $allowedPrefix = [
+        '/api/admin',
+        '/api/maintenance-status/',
+        '/api/notifications/unread-count/',
+    ];
+    $isAllowed = in_array($path, $allowed, true);
+    if (!$isAllowed) {
+        foreach ($allowedPrefix as $pre) {
+            if (str_starts_with($path, $pre)) { $isAllowed = true; break; }
+        }
+    }
+    if (!$isAllowed) {
         if (str_starts_with($path, '/api/')) {
             json_response(['error' => 'Service under maintenance', 'message' => $maint['message']], 503);
         }
