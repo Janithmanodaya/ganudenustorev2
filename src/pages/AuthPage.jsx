@@ -291,8 +291,16 @@ export default function AuthPage() {
               window.location.href = `/api/auth/google/start?r=${encodeURIComponent(r)}`
             }}
             disabled={submitting}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
           >
-            Continue with Google
+            <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+              <path fill="#EA4335" d="M24 9.5c3.7 0 7 1.3 9.6 3.8l7.1-7.1C36.8 2.2 30.8 0 24 0 14.6 0 6.5 5.4 2.5 13.3l8.4 6.5C12.7 13.7 17.9 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.5 24.5c0-1.7-.2-3.3-.6-4.9H24v9.3h12.7c-.6 3.2-2.5 5.9-5.4 7.7l8.3 6.4c4.8-4.4 7.9-10.9 7.9-18.5z"/>
+              <path fill="#FBBC05" d="M10.9 27.4c-.5-1.5-.8-3.2-.8-4.9s.3-3.4.8-4.9l-8.4-6.5C.9 14 0 18.9 0 24c0 5.1.9 10 2.5 13l8.4-6.5z"/>
+              <path fill="#34A853" d="M24 48c6.5 0 12-2.1 16-5.8l-8.3-6.4c-2.3 1.5-5.2 2.4-7.7 2.4-6.1 0-11.3-4.1-13.1-9.8l-8.4 6.5C6.5 42.6 14.6 48 24 48z"/>
+              <path fill="none" d="M0 0h48v48H0z"/>
+            </svg>
+            <span>Continue with Google</span>
           </button>
         </div>
 
