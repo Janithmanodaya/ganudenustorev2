@@ -8,8 +8,13 @@
 // - GET /api/banners
 // - GET /robots.txt
 // - GET /sitemap.xml
+// - GET /api/auth/status (minimal)
+// - GET /api/notifications/unread-count (stub)
+// - GET /api/notifications/unread-count/stream (SSE stub)
+// - GET /api/listings/filters (basic static)
+// - GET /api/listings/search (basic DB-backed)
 //
-// Next steps: add /api/auth, /api/admin, /api/listings, etc.
+// Next steps: add full /api/auth, /api/admin, /api/listings CRUD, etc.
 
 require __DIR__ . '/config.php';
 
@@ -54,6 +59,13 @@ if ($maint['enabled']) {
     }
 }
 
+// Helpers
+function qparam(string $name, $default = null) {
+    $qs = [];
+    parse_str(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_QUERY) ?? '', $qs);
+    return array_key_exists($name, $qs) ? $qs[$name] : $default;
+}
+
 // Routing
 switch (true) {
 
@@ -67,6 +79,86 @@ switch (true) {
         $cfg = get_maintenance_config();
         json_response(['enabled' => !!$cfg['enabled'], 'message' => (string)$cfg['message']]);
         break;
+
+    // Minimal auth status (not fully implemented yet)
+    case $path === '/api/auth/status':
+        // If Authorization: Bearer <token> exists, we can later verify.
+        // For now, return a minimal structure expected by the front-end.
+        $emailParam = (string)qparam('email', '');
+        $email = $emailParam ?: null;
+        $username = null;
+        $is_admin = false;
+
+        // Optional: look up user by email if provided
+        if ($emailParam) {
+            try {
+                $pdo = db();
+                $stmt = $pdo->prepare("SELECT email, username, is_admin FROM users WHERE email = ? LIMIT 1");
+                $stmt->execute([$emailParam]);
+                $row = $stmt->fetch();
+                if ($row) {
+                    $email = $row['email'];
+                    $username = $row['username'] ?? null;
+                    $is_admin = (int)($row['is_admin'] ?? 0) === 1;
+                }
+            } catch (Throwable $e) {
+                // ignore DB errors, return unauthenticated
+            }
+        }
+
+        json_response([
+            'email' => $email,
+            'username' => $username,
+            'is_admin' => $is_admin
+        ]);
+        break;
+
+    // Check if a user exists (used by forgot-password pre-check)
+    case $path === '/api/auth/user-exists':
+        $emailParam = (string)qparam('email', '');
+        $exists = false;
+        if ($emailParam) {
+            try {
+                $pdo = db();
+                $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+                $stmt->execute([$emailParam]);
+                $exists = (bool)$stmt->fetch();
+            } catch (Throwable $e) {
+                // fallthrough; exists remains false
+            }
+        }
+        json_response(['exists' => $exists]);
+        break;
+
+    // Notifications unread count (stub: always 0 until implemented)
+    case $path === '/api/notifications/unread-count':
+        json_response(['count' => 0]);
+        break;
+
+    // SSE stream for unread count (stub that sends 0 periodically)
+    case $path === '/api/notifications/unread-count/stream':
+        header('Content-Type: text/event-stream');
+        header('Cache-Control: no-cache');
+        header('Connection: keep-alive');
+        @ob_end_flush();
+        @ob_implicit_flush(1);
+
+        // Initial event
+        echo "event: unread_count\n";
+        echo "data: " . json_encode(['count' => 0]) . "\n\n";
+        flush();
+
+        // Heartbeat loop
+        $start = time();
+        while (true) {
+            // Send every 20s, stop after ~5 minutes in dev to avoid runaway processes
+            echo ": ping\n\n";
+            flush();
+            if (connection_aborted()) break;
+            sleep(20);
+            if (time() - $start > 300) break;
+        }
+        exit;
 
     // Banners: return last 12 active banners with urls under /uploads/<filename>
     case $path === '/api/banners':
@@ -85,6 +177,123 @@ switch (true) {
         } catch (Throwable $e) {
             json_response(['error' => 'Failed to load banners'], 500);
         }
+        break;
+
+    // Basic filters by category (static scaffolding)
+    case $path === '/api/listings/filters':
+        $category = (string)qparam('category', '');
+        $filters = [
+            'Vehicle' => [
+                'sub_category' => ['Car', 'SUV', 'Van', 'Motorcycle'],
+                'model' => ['Toyota', 'Suzuki', 'Honda', 'Nissan'],
+                'location' => ['Colombo', 'Gampaha', 'Kandy', 'Galle']
+            ],
+            'Job' => [
+                'type' => ['Full-time', 'Part-time', 'Contract'],
+                'location' => ['Colombo', 'Remote']
+            ]
+        ];
+        $out = $filters[$category] ?? [];
+        json_response(['filters' => $out]);
+        break;
+
+    // Simple listings search (DB-backed, limited sorting)
+    case $path === '/api/listings/search':
+        $limit = (int)qparam('limit', 20);
+        $page  = (int)qparam('page', 1);
+        if ($limit < 1) $limit = 20;
+        if ($limit > 100) $limit = 100;
+        if ($page < 1) $page = 1;
+        $offset = ($page - 1) * $limit;
+
+        $category = (string)qparam('category', '');
+        $location = (string)qparam('location', '');
+        $sort     = (string)qparam('sort', 'latest');
+        $filtersQ = (string)qparam('filters', '');
+
+        $where = ["status = 'Approved'"];
+        $params = [];
+
+        if ($category !== '') {
+            $where[] = "category = ?";
+            $params[] = $category;
+        }
+        if ($location !== '') {
+            $where[] = "location = ?";
+            $params[] = $location;
+        }
+
+        // Parse filter JSON for simple equality matches (e.g., sub_category, model, year)
+        if ($filtersQ !== '') {
+            try {
+                $f = json_decode($filtersQ, true, 16);
+                if (is_array($f)) {
+                    foreach (['sub_category','model','year'] as $k) {
+                        if (isset($f[$k]) && $f[$k] !== '') {
+                            $where[] = "$k = ?";
+                            $params[] = $f[$k];
+                        }
+                    }
+                }
+            } catch (Throwable $e) {
+                // ignore
+            }
+        }
+
+        $orderSql = "ORDER BY id DESC";
+        if ($sort === 'views_desc') {
+            $orderSql = "ORDER BY views DESC, id DESC";
+        } else if ($sort === 'random') {
+            $orderSql = "ORDER BY RAND()";
+        } else if ($sort === 'latest') {
+            $orderSql = "ORDER BY created_at DESC, id DESC";
+        }
+
+        $whereSql = implode(' AND ', $where);
+        $results = [];
+        $total = 0;
+
+        try {
+            $pdo = db();
+            // Count total
+            $countSql = "SELECT COUNT(*) AS c FROM listings WHERE $whereSql";
+            $cstmt = $pdo->prepare($countSql);
+            $cstmt->execute($params);
+            $crow = $cstmt->fetch();
+            $total = (int)($crow['c'] ?? 0);
+
+            // Fetch page
+            $sql = "SELECT id, title, price, currency, category, location, thumbnail_path, created_at
+                    FROM listings
+                    WHERE $whereSql
+                    $orderSql
+                    LIMIT $limit OFFSET $offset";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll();
+
+            foreach ($rows as $r) {
+                $thumbUrl = null;
+                if (!empty($r['thumbnail_path'])) {
+                    $fname = basename($r['thumbnail_path']);
+                    $thumbUrl = $fname ? "/uploads/$fname" : null;
+                }
+                $results[] = [
+                    'id' => (int)$r['id'],
+                    'title' => (string)$r['title'],
+                    'price' => isset($r['price']) ? (int)$r['price'] : null,
+                    'currency' => isset($r['currency']) ? (string)$r['currency'] : null,
+                    'category' => (string)$r['category'],
+                    'location' => (string)$r['location'],
+                    'thumbnail_url' => $thumbUrl,
+                    'created_at' => (string)$r['created_at']
+                ];
+            }
+        } catch (Throwable $e) {
+            // On error, return empty results to keep UI functioning
+        }
+
+        json_response(['results' => $results, 'total' => $total, 'page' => $page, 'limit' => $limit]);
         break;
 
     // robots.txt
