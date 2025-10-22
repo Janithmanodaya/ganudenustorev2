@@ -202,6 +202,32 @@ function ensure_schema(): void {
             );
         ");
 
+        // --- Seller profiles and ratings (parity with Node backend) ---
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS seller_profiles (
+                user_email TEXT PRIMARY KEY,
+                bio TEXT,
+                verified_email INTEGER NOT NULL DEFAULT 0,
+                verified_phone INTEGER NOT NULL DEFAULT 0,
+                rating_avg REAL NOT NULL DEFAULT 0,
+                rating_count INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT
+            );
+        ");
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS seller_ratings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                seller_email TEXT NOT NULL,
+                rater_email TEXT NOT NULL,
+                listing_id INTEGER,
+                stars INTEGER NOT NULL,
+                comment TEXT,
+                created_at TEXT NOT NULL
+            );
+        ");
+        try { $pdo->exec("CREATE INDEX IF NOT EXISTS idx_seller_ratings_seller ON seller_ratings(seller_email)"); } catch (Throwable $e) {}
+        try { $pdo->exec("CREATE INDEX IF NOT EXISTS idx_seller_ratings_rater ON seller_ratings(rater_email)"); } catch (Throwable $e) {}
+
         // listing_images
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS listing_images (

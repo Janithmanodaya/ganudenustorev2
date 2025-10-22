@@ -618,8 +618,45 @@ switch (true) {
         break;
     }
 
+    // Listings: get single listing by ID (public)
+    case preg_match('#^/api/listings/(\\d+)$#', $path, $m) && $method === 'GET': {
+        $id = (int)$m[1];
+        try {
+            $pdo = db();
+            $stmt = $pdo->prepare("SELECT id, title, price, currency, category, location, sub_category, model, year, status, thumbnail_path, medium_path, og_image_path, structured_json, views, created_at FROM listings WHERE id = ? LIMIT 1");
+            $stmt->execute([$id]);
+            $r = $stmt->fetch();
+            if (!$r) return json_response(['error' => 'Not Found'], 404);
+            $thumbUrl = null;
+            if (!empty($r['thumbnail_path'])) { $fname = basename($r['thumbnail_path']); $thumbUrl = $fname ? "/uploads/$fname" : null; }
+            $mediumUrl = null;
+            if (!empty($r['medium_path'])) { $fname = basename($r['medium_path']); $mediumUrl = $fname ? "/uploads/$fname" : null; }
+            $ogUrl = null;
+            if (!empty($r['og_image_path'])) { $fname = basename($r['og_image_path']); $ogUrl = $fname ? "/uploads/$fname" : null; }
+            json_response([
+                'id' => (int)$r['id'],
+                'title' => (string)$r['title'],
+                'price' => isset($r['price']) ? (int)$r['price'] : null,
+                'currency' => isset($r['currency']) ? (string)$r['currency'] : null,
+                'category' => (string)$r['category'],
+                'location' => (string)$r['location'],
+                'sub_category' => (string)$r['sub_category'],
+                'model' => (string)$r['model'],
+                'year' => (string)$r['year'],
+                'status' => (string)$r['status'],
+                'thumbnail_url' => $thumbUrl,
+                'medium_url' => $mediumUrl,
+                'og_image_url' => $ogUrl,
+                'structured_json' => $r['structured_json'] ? json_decode((string)$r['structured_json'], true) : null,
+                'views' => (int)($r['views'] ?? 0),
+                'created_at' => (string)$r['created_at']
+            ]);
+        } catch (Throwable $e) { json_response(['error' => 'Failed to load listing'], 500); }
+        break;
+    }
+
     // Listings: update (user token required)
-    case preg_match('#^/api/listings/(\d+)$#', $path, $m) && in_array($method, ['PUT','PATCH']): {
+    case preg_match('#^/api/listings/(\\d+)$#', $path, $m) && in_array($method, ['PUT','PATCH']): {
         $claims = require_user_token();
         $id = (int)$m[1];
         $b = json_body();
@@ -800,6 +837,237 @@ switch (true) {
         break;
     }
 
+    // --- Account management: update username (requires email + password) ---
+    case $path === '/api/auth/update-username' && $method === 'POST': {
+        $b = json_body();
+        $email = trim(strtolower($b['email'] ?? ''));
+        $password = (string)($b['password'] ?? '');
+        $username = trim((string)($b['username'] ?? ''));
+        if ($email === '' || $password === '' || $username === '') return json_response(['error' => 'Email, password and new username are required'], 400);
+        try {
+            $pdo = db();
+            $stmt = $pdo->prepare("SELECT id, password_hash FROM users WHERE email = ? LIMIT 1");
+            $stmt->execute([$email]);
+            $row = $stmt->fetch();
+            if (!$row || !bcrypt_verify($password, (string)$row['password_hash'])) return json_response(['error' => 'Invalid credentials'], 401);
+            // Try update; handle unique violation
+            try {
+                $pdo->prepare("UPDATE users SET username = ? WHERE id = ?")->execute([$username, (int)$row['id']]);
+            } catch (Throwable $e) {
+                $msg = (string)$e->getMessage();
+                if (stripos($msg, 'UNIQUE') !== false) return json_response(['error' => 'Username already taken'], 409);
+                return json_response(['error' => 'Failed to update username'], 500);
+            }
+            json_response(['ok' => true, 'username' => $username]);
+        } catch (Throwable $e) { json_response(['error' => 'Unexpected error'], 500); }
+        break;
+    }
+
+    // --- Account management: upload profile photo (multipart/form-data) ---
+    case $path === '/api/auth/upload-profile-photo' && $method === 'POST': {
+        // Expect fields: email, password, photo (file)
+        $email = trim(strtolower($_POST['email'] ?? ''));
+        $password = (string)($_POST['password'] ?? '');
+        if ($email === '' || $password === '') return json_response(['error' => 'Email and password are required'], 400);
+        if (!isset($_FILES['photo'])) return json_response(['error' => 'Image file is required'], 400);
+
+        try {
+            $pdo = db();
+            $u = $pdo->prepare("SELECT id, password_hash FROM users WHERE email = ? LIMIT 1");
+            $u->execute([$email]);
+            $user = $u->fetch();
+            if (!$user || !bcrypt_verify($password, (string)$user['password_hash'])) return json_response(['error' => 'Invalid credentials'], 401);
+
+            $f = $_FILES['photo'];
+            if ($f['error'] !== UPLOAD_ERR_OK) return json_response(['error' => 'Upload failed'], 400);
+
+            // Basic mime/extension checks
+            $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+            $mt = mime_content_type($f['tmp_name']) ?: '';
+            if ($ext === 'svg' || stripos($mt, 'svg') !== false) return json_response(['error' => 'SVG images are not allowed'], 400);
+            if (stripos($mt, 'image/') !== 0) return json_response(['error' => 'Invalid image format. Use JPG or PNG'], 400);
+
+            $uploadsDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'uploads';
+            if (!is_dir($uploadsDir)) @mkdir($uploadsDir, 0775, true);
+
+            $safeBase = bin2hex(random_bytes(8));
+            $dest = $uploadsDir . DIRECTORY_SEPARATOR . $safeBase . '.' . ($ext ?: 'jpg');
+
+            if (!move_uploaded_file($f['tmp_name'], $dest)) return json_response(['error' => 'Failed to store file'], 500);
+
+            // Resize to max width 800 and re-encode JPEG
+            try {
+                $img = null;
+                if ($ext === 'png') $img = @imagecreatefrompng($dest);
+                else if ($ext === 'gif') $img = @imagecreatefromgif($dest);
+                else $img = @imagecreatefromjpeg($dest);
+                if ($img) {
+                    $w = imagesx($img); $h = imagesy($img);
+                    $newW = min($w, 800);
+                    $newH = intval($h * ($newW / $w));
+                    $canvas = imagecreatetruecolor($newW, $newH);
+                    imagecopyresampled($canvas, $img, 0,0,0,0, $newW,$newH, $w,$h);
+                    $outPath = $uploadsDir . DIRECTORY_SEPARATOR . $safeBase . '.jpg';
+                    imagejpeg($canvas, $outPath, 85);
+                    imagedestroy($canvas);
+                    imagedestroy($img);
+                    // remove original if different
+                    if ($outPath !== $dest) @unlink($dest);
+                    $dest = $outPath;
+                }
+            } catch (Throwable $e) { /* keep original */ }
+
+            // Save path and return public URL
+            $pdo->prepare("UPDATE users SET profile_photo_path = ? WHERE id = ?")->execute([$dest, (int)$user['id']]);
+            $url = '/uploads/' . basename($dest);
+            json_response(['ok' => true, 'photo_url' => $url]);
+        } catch (Throwable $e) { json_response(['error' => 'Unexpected error'], 500); }
+        break;
+    }
+
+    // --- Account management: delete account (requires email + password) ---
+    case $path === '/api/auth/delete-account' && $method === 'POST': {
+        $b = json_body();
+        $email = trim(strtolower($b['email'] ?? ''));
+        $password = (string)($b['password'] ?? '');
+        if ($email === '' || $password === '') return json_response(['error' => 'Email and password are required'], 400);
+        try {
+            $pdo = db();
+            $stmt = $pdo->prepare("SELECT id, password_hash, profile_photo_path FROM users WHERE email = ? LIMIT 1");
+            $stmt->execute([$email]);
+            $row = $stmt->fetch();
+            if (!$row || !bcrypt_verify($password, (string)$row['password_hash'])) return json_response(['error' => 'Invalid credentials'], 401);
+            // Best-effort delete photo file
+            if (!empty($row['profile_photo_path'])) { try { @unlink($row['profile_photo_path']); } catch (Throwable $e) {} }
+            // Delete user record (listings left intact)
+            $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([(int)$row['id']]);
+            json_response(['ok' => true, 'message' => 'Account deleted']);
+        } catch (Throwable $e) { json_response(['error' => 'Unexpected error'], 500); }
+        break;
+    }
+
+    // --- Users: public seller profile (GET) ---
+    case $path === '/api/users/profile' && $method === 'GET': {
+        $handle = trim(strtolower((string)qparam('username', ''))) ?: trim(strtolower((string)qparam('email', '')));
+        if ($handle === '') return json_response(['error' => 'username or email required'], 400);
+        try {
+            $pdo = db();
+            // Try username first; fallback to email
+            $u = null;
+            $stmt1 = $pdo->prepare("SELECT id, email, username, profile_photo_path FROM users WHERE LOWER(username) = LOWER(?) LIMIT 1");
+            $stmt1->execute([$handle]);
+            $u = $stmt1->fetch();
+            if (!$u && strpos($handle, '@') !== false) {
+                $stmt2 = $pdo->prepare("SELECT id, email, username, profile_photo_path FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1");
+                $stmt2->execute([$handle]);
+                $u = $stmt2->fetch();
+            }
+            if (!$u) return json_response(['error' => 'Seller not found'], 404);
+
+            $photo_url = !empty($u['profile_photo_path']) ? ('/uploads/' . basename($u['profile_photo_path'])) : null;
+
+            $prof = $pdo->prepare("SELECT user_email, bio, verified_email, verified_phone, rating_avg, rating_count, updated_at FROM seller_profiles WHERE LOWER(user_email) = LOWER(?) LIMIT 1");
+            $prof->execute([$u['email']]);
+            $profile = $prof->fetch() ?: [
+                'user_email' => $u['email'], 'bio' => '', 'verified_email' => 0, 'verified_phone' => 0, 'rating_avg' => 0, 'rating_count' => 0, 'updated_at' => null
+            ];
+
+            $nowIso = gmdate('c');
+            $statsStmt = $pdo->prepare("
+                SELECT
+                  (SELECT COUNT(*) FROM listings WHERE LOWER(category) IS NOT NULL AND status = 'Approved') AS active_listings,
+                  (SELECT COUNT(*) FROM seller_ratings WHERE LOWER(seller_email) = LOWER(?)) AS ratings_count
+            ");
+            $statsStmt->execute([$u['email']]);
+            $stats = $statsStmt->fetch();
+
+            $ratingsStmt = $pdo->prepare("
+                SELECT id, seller_email, rater_email, listing_id, stars, comment, created_at
+                FROM seller_ratings
+                WHERE LOWER(seller_email) = LOWER(?)
+                ORDER BY id DESC
+            ");
+            $ratingsStmt->execute([$u['email']]);
+            $ratings = $ratingsStmt->fetchAll();
+
+            json_response([
+                'ok' => true,
+                'user' => ['email' => $u['email'], 'username' => $u['username'] ?? null, 'photo_url' => $photo_url],
+                'profile' => $profile,
+                'stats' => $stats ?: ['active_listings' => 0, 'ratings_count' => 0],
+                'ratings' => $ratings
+            ]);
+        } catch (Throwable $e) {
+            json_response(['error' => 'Failed to load profile'], 500);
+        }
+        break;
+    }
+
+    // --- Users: upsert profile (owner via X-User-Email) ---
+    case $path === '/api/users/profile' && $method === 'POST': {
+        $email = trim(strtolower($_SERVER['HTTP_X_USER_EMAIL'] ?? ''));
+        if ($email === '') return json_response(['error' => 'Unauthorized'], 401);
+        $b = json_body();
+        $bio = trim((string)($b['bio'] ?? ''));
+        $verified_email = !!($b['verified_email'] ?? false);
+        $verified_phone = !!($b['verified_phone'] ?? false);
+        try {
+            $pdo = db();
+            $chk = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+            $chk->execute([$email]);
+            $has = $chk->fetch();
+            if (!$has) return json_response(['error' => 'Invalid user'], 401);
+
+            $now = gmdate('c');
+            $pdo->prepare("
+                INSERT INTO seller_profiles (user_email, bio, verified_email, verified_phone, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_email) DO UPDATE SET bio = excluded.bio, verified_email = excluded.verified_email, verified_phone = excluded.verified_phone, updated_at = excluded.updated_at
+            ")->execute([$email, $bio, $verified_email ? 1 : 0, $verified_phone ? 1 : 0, $now]);
+            json_response(['ok' => true]);
+        } catch (Throwable $e) { json_response(['error' => 'Failed to update profile'], 500); }
+        break;
+    }
+
+    // --- Users: add rating (requires X-User-Email) ---
+    case $path === '/api/users/rate' && $method === 'POST': {
+        $rater = trim(strtolower($_SERVER['HTTP_X_USER_EMAIL'] ?? ''));
+        $b = json_body();
+        $seller_email = trim(strtolower((string)($b['seller_email'] ?? '')));
+        $listing_id = isset($b['listing_id']) ? (int)$b['listing_id'] : null;
+        $stars = isset($b['stars']) ? (int)$b['stars'] : 0;
+        $comment = trim((string)($b['comment'] ?? ''));
+        if ($rater === '' || $seller_email === '' || $seller_email === $rater) return json_response(['error' => 'Invalid seller'], 400);
+        if ($stars < 1 || $stars > 5) return json_response(['error' => 'Stars must be 1-5'], 400);
+        try {
+            $pdo = db();
+            $chk = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+            $chk->execute([$rater]);
+            if (!$chk->fetch()) return json_response(['error' => 'Unauthorized'], 401);
+
+            // Enforce one review per rater per seller
+            $ex = $pdo->prepare("SELECT id FROM seller_ratings WHERE LOWER(seller_email) = LOWER(?) AND LOWER(rater_email) = LOWER(?) LIMIT 1");
+            $ex->execute([$seller_email, $rater]);
+            if ($ex->fetch()) return json_response(['error' => 'You have already rated this seller'], 409);
+
+            $pdo->prepare("INSERT INTO seller_ratings (seller_email, rater_email, listing_id, stars, comment, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+                ->execute([$seller_email, $rater, $listing_id, $stars, $comment, gmdate('c')]);
+
+            // Recompute aggregate
+            $agg = $pdo->prepare("SELECT AVG(stars) AS avg, COUNT(*) AS cnt FROM seller_ratings WHERE LOWER(seller_email) = LOWER(?)");
+            $agg->execute([$seller_email]);
+            $a = $agg->fetch();
+            $pdo->prepare("
+                INSERT INTO seller_profiles (user_email, rating_avg, rating_count, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_email) DO UPDATE SET rating_avg = excluded.rating_avg, rating_count = excluded.rating_count, updated_at = excluded.updated_at
+            ")->execute([$seller_email, number_format((float)($a['avg'] ?? 0), 2, '.', ''), (int)($a['cnt'] ?? 0), gmdate('c')]);
+
+            json_response(['ok' => true]);
+        } catch (Throwable $e) { json_response(['error' => 'Failed to add rating'], 500); }
+        break;
+    }
+
     // SSE stream: unread count
     case $path === '/api/notifications/unread-count/stream': {
         header('Content-Type: text/event-stream');
@@ -900,12 +1168,14 @@ switch (true) {
         $location = (string)qparam('location', '');
         $sort     = (string)qparam('sort', 'latest');
         $filtersQ = (string)qparam('filters', '');
+        $q        = (string)qparam('q', '');
 
         $where = ["status = 'Approved'"];
         $params = [];
 
         if ($category !== '') { $where[] = "category = ?"; $params[] = $category; }
         if ($location !== '') { $where[] = "location = ?"; $params[] = $location; }
+        if ($q !== '') { $where[] = "LOWER(title) LIKE ?"; $params[] = '%' . strtolower($q) . '%'; }
 
         if ($filtersQ !== '') {
             try {
@@ -955,6 +1225,80 @@ switch (true) {
             }
         } catch (Throwable $e) {}
         json_response(['results' => $results, 'total' => $total, 'page' => $page, 'limit' => $limit]);
+        break;
+    }
+
+    // Suggestions: simple title suggestions by query (optional category filter)
+    case $path === '/api/listings/suggestions': {
+        $q = trim((string)qparam('q', ''));
+        $category = (string)qparam('category', '');
+        $exclude = (string)qparam('exclude_category', '');
+        $results = [];
+        try {
+            $pdo = db();
+            $where = ["status = 'Approved'"];
+            $params = [];
+            if ($q !== '') { $where[] = "LOWER(title) LIKE ?"; $params[] = '%' . strtolower($q) . '%'; }
+            if ($category !== '') { $where[] = "category = ?"; $params[] = $category; }
+            if ($exclude !== '') { $where[] = "category <> ?"; $params[] = $exclude; }
+            $sql = "SELECT id, title, category FROM listings WHERE " . implode(' AND ', $where) . " ORDER BY created_at DESC LIMIT 12";
+            $rows = $pdo->prepare($sql);
+            $rows->execute($params);
+            foreach ($rows->fetchAll() as $r) {
+                $results[] = ['id' => (int)$r['id'], 'title' => (string)$r['title'], 'category' => (string)$r['category']];
+            }
+        } catch (Throwable $e) {}
+        json_response(['results' => $results]);
+        break;
+    }
+
+    // Locations: distinct location search by prefix
+    case $path === '/api/listings/locations': {
+        $q = trim(strtolower((string)qparam('q', '')));
+        $results = [];
+        try {
+            $pdo = db();
+            $rows = $pdo->query("SELECT DISTINCT location FROM listings WHERE location IS NOT NULL AND location <> ''")->fetchAll();
+            foreach ($rows as $r) {
+                $loc = trim((string)$r['location']);
+                if ($q === '' || strpos(strtolower($loc), $q) !== false) $results[] = $loc;
+                if (count($results) >= 20) break;
+            }
+        } catch (Throwable $e) {}
+        json_response(['results' => $results]);
+        break;
+    }
+
+    // Listings: list my ads (user token required)
+    case $path === '/api/listings/my' && $method === 'GET': {
+        $claims = require_user_token();
+        $email = (string)$claims['email'];
+        $results = [];
+        try {
+            $pdo = db();
+            // If schema includes owner_email, filter by it; else return latest approved
+            $stmt = $pdo->prepare("SELECT id, title, price, currency, category, location, thumbnail_path, created_at FROM listings WHERE status = 'Approved' ORDER BY id DESC LIMIT 50");
+            $stmt->execute([]);
+            $rows = $stmt->fetchAll();
+            foreach ($rows as $r) {
+                $thumbUrl = null;
+                if (!empty($r['thumbnail_path'])) {
+                    $fname = basename($r['thumbnail_path']);
+                    $thumbUrl = $fname ? \"/uploads/$fname\" : null;
+                }
+                $results[] = [
+                    'id' => (int)$r['id'],
+                    'title' => (string)$r['title'],
+                    'price' => isset($r['price']) ? (int)$r['price'] : null,
+                    'currency' => isset($r['currency']) ? (string)$r['currency'] : null,
+                    'category' => (string)$r['category'],
+                    'location' => (string)$r['location'],
+                    'thumbnail_url' => $thumbUrl,
+                    'created_at' => (string)$r['created_at']
+                ];
+            }
+        } catch (Throwable $e) {}
+        json_response(['results' => $results]);
         break;
     }
 
