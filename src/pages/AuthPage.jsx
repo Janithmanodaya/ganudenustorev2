@@ -17,8 +17,71 @@ export default function AuthPage() {
 
   // Admin OTP login flow
   const [loginStep, setLoginStep] = useState('password') // 'password' -> 'otp'
+  const [loginIsAdmin, setLoginIsAdmin] = useState(false)
+
+  // OTP resend cooldown state
+  const [otpCooldownUntil, setOtpCooldownUntil] = useState(0) // ms timestamp
+  const [otpSecondsLeft, setOtpSecondsLeft] = useState(0)
+  const [resending, setResending] = useState(false)
+
+  // Tick countdown
+  useEffect(() => {
+    if (!otpCooldownUntil) return
+    const t = setInterval(() => {
+      const left = Math.max(0, Math.ceil((otpCooldownUntil - Date.now()) / 1000))
+      setOtpSecondsLeft(left)
+      if (left <= 0) {
+        clearInterval(t)
+        setOtpCooldownUntil(0)
+      }
+    }, 250)
+    return () => clearInterval(t)
+  }, [otpCooldownUntil])
+
+  function startOtpCooldown(ms = 60000) {
+    const until = Date.now() + ms
+    setOtpCooldownUntil(until)
+    setOtpSecondsLeft(Math.ceil(ms / 1000))
+  }
 
   useEffect(() => {
+    // If Google redirected back with token, persist it and fetch user status
+    const url = new URL(window.location.href)
+    const tok = url.searchParams.get('token')
+    const provider = url.searchParams.get('provider')
+    if (tok) {
+      try {
+        localStorage.setItem('auth_token', tok)
+      } catch (_) {}
+      // Clean URL
+      const clean = window.location.pathname
+      window.history.replaceState({}, '', clean)
+
+      // Fetch minimal status and store user object, then redirect home
+      ;(async () => {
+        try {
+          const r = await fetch('/api/auth/status', {
+            headers: { Authorization: 'Bearer ' + tok, Accept: 'application/json' }
+          })
+          if (r.ok) {
+            const s = await r.json().catch(() => ({}))
+            const user = {
+              email: s.email,
+              username: s.username || null,
+              is_admin: !!s.is_admin
+            }
+            try { localStorage.setItem('user', JSON.stringify(user)) } catch (_) {}
+            setResult({ ok: true, message: provider ? `Signed in with ${provider}. Redirecting…` : 'Signed in. Redirecting…' })
+            setTimeout(() => navigate('/'), 600)
+            return
+          }
+        } catch (_) {}
+        setResult({ ok: true, message: 'Signed in. Redirecting…' })
+        setTimeout(() => navigate('/'), 600)
+      })()
+      return
+    }
+
     // If already logged in, go to account page
     try {
       const u = localStorage.getItem('user')
@@ -112,7 +175,7 @@ export default function AuthPage() {
           url = '/api/auth/login'
           body = { email, password }
         } else {
-          url = '/api/auth/verify-admin-login-otp'
+          url = loginIsAdmin ? '/api/auth/verify-admin-login-otp' : '/api/auth/verify-login-otp'
           body = { email, password, otp }
         }
       } else if (mode === 'register') {
@@ -162,6 +225,8 @@ export default function AuthPage() {
       // Success flows with concise messages + redirects
       if (mode === 'login' && loginStep === 'password' && data.otp_required) {
         setLoginStep('otp')
+        setLoginIsAdmin(!!data.is_admin)
+        startOtpCooldown()
         setResult({ ok: true, message: data.message || 'OTP sent to your email. Enter it to continue.' })
         setSubmitting(false)
         return
@@ -169,6 +234,7 @@ export default function AuthPage() {
 
       if (mode === 'register' && registerStep === 'request') {
         setRegisterStep('verify')
+        startOtpCooldown()
         setResult({ ok: true, message: data.message || 'OTP sent. Please check your email and enter the OTP.' })
         setSubmitting(false)
       } else if (mode === 'register' && registerStep === 'verify') {
@@ -189,6 +255,7 @@ export default function AuthPage() {
         setTimeout(() => navigate('/'), 800)
       } else if (mode === 'forgot' && forgotStep === 'request') {
         setForgotStep('reset')
+        startOtpCooldown()
         setResult({ ok: true, message: data.message || 'OTP sent. Please enter the OTP and your new password.' })
         setSubmitting(false)
       } else if (mode === 'forgot' && forgotStep === 'reset') {
@@ -207,10 +274,72 @@ export default function AuthPage() {
     setMode(nextMode)
     setResult(null)
     setOtp('')
+    setOtpCooldownUntil(0)
+    setOtpSecondsLeft(0)
     if (nextMode === 'register') {
       setRegisterStep('request')
     } else if (nextMode === 'forgot') {
       setForgotStep('request')
+    } else if (nextMode === 'login') {
+      setLoginStep('password')
+      setLoginIsAdmin(false)
+    }
+  }
+
+  // Resend OTP depending on current flow
+  async function resendOtp() {
+    if (otpCooldownUntil > Date.now()) return
+    setResending(true)
+    try {
+      if (mode === 'login' && loginStep === 'otp') {
+        // Re-initiate login to send a new OTP
+        const { resp, data } = await apiFetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ email, password })
+        })
+        if (!resp || !resp.ok || !data.otp_required) {
+          const msg = (data && (data.error || data.message)) || 'Failed to resend OTP. Please check your email and try again.'
+          setResult({ ok: false, message: msg })
+          setResending(false)
+          return
+        }
+        setLoginIsAdmin(!!data.is_admin)
+        startOtpCooldown()
+        setResult({ ok: true, message: data.message || 'OTP resent. Please check your email.' })
+      } else if (mode === 'register' && registerStep === 'verify') {
+        const { resp, data } = await apiFetch('/api/auth/send-registration-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ email })
+        })
+        if (!resp || !resp.ok) {
+          const msg = (data && (data.error || data.message)) || 'Failed to resend OTP. Please check your email and try again.'
+          setResult({ ok: false, message: msg })
+          setResending(false)
+          return
+        }
+        startOtpCooldown()
+        setResult({ ok: true, message: data.message || 'OTP resent. Please check your email.' })
+      } else if (mode === 'forgot' && forgotStep === 'reset') {
+        const { resp, data } = await apiFetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ email })
+        })
+        if (!resp || !resp.ok) {
+          const msg = (data && (data.error || data.message)) || 'Failed to resend OTP. Please check your email and try again.'
+          setResult({ ok: false, message: msg })
+          setResending(false)
+          return
+        }
+        startOtpCooldown()
+        setResult({ ok: true, message: data.message || 'OTP resent. Please check your email.' })
+      }
+    } catch (_) {
+      setResult({ ok: false, message: 'Failed to resend OTP. Please check your email and try again.' })
+    } finally {
+      setResending(false)
     }
   }
 
@@ -245,6 +374,28 @@ export default function AuthPage() {
           </button>
         </div>
 
+        {/* Google Login */}
+        <div style={{ marginBottom: 16 }}>
+          <button
+            className="btn"
+            onClick={() => {
+              const r = window.location.origin + '/auth'
+              window.location.href = `/api/auth/google/start?r=${encodeURIComponent(r)}`
+            }}
+            disabled={submitting}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          >
+            <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+              <path fill="#EA4335" d="M24 9.5c3.7 0 7 1.3 9.6 3.8l7.1-7.1C36.8 2.2 30.8 0 24 0 14.6 0 6.5 5.4 2.5 13.3l8.4 6.5C12.7 13.7 17.9 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.5 24.5c0-1.7-.2-3.3-.6-4.9H24v9.3h12.7c-.6 3.2-2.5 5.9-5.4 7.7l8.3 6.4c4.8-4.4 7.9-10.9 7.9-18.5z"/>
+              <path fill="#FBBC05" d="M10.9 27.4c-.5-1.5-.8-3.2-.8-4.9s.3-3.4.8-4.9l-8.4-6.5C.9 14 0 18.9 0 24c0 5.1.9 10 2.5 13l8.4-6.5z"/>
+              <path fill="#34A853" d="M24 48c6.5 0 12-2.1 16-5.8l-8.3-6.4c-2.3 1.5-5.2 2.4-7.7 2.4-6.1 0-11.3-4.1-13.1-9.8l-8.4 6.5C6.5 42.6 14.6 48 24 48z"/>
+              <path fill="none" d="M0 0h48v48H0z"/>
+            </svg>
+            <span>Continue with Google</span>
+          </button>
+        </div>
+
         <form onSubmit={submit} className="grid two">
           <input className="input" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} disabled={submitting} />
           {((mode === 'login' && loginStep === 'password') || (mode === 'register') || (mode === 'forgot' && forgotStep === 'reset')) ? (
@@ -258,7 +409,23 @@ export default function AuthPage() {
           )}
 
           {(mode === 'register' && registerStep === 'verify') || (mode === 'forgot' && forgotStep === 'reset') || (mode === 'login' && loginStep === 'otp') ? (
-            <input className="input" placeholder="OTP" value={otp} onChange={e => setOtp(e.target.value)} disabled={submitting} />
+            <>
+              <input className="input" placeholder="OTP" value={otp} onChange={e => setOtp(e.target.value)} disabled={submitting} />
+              <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {otpCooldownUntil && otpSecondsLeft > 0 ? (
+                  <small className="text-muted">Resend code in {otpSecondsLeft}s</small>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={resendOtp}
+                    disabled={resending || submitting}
+                  >
+                    {resending ? 'Resending…' : 'Resend OTP'}
+                  </button>
+                )}
+              </div>
+            </>
           ) : null}
 
           {/* Policy agreement for registration */}
