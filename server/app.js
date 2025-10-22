@@ -27,6 +27,17 @@ dotenv.config();
 
 const app = express();
 
+// Compatibility: if Google Console or old configs point to /auth/google/*,
+// forward them to our API routes under /api/auth/google/* preserving query string
+app.get('/auth/google/start', (req, res) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(302, '/api/auth/google/start' + qs);
+});
+app.get('/auth/google/callback', (req, res) => {
+  const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  res.redirect(302, '/api/auth/google/callback' + qs);
+});
+
 // --- Maintenance mode helpers ---
 function getMaintenanceConfig() {
   try {
