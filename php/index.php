@@ -18,6 +18,9 @@
 
 require __DIR__ . '/config.php';
 
+// Ensure DB schema exists (SQLite default)
+ensure_schema();
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $uri    = $_SERVER['REQUEST_URI'] ?? '/';
 $path   = parse_url($uri, PHP_URL_PATH);
@@ -244,7 +247,7 @@ switch (true) {
         if ($sort === 'views_desc') {
             $orderSql = "ORDER BY views DESC, id DESC";
         } else if ($sort === 'random') {
-            $orderSql = "ORDER BY RAND()";
+            $orderSql = "ORDER BY RANDOM()";
         } else if ($sort === 'latest') {
             $orderSql = "ORDER BY created_at DESC, id DESC";
         }
