@@ -1,0 +1,21 @@
+# Basic rewrite rules to send requests to index.php
+# Place this file in the same directory as index.php on shared hosting (Apache).
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# Serve existing files directly
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Route API and special files to index.php
+RewriteRule ^(api/.*|robots\.txt|sitemap\.xml)$ index.php [L,QSA]
+</IfModule>
+
+# Security headers (adjust as needed)
+<IfModule mod_headers.c>
+Header set X-Content-Type-Options "nosniff"
+Header set X-Frame-Options "SAMEORIGIN"
+Header set Referrer-Policy "no-referrer"
+Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
