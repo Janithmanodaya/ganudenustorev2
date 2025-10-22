@@ -157,17 +157,65 @@ app.use(cors({
 app.use(express.json());
 
 // Logging
+function sanitizeUrlForLogs(req) {
+  try {
+    const original = String(req.originalUrl || req.url || '');
+    // Only redact sensitive params on specific OAuth routes
+    const p = String(req.path || original.split('?')[0] || '').toLowerCase();
+
+    // Helper: remove specific query params
+    function redactParams(u, keys) {
+      try {
+        const base = original.startsWith('http') ? new URL(original) : new URL('http://local' + original);
+        for (const k of keys) {
+          if (base.searchParams.has(k)) {
+            base.searchParams.set(k, 'REDACTED');
+          }
+        }
+        // Return path + sanitized query
+        const pathname = base.pathname;
+        const qp = base.searchParams.toString();
+        return qp ? `${pathname}?${qp}` : pathname;
+      } catch (_) {
+        return original.split('?')[0]; // fallback: strip query
+      }
+    }
+
+    if (p === '/api/auth/google/callback') {
+      // Redact code, state, scope from logs
+      return redactParams(original, ['code', 'state', 'scope']);
+    }
+    if (p === '/api/auth/google/start') {
+      // Redact state param (and return URL)
+      return redactParams(original, ['state', 'r']);
+    }
+
+    // Default: leave as-is
+    return original;
+  } catch (_) {
+    return req.originalUrl || req.url || '';
+  }
+}
+
 if (process.env.NODE_ENV === 'production') {
   app.use(morgan((tokens, req, res) => JSON.stringify({
     method: tokens.method(req, res),
-    url: tokens.url(req, res),
+    url: sanitizeUrlForLogs(req),
     status: Number(tokens.status(req, res)),
     length: tokens.res(req, res, 'content-length'),
     response_time_ms: Number(tokens['response-time'](req, res)),
     ts: new Date().toISOString()
   })));
 } else {
-  app.use(morgan('dev'));
+  // In dev, use concise output but still sanitize sensitive URLs
+  app.use(morgan((tokens, req, res) => {
+    const method = tokens.method(req, res);
+    const url = sanitizeUrlForLogs(req);
+    const status = tokens.status(req, res);
+    const rt = tokens['response-time'](req, res);
+    const len = tokens.res(req, res, 'content-length') || '-';
+    return `${method} ${url} ${status} ${rt} ms - ${len}`;
+  }));
 }
 
 // Static uploads
@@ -367,6 +415,50 @@ function isAdminRequest(req) {
 app.get('/api/maintenance-status', (req, res) => {
   const { enabled, message } = getMaintenanceConfig();
   res.json({ enabled, message });
+});
+
+// SSE stream for maintenance status (reduces polling on clients)
+app.get('/api/maintenance-status/stream', (req, res) => {
+  try {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    function sendEvent(evName, data) {
+      res.write(`event: ${evName}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    }
+
+    function currentStatus() {
+      const s = getMaintenanceConfig();
+      return { enabled: !!s.enabled, message: String(s.message || '') };
+    }
+
+    // Initial push
+    sendEvent('maintenance_status', currentStatus());
+
+    // Periodic updates every 30s
+    const intervalMs = 30000;
+    const timer = setInterval(() => {
+      try {
+        sendEvent('maintenance_status', currentStatus());
+      } catch (_) {}
+    }, intervalMs);
+
+    // Heartbeat every 15s
+    const hb = setInterval(() => {
+      try { res.write(': ping\n\n'); } catch (_) {}
+    }, 15000);
+
+    req.on('close', () => {
+      clearInterval(timer);
+      clearInterval(hb);
+      try { res.end(); } catch (_) {}
+    });
+  } catch (e) {
+    try { res.status(500).json({ error: 'Failed to establish maintenance stream' }); } catch (_) {}
+  }
 });
 
 app.use((req, res, next) => {

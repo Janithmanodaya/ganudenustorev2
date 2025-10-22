@@ -294,4 +294,73 @@ router.post('/saved-searches/notify-for-listing', (req, res) => {
   }
 });
 
+// -------- Server-Sent Events (SSE) stream for unread count --------
+// Allows clients to subscribe without frequent polling.
+// Authentication: user email can be provided via X-User-Email header or `user_email` query param.
+router.get('/unread-count/stream', (req, res) => {
+  try {
+    const emailHeader = String(req.header('X-User-Email') || '').toLowerCase().trim();
+    const emailQuery = String(req.query.user_email || '').toLowerCase().trim();
+    const email = emailHeader || emailQuery;
+    if (!email) return res.status(401).type('application/json').send(JSON.stringify({ error: 'Missing user email' }));
+
+    // Validate user and bans/suspension
+    const user = db.prepare('SELECT id, is_banned, suspended_until FROM users WHERE email = ?').get(email);
+    if (!user) return res.status(401).type('application/json').send(JSON.stringify({ error: 'Invalid user' }));
+    if (user.is_banned) return res.status(403).type('application/json').send(JSON.stringify({ error: 'Account banned' }));
+    if (user.suspended_until && user.suspended_until > new Date().toISOString()) {
+      return res.status(403).type('application/json').send(JSON.stringify({ error: 'Account suspended' }));
+    }
+
+    // SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    function computeUnread() {
+      const unreadCutoffIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const count = db.prepare(`
+        SELECT COUNT(*) as c
+        FROM notifications n
+        LEFT JOIN notification_reads r
+          ON r.notification_id = n.id AND LOWER(r.user_email) = LOWER(?)
+        WHERE (n.target_email IS NULL OR LOWER(n.target_email) = LOWER(?))
+          AND r.id IS NULL
+          AND (n.type = 'pending' OR n.created_at >= ?)
+      `).get(email, email, unreadCutoffIso).c || 0;
+      return Number(count || 0);
+    }
+
+    function sendEvent(evName, data) {
+      res.write(`event: ${evName}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    }
+
+    // Initial push
+    sendEvent('unread_count', { unread_count: computeUnread() });
+
+    // Periodic updates (every 30s to reduce load)
+    const intervalMs = 30000;
+    const timer = setInterval(() => {
+      try {
+        sendEvent('unread_count', { unread_count: computeUnread() });
+      } catch (_) {}
+    }, intervalMs);
+
+    // Heartbeat every 15s to keep connection alive through proxies
+    const hb = setInterval(() => {
+      try { res.write(': ping\n\n'); } catch (_) {}
+    }, 15000);
+
+    req.on('close', () => {
+      clearInterval(timer);
+      clearInterval(hb);
+      try { res.end(); } catch (_) {}
+    });
+  } catch (e) {
+    try { res.status(500).json({ error: 'Failed to establish unread-count stream' }); } catch (_) {}
+  }
+});
+
 export default router;

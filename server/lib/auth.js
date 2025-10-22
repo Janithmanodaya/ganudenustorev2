@@ -60,10 +60,32 @@ export function verifyTokenRaw(token) {
  * Extract bearer token from Authorization header.
  */
 export function getBearerToken(req) {
+  // 1) Authorization header
   const hdr = String(req.headers['authorization'] || '');
-  if (!hdr) return null;
-  const parts = hdr.split(' ');
-  if (parts.length === 2 && /^Bearer$/i.test(parts[0])) return parts[1];
+  if (hdr) {
+    const parts = hdr.split(' ');
+    if (parts.length === 2 && /^Bearer$/i.test(parts[0])) return parts[1];
+  }
+
+  // 2) Cookie header (auth_token)
+  try {
+    const rawCookie = String(req.headers['cookie'] || '');
+    if (rawCookie) {
+      // Minimal cookie parsing without dependencies
+      const items = rawCookie.split(';').map(s => s.trim()).filter(Boolean);
+      for (const it of items) {
+        const idx = it.indexOf('=');
+        if (idx > 0) {
+          const name = it.slice(0, idx).trim();
+          const val = it.slice(idx + 1).trim();
+          if (name === 'auth_token' && val) {
+            return decodeURIComponent(val);
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
   return null;
 }
 

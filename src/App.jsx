@@ -118,7 +118,10 @@ export default function App() {
     async function checkStatus() {
       if (!userEmail) { setAccountBlock({ show: false, title: '', message: '' }); return }
       try {
-        const r = await fetch(`/api/auth/status`, { headers: { 'X-User-Email': userEmail } })
+        const r = await fetch(`/api/auth/status`, {
+          headers: { 'X-User-Email': userEmail },
+          credentials: 'include' // include auth cookie across domains/subdomains
+        })
         const data = await r.json()
         if (!r.ok) { setAccountBlock({ show: false, title: '', message: '' }); return }
         if (cancelled) return
@@ -181,34 +184,57 @@ export default function App() {
   }
 
   useEffect(() => {
-    loadUnread()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userEmail])
-
-  // Auto-refresh unread notification count for all users (badge on bell icon)
-  useEffect(() => {
-    if (!userEmail) return
-    const timer = setInterval(loadUnread, 15000) // refresh every 15s
-    return () => clearInterval(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userEmail])
-
-  // Check maintenance status periodically and on load
-  useEffect(() => {
-    let cancelled = false
-    async function checkMaintenance() {
-      try {
-        const r = await fetch('/api/maintenance-status', { cache: 'no-store' })
-        const d = await r.json().catch(() => ({}))
-        if (cancelled) return
-        setMaintenance({ enabled: !!d.enabled, message: String(d.message || '') })
-      } catch (_) {
-        // If backend unreachable, do not block; leave previous state
+    // Establish SSE subscription for unread count to reduce polling
+    if (!userEmail) { setUnreadCount(0); return }
+    let es;
+    try {
+      const url = `/api/notifications/unread-count/stream?user_email=${encodeURIComponent(userEmail)}`
+      es = new EventSource(url)
+      es.addEventListener('unread_count', (e) => {
+        try {
+          const data = JSON.parse(e.data || '{}')
+          setUnreadCount(Number(data.unread_count || 0))
+        } catch (_) {}
+      })
+      es.onerror = () => {
+        // Fallback: if SSE errors, do an immediate fetch and let the browser reconnect
+        loadUnread()
       }
+    } catch (_) {
+      // Fallback to single fetch if EventSource fails to construct
+      loadUnread()
     }
-    checkMaintenance()
-    const t = setInterval(checkMaintenance, 20000)
-    return () => { cancelled = true; clearInterval(t) }
+    return () => {
+      try { es && es.close() } catch (_) {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userEmail])
+
+  // Check maintenance status via SSE (fallback to one-time fetch)
+  useEffect(() => {
+    let es
+    try {
+      es = new EventSource('/api/maintenance-status/stream')
+      es.addEventListener('maintenance_status', (e) => {
+        try {
+          const d = JSON.parse(e.data || '{}')
+          setMaintenance({ enabled: !!d.enabled, message: String(d.message || '') })
+        } catch (_) {}
+      })
+      es.onerror = () => {
+        // Silent error; the browser will attempt to reconnect automatically
+      }
+    } catch (_) {
+      // Fallback: one-time fetch
+      ;(async () => {
+        try {
+          const r = await fetch('/api/maintenance-status', { cache: 'no-store' })
+          const d = await r.json().catch(() => ({}))
+          setMaintenance({ enabled: !!d.enabled, message: String(d.message || '') })
+        } catch (_) {}
+      })()
+    }
+    return () => { try { es && es.close() } catch (_) {} }
   }, [])
 
   async function markAllRead() {
