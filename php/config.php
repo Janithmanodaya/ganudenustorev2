@@ -40,39 +40,39 @@ if ($DB_DRIVER === 'sqlite') {
     }
 }
 
-// Connect to DB via PDO
-function db(): PDO {
+// Connect to DB via PDO or SQLite3 polyfill
+function db() {
     static $pdo = null;
     global $DB_DRIVER, $DB_HOST, $DB_NAME, $DB_USER, $DB_PASS, $DB_CHARSET;
-    if ($pdo instanceof PDO) return $pdo;
+    if ($pdo) return $pdo;
 
-    try {
-        if ($DB_DRIVER === 'sqlite') {
-            if (!extension_loaded('pdo_sqlite')) {
-                http_response_code(500);
-                header('Content-Type: application/json');
-                echo json_encode(['error' => 'Database connection failed', 'details' => 'pdo_sqlite extension is not enabled in PHP. Enable pdo_sqlite in php.ini.']);
-                exit;
-            }
+    if ($DB_DRIVER === 'sqlite') {
+        if (extension_loaded('pdo_sqlite')) {
             $dsn = "sqlite:" . $DB_NAME;
             $pdo = new PDO($dsn);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        } else {
-            $dsn = "mysql:host={$DB_HOST};dbname={$DB_NAME};charset={$DB_CHARSET}";
+            return $pdo;
+        }
+        // Fallback to SQLite3 wrapper if pdo_sqlite is unavailable
+        if (!extension_loaded('sqlite3')) {
+            throw new RuntimeException('Neither pdo_sqlite nor sqlite3 extensions are enabled. Enable one of them in php.ini.');
+        }
+        require_once __DIR__ . '/db_polyfill.php';
+        $pdo = new PdoLikeSqlite($DB_NAME);
+        return $pdo;
+    } else {
+        $dsn = "mysql:host={$DB_HOST};dbname={$DB_NAME};charset={$DB_CHARSET}";
+        try {
             $pdo = new PDO($dsn, $DB_USER, $DB_PASS, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
+            return $pdo;
+        } catch (Throwable $e) {
+            throw new RuntimeException('MySQL connection failed: ' . $e->getMessage());
         }
-        return $pdo;
-    } catch (Throwable $e) {
-        // Fail gracefully; callers should handle null/exceptional cases
-        http_response_code(500);
-        header('Content-Type: application/json');
-        echo json_encode(['error' => 'Database connection failed', 'details' => $e->getMessage(), 'driver' => $DB_DRIVER, 'db_name' => $DB_NAME]);
-        exit;
     }
 }
 
@@ -243,9 +243,12 @@ function ensure_schema(): void {
                 target_email TEXT,
                 listing_id INTEGER,
                 emailed_at TEXT,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                is_read INTEGER NOT NULL DEFAULT 0
             );
         ");
+        // Try to add is_read if it doesn't exist (SQLite/MySQL tolerant)
+        try { $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read INTEGER NOT NULL DEFAULT 0"); } catch (Throwable $e) {}
 
         // request logs for rate limiting
         $pdo->exec("
@@ -256,6 +259,17 @@ function ensure_schema(): void {
             );
         ");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_request_logs_key_ts ON request_logs(key, ts)");
+
+        // saved searches (optional)
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS saved_searches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_email TEXT NOT NULL,
+                name TEXT,
+                payload TEXT,
+                created_at TEXT NOT NULL
+            );
+        ");
     } catch (Throwable $e) {
         // If schema creation fails, keep going; endpoints may return empty/404
     }
