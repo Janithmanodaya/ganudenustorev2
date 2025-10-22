@@ -31,6 +31,13 @@ if ($DB_DRIVER === 'sqlite') {
     if (!is_dir($dataDir)) {
         @mkdir($dataDir, 0775, true);
     }
+    // Ensure DB file exists; create if missing
+    if (!is_file($DB_NAME)) {
+        // Attempt to create empty SQLite file
+        try {
+            @touch($DB_NAME);
+        } catch (Throwable $e) { /* ignore */ }
+    }
 }
 
 // Connect to DB via PDO
@@ -41,6 +48,12 @@ function db(): PDO {
 
     try {
         if ($DB_DRIVER === 'sqlite') {
+            if (!extension_loaded('pdo_sqlite')) {
+                http_response_code(500);
+                header('Content-Type: application/json');
+                echo json_encode(['error' => 'Database connection failed', 'details' => 'pdo_sqlite extension is not enabled in PHP. Enable pdo_sqlite in php.ini.']);
+                exit;
+            }
             $dsn = "sqlite:" . $DB_NAME;
             $pdo = new PDO($dsn);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -58,7 +71,7 @@ function db(): PDO {
         // Fail gracefully; callers should handle null/exceptional cases
         http_response_code(500);
         header('Content-Type: application/json');
-        echo json_encode(['error' => 'Database connection failed', 'details' => $e->getMessage()]);
+        echo json_encode(['error' => 'Database connection failed', 'details' => $e->getMessage(), 'driver' => $DB_DRIVER, 'db_name' => $DB_NAME]);
         exit;
     }
 }
