@@ -171,18 +171,31 @@ switch (true) {
         header('Content-Type: text/event-stream');
         header('Cache-Control: no-cache');
         header('Connection: keep-alive');
+
+        // Ensure long-running stream does not hit max_execution_time
+        ignore_user_abort(true);
+        @set_time_limit(0);
+
         @ob_end_flush();
         @ob_implicit_flush(1);
 
         $start = time();
+
+        // Initial event
+        $cfg = get_maintenance_config();
+        echo "event: maintenance_status\n";
+        echo "data: " . json_encode(['enabled' => !!$cfg['enabled'], 'message' => (string)$cfg['message']]) . "\n\n";
+        flush();
+
+        // Stream for up to 5 minutes (frontend will reconnect as needed)
         while (true) {
+            if (connection_aborted()) break;
+            sleep(15);
             $cfg = get_maintenance_config();
             echo "event: maintenance_status\n";
             echo "data: " . json_encode(['enabled' => !!$cfg['enabled'], 'message' => (string)$cfg['message']]) . "\n\n";
             flush();
-            if (connection_aborted()) break;
-            sleep(20);
-            if (time() - $start > 600) break;
+            if (time() - $start > 300) break;
         }
         exit;
 
@@ -1073,12 +1086,36 @@ switch (true) {
         header('Content-Type: text/event-stream');
         header('Cache-Control: no-cache');
         header('Connection: keep-alive');
+
+        ignore_user_abort(true);
+        @set_time_limit(0);
+
         @ob_end_flush();
         @ob_implicit_flush(1);
 
         $email = (string)qparam('user_email', '');
         $start = time();
+
+        // Initial push
+        $count = 0;
+        if ($email) {
+            try {
+                $pdo = db();
+                $since = gmdate('c', time() - 7*24*60*60);
+                $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM notifications WHERE target_email = ? AND is_read = 0 AND created_at >= ?");
+                $stmt->execute([$email, $since]);
+                $row = $stmt->fetch();
+                $count = (int)($row['c'] ?? 0);
+            } catch (Throwable $e) {}
+        }
+        echo "event: unread_count\n";
+        echo "data: " . json_encode(['unread_count' => $count]) . "\n\n";
+        flush();
+
+        // Stream for up to 5 minutes
         while (true) {
+            if (connection_aborted()) break;
+            sleep(15);
             $count = 0;
             if ($email) {
                 try {
@@ -1093,9 +1130,7 @@ switch (true) {
             echo "event: unread_count\n";
             echo "data: " . json_encode(['unread_count' => $count]) . "\n\n";
             flush();
-            if (connection_aborted()) break;
-            sleep(20);
-            if (time() - $start > 600) break;
+            if (time() - $start > 300) break;
         }
         exit;
     }
