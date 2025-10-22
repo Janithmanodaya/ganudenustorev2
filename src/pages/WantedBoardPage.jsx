@@ -1021,10 +1021,10 @@ export default function WantedBoardPage() {
                       <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{r.title}</div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                         {(() => {
-                          // Prefer explicit location, otherwise first from locations_json
-                          const primaryLoc = String(r.location || '').trim() || (Array.isArray(locs) && locs.length ? String(locs[0]).trim() : '');
-                          if (!primaryLoc) return null;
-                          return <span className="pill" style={{ whiteSpace: 'nowrap' }}>📍 {primaryLoc}</span>;
+                          const uname = String(r.poster_username || '').trim();
+                          const userLabel = uname ? `@${uname}` : (r.user_email ? String(r.user_email).split('@')[0] : '');
+                          if (!userLabel) return null;
+                          return <span className="pill" style={{ whiteSpace: 'nowrap' }}>{userLabel}</span>;
                         })()}
                         {r.price_not_matter ? (
                           <span className="pill">No budget cap</span>
@@ -1040,6 +1040,8 @@ export default function WantedBoardPage() {
                     <div className="text-muted" style={{ marginBottom: 6, marginTop: 4 }}>
                       {(() => {
                         const parts = [];
+                        const allLocs = [...locs, r.location].filter(Boolean);
+                        if (allLocs.length) parts.push(`Locations: ${Array.from(new Set(allLocs)).join(', ')}`);
                         if (r.category === 'Vehicle' && (r.year_min || r.year_max)) parts.push(`Year: ${r.year_min || 'Any'} - ${r.year_max || 'Any'}`);
                         // Always show the user name (poster of the wanted request)
                         const uname = String(r.poster_username || '').trim();
@@ -1424,17 +1426,12 @@ export default function WantedBoardPage() {
                   return (
                     <div key={r.id} className="card" style={{ cursor: 'default' }}>
                       <div className="text-muted" style={{ marginBottom: 6 }}>{r.category || 'Any'}</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                        <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{r.title}</div>
-                        {(() => {
-                          const primaryLoc = String(r.location || '').trim() || (Array.isArray(locs) && locs.length ? String(locs[0]).trim() : '');
-                          if (!primaryLoc) return null;
-                          return <span className="pill" style={{ whiteSpace: 'nowrap' }}>📍 {primaryLoc}</span>;
-                        })()}
-                      </div>
+                      <div className="h2" style={{ marginTop: 0, marginBottom: 0 }}>{r.title}</div>
                       <div className="text-muted" style={{ marginBottom: 6, marginTop: 4 }}>
                         {(() => {
                           const parts = [];
+                          const allLocs = [...locs, r.location].filter(Boolean);
+                          if (allLocs.length) parts.push(`Locations: ${Array.from(new Set(allLocs)).join(', ')}`);
                           if (r.category === 'Vehicle' && (r.year_min || r.year_max)) parts.push(`Year: ${r.year_min || 'Any'} - ${r.year_max || 'Any'}`);
                           if (ageStr) parts.push(ageStr);
                           return parts.join(' • ');
