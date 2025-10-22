@@ -118,7 +118,10 @@ export default function App() {
     async function checkStatus() {
       if (!userEmail) { setAccountBlock({ show: false, title: '', message: '' }); return }
       try {
-        const r = await fetch(`/api/auth/status`, { headers: { 'X-User-Email': userEmail } })
+        const r = await fetch(`/api/auth/status`, {
+          headers: { 'X-User-Email': userEmail },
+          credentials: 'include' // include auth cookie across domains/subdomains
+        })
         const data = await r.json()
         if (!r.ok) { setAccountBlock({ show: false, title: '', message: '' }); return }
         if (cancelled) return

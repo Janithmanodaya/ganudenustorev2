@@ -9,6 +9,24 @@ import { signToken, requireUser, getBearerToken, verifyTokenRaw } from '../lib/a
 
 const router = Router();
 
+// Cookie options helper to ensure proper attributes across environments
+function getAuthCookieOptions() {
+  const isProd = process.env.NODE_ENV === 'production';
+  const domainUrl = String(process.env.PUBLIC_ORIGIN || process.env.PUBLIC_DOMAIN || '').trim();
+  let cookieDomain = '';
+  try { cookieDomain = domainUrl ? new URL(domainUrl).hostname : ''; } catch (_) { cookieDomain = ''; }
+  // If domain not provided, leave unset to default to current host
+  const base = {
+    httpOnly: true,
+    secure: isProd,           // Secure cookies in production
+    sameSite: 'none',         // Allow cross-site in case of subdomains
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days, matches JWT default
+  };
+  if (cookieDomain) base.domain = cookieDomain;
+  return base;
+}
+
 // Dynamic sharp import for image processing
 let sharp = null;
 (async () => {
@@ -147,8 +165,11 @@ router.get('/google/callback', async (req, res) => {
       user = { id: info.lastInsertRowid, email, is_admin: 0, username: uname, user_uid: uid, is_verified: 1 };
     }
 
-    // Issue JWT
+    // Issue JWT and set cookie
     const token = signToken({ id: user.id, email: user.email, is_admin: !!user.is_admin });
+    try {
+      res.cookie('auth_token', token, getAuthCookieOptions());
+    } catch (_) {}
 
     // Redirect back to app with token (and minimal info). The SPA will store it and fetch /api/auth/status.
     const returnUrl = state.r && /^https?:\/\//i.test(state.r) ? state.r : (process.env.PUBLIC_ORIGIN || process.env.PUBLIC_DOMAIN || '/auth');
@@ -432,6 +453,7 @@ router.post('/verify-admin-login-otp', async (req, res) => {
 
   // Issue admin token with MFA claim
   const token = signToken({ id: user.id, email: user.email, is_admin: true, mfa: true });
+  try { res.cookie('auth_token', token, getAuthCookieOptions()); } catch (_) {}
   const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
   return res.json({
     ok: true,
@@ -484,6 +506,7 @@ router.post('/verify-login-otp', async (req, res) => {
 
   // Issue normal token
   const token = signToken({ id: user.id, email: user.email, is_admin: !!user.is_admin });
+  try { res.cookie('auth_token', token, getAuthCookieOptions()); } catch (_) {}
   const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
   return res.json({
     ok: true,
