@@ -946,7 +946,7 @@ router.post('/submit', async (req, res) => {
     const validUntil = new Date(Date.now() + (Number(draft.employee_profile) === 1 ? 90 : 30) * 24 * 60 * 60 * 1000).toISOString();
 
     let thumbPath = null;
-    let mediumPath = null;
+    let mediumPath = null; // deprecated: keep null to avoid generating extra variant
 
     if (sharp && images.length > 0) {
       try {
@@ -954,13 +954,12 @@ router.post('/submit', async (req, res) => {
         const outDir = path.dirname(firstImgPath);
         const baseName = path.basename(firstImgPath, path.extname(firstImgPath));
         
+        // Only generate two variants: thumbnail and OG image
         thumbPath = path.join(outDir, `${baseName}-thumb.webp`);
-        mediumPath = path.join(outDir, `${baseName}-medium.webp`);
         const ogPath = path.join(outDir, `${baseName}-og.webp`);
 
-        // Thumbnail and medium
+        // Thumbnail (used in ad card)
         await sharp(firstImgPath).resize(120, 90).toFile(thumbPath);
-        await sharp(firstImgPath).resize(640, 480).toFile(mediumPath);
 
         // OG image 1200x630 with hardened SVG text overlay (fully escaped + sanitized)
         const bg = await sharp(firstImgPath).resize(1200, 630).blur(2).toBuffer();
@@ -970,14 +969,14 @@ router.post('/submit', async (req, res) => {
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
+            .replace(/\"/g, '&quot;')
             .replace(/'/g, '&apos;');
         }
         function sanitizeText(str, maxLen) {
           // Whitelist common printable chars and collapse whitespace
           const s = String(str || '')
-            .replace(/[^\w\s.,:;!@#%&()\\-\\/+°]+/g, ' ') // allow letters/digits and selected punctuation
-            .replace(/\\s+/g, ' ')
+            .replace(/[^\w\s.,:;!@#%&()\-\+/°]+/g, ' ') // allow letters/digits and selected punctuation
+            .replace(/\s+/g, ' ')
             .trim()
             .slice(0, maxLen || 60);
           return s;
@@ -1012,9 +1011,9 @@ router.post('/submit', async (req, res) => {
         // Save OG path into DB later
         var ogImagePathCreated = ogPath;
       } catch (e) {
-        console.error('[sharp] Failed to create thumbnails/OG:', e.message);
+        console.error('[sharp] Failed to create thumbnail/OG:', e.message);
         thumbPath = thumbPath || null;
-        mediumPath = mediumPath || null;
+        mediumPath = null;
         var ogImagePathCreated = null;
       }
     }
