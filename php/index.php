@@ -18,6 +18,7 @@ $path   = parse_url($uri, PHP_URL_PATH);
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Admin-Email, X-User-Email');
+header('Cache-Control: no-store, no-cache, must-revalidate');
 
 if ($method === 'OPTIONS') {
     http_response_code(204);
@@ -153,18 +154,43 @@ switch (true) {
         json_response(['enabled' => !!$cfg['enabled'], 'message' => (string)$cfg['message']]);
         break;
 
+    // Maintenance status SSE stream
+    case $path === '/api/maintenance-status/stream':
+        header('Content-Type: text/event-stream');
+        header('Cache-Control: no-cache');
+        header('Connection: keep-alive');
+        @ob_end_flush();
+        @ob_implicit_flush(1);
+
+        $start = time();
+        while (true) {
+            $cfg = get_maintenance_config();
+            echo "event: maintenance_status\n";
+            echo "data: " . json_encode(['enabled' => !!$cfg['enabled'], 'message' => (string)$cfg['message']]) . "\n\n";
+            flush();
+            if (connection_aborted()) break;
+            sleep(20);
+            if (time() - $start > 600) break;
+        }
+        exit;
+
     // Auth status (basic)
     case $path === '/api/auth/status': {
+        $emailHdr = trim(strtolower($_SERVER['HTTP_X_USER_EMAIL'] ?? ''));
         $emailParam = (string)qparam('email', '');
-        $email = $emailParam ?: null;
+        $lookupEmail = $emailHdr ?: $emailParam;
+
+        $email = $lookupEmail ?: null;
         $username = null;
         $is_admin = false;
+        $is_banned = false;
+        $suspended_until = null;
 
-        if ($emailParam) {
+        if ($lookupEmail) {
             try {
                 $pdo = db();
                 $stmt = $pdo->prepare("SELECT email, username, is_admin FROM users WHERE email = ? LIMIT 1");
-                $stmt->execute([$emailParam]);
+                $stmt->execute([$lookupEmail]);
                 $row = $stmt->fetch();
                 if ($row) {
                     $email = $row['email'];
@@ -173,7 +199,14 @@ switch (true) {
                 }
             } catch (Throwable $e) {}
         }
-        json_response(['email' => $email, 'username' => $username, 'is_admin' => $is_admin]);
+        json_response([
+            'email' => $email,
+            'username' => $username,
+            'is_admin' => $is_admin,
+            // defaults to satisfy frontend expectations
+            'is_banned' => $is_banned,
+            'suspended_until' => $suspended_until
+        ]);
         break;
     }
 
@@ -704,21 +737,54 @@ switch (true) {
         break;
     }
 
+    // Notifications: list for current user (via header X-User-Email)
+    case $path === '/api/notifications' && $method === 'GET': {
+        $email = trim(strtolower($_SERVER['HTTP_X_USER_EMAIL'] ?? ''));
+        if ($email === '') return json_response(['results' => [], 'unread_count' => 0]);
+        try {
+            $pdo = db();
+            $stmt = $pdo->prepare("SELECT id, type, message, target_email, listing_id, created_at, is_read FROM notifications WHERE target_email = ? ORDER BY id DESC LIMIT 200");
+            $stmt->execute([$email]);
+            $rows = $stmt->fetchAll();
+            $unread = 0;
+            foreach ($rows as $r) { if ((int)($r['is_read'] ?? 0) === 0) $unread++; }
+            json_response(['results' => $rows, 'unread_count' => $unread]);
+        } catch (Throwable $e) {
+            json_response(['error' => 'Failed to load notifications'], 500);
+        }
+        break;
+    }
+
+    // Notifications: mark a notification as read (by ID) for current user
+    case preg_match('#^/api/notifications/(\\d+)/read$#', $path, $m) && $method === 'POST': {
+        $email = trim(strtolower($_SERVER['HTTP_X_USER_EMAIL'] ?? ''));
+        $id = (int)$m[1];
+        if ($email === '' || $id <= 0) return json_response(['error' => 'Bad request'], 400);
+        try {
+            $pdo = db();
+            $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND target_email = ?");
+            $stmt->execute([$id, $email]);
+            json_response(['ok' => true]);
+        } catch (Throwable $e) { json_response(['error' => 'Failed to mark read'], 500); }
+        break;
+    }
+
     // Notifications: unread count for user email
     case $path === '/api/notifications/unread-count': {
-        $email = (string)qparam('user_email', '');
+        $emailHdr = trim(strtolower($_SERVER['HTTP_X_USER_EMAIL'] ?? ''));
+        $email = $emailHdr ?: (string)qparam('user_email', '');
         $count = 0;
         if ($email) {
             try {
                 $pdo = db();
                 $since = gmdate('c', time() - 7*24*60*60);
-                $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM notifications WHERE target_email = ? AND created_at >= ?");
+                $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM notifications WHERE target_email = ? AND is_read = 0 AND created_at >= ?");
                 $stmt->execute([$email, $since]);
                 $row = $stmt->fetch();
                 $count = (int)($row['c'] ?? 0);
             } catch (Throwable $e) {}
         }
-        json_response(['count' => $count]);
+        json_response(['unread_count' => $count]);
         break;
     }
 
@@ -738,20 +804,38 @@ switch (true) {
                 try {
                     $pdo = db();
                     $since = gmdate('c', time() - 7*24*60*60);
-                    $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM notifications WHERE target_email = ? AND created_at >= ?");
+                    $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM notifications WHERE target_email = ? AND is_read = 0 AND created_at >= ?");
                     $stmt->execute([$email, $since]);
                     $row = $stmt->fetch();
                     $count = (int)($row['c'] ?? 0);
                 } catch (Throwable $e) {}
             }
             echo "event: unread_count\n";
-            echo "data: " . json_encode(['count' => $count]) . "\n\n";
+            echo "data: " . json_encode(['unread_count' => $count]) . "\n\n";
             flush();
             if (connection_aborted()) break;
             sleep(20);
             if (time() - $start > 600) break;
         }
         exit;
+    }
+
+    // Saved searches (optional)
+    case $path === '/api/notifications/saved-searches' && $method === 'POST': {
+        $email = trim(strtolower($_SERVER['HTTP_X_USER_EMAIL'] ?? ''));
+        $b = json_body();
+        $name = (string)($b['name'] ?? 'Saved search');
+        if ($email === '') return json_response(['error' => 'Unauthorized'], 401);
+        try {
+            $pdo = db();
+            $pdo->prepare("INSERT INTO saved_searches (user_email, name, payload, created_at) VALUES (?, ?, ?, ?)")->execute([
+                $email, $name, json_encode($b), now_iso()
+            ]);
+            json_response(['ok' => true]);
+        } catch (Throwable $e) {
+            json_response(['error' => 'Failed to save search'], 500);
+        }
+        break;
     }
 
     // Banners

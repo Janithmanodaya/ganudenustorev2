@@ -243,9 +243,12 @@ function ensure_schema(): void {
                 target_email TEXT,
                 listing_id INTEGER,
                 emailed_at TEXT,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                is_read INTEGER NOT NULL DEFAULT 0
             );
         ");
+        // Try to add is_read if it doesn't exist (SQLite/MySQL tolerant)
+        try { $pdo->exec("ALTER TABLE notifications ADD COLUMN is_read INTEGER NOT NULL DEFAULT 0"); } catch (Throwable $e) {}
 
         // request logs for rate limiting
         $pdo->exec("
@@ -256,6 +259,17 @@ function ensure_schema(): void {
             );
         ");
         $pdo->exec("CREATE INDEX IF NOT EXISTS idx_request_logs_key_ts ON request_logs(key, ts)");
+
+        // saved searches (optional)
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS saved_searches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_email TEXT NOT NULL,
+                name TEXT,
+                payload TEXT,
+                created_at TEXT NOT NULL
+            );
+        ");
     } catch (Throwable $e) {
         // If schema creation fails, keep going; endpoints may return empty/404
     }
