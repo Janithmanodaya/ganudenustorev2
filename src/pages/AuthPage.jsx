@@ -410,18 +410,23 @@ export default function AuthPage() {
 
           {(mode === 'register' && registerStep === 'verify') || (mode === 'forgot' && forgotStep === 'reset') || (mode === 'login' && loginStep === 'otp') ? (
             <>
-             <"input className="input" placeholder="OTP" value={otp} onChange={e => setOtp(e.target.value)} disabled={submitting} />
-             < div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input className="input" placeholder="OTP" value={otp} onChange={e => setOtp(e.target.value)} disabled={submitting} />
+              <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 8 }}>
                 {otpCooldownUntil && otpSecondsLeft > 0 ? (
-                 < small className="text-muted">Resend code in {otpSecondsLeft</}ssmall>
+                  <small className="text-muted">Resend code in {otpSecondsLeft}s</small>
                 ) : (
-                 < button
+                  <button
                     type="button"
                     className="btn"
                     onClick={resendOtp}
                     disabled={resending || submitting}
                   >
-                    {l}
+                    {resending ? 'Resending…' : 'Resend OTP'}
+                  </button>
+                )}
+              </div>
+            </>
+          ) : null}
 
           {/* Policy agreement for registration */}
           {mode === 'register' && registerStep === 'request' && (
