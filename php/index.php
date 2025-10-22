@@ -102,6 +102,46 @@ rate_limit('ip:' . $ip . ':path:' . $path, 60, 120);
 // Routing
 switch (true) {
 
+    // Diagnostics
+    case $path === '/api/diag':
+        $mods = get_loaded_extensions();
+        $hasSqlite = in_array('sqlite3', $mods, true);
+        $hasPdoSqlite = in_array('pdo_sqlite', $mods, true);
+        $dbPath = (function() {
+            $ref = new ReflectionFunction('db');
+            $file = $ref->getFileName();
+            // read globals via config
+            return [
+                'project_root' => dirname(__DIR__),
+                'db_driver' => getenv('DB_DRIVER') ?: 'sqlite',
+                'db_name' => getenv('DB_NAME') ?: (dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'ganudenu.sqlite'),
+            ];
+        })();
+        $dbFile = $dbPath['db_name'];
+        $exists = is_file($dbFile);
+        $writable = is_writable(dirname($dbFile));
+        $result = [
+            'php_version' => PHP_VERSION,
+            'pdo_sqlite' => $hasPdoSqlite,
+            'sqlite3' => $hasSqlite,
+            'db' => [
+                'driver' => $dbPath['db_driver'],
+                'name' => $dbFile,
+                'exists' => $exists,
+                'dir_writable' => $writable
+            ]
+        ];
+        // Try a lightweight DB op
+        try {
+            $pdo = db();
+            $row = $pdo->query("SELECT 1 AS ok")->fetch();
+            $result['db_check'] = ['ok' => true, 'row' => $row];
+        } catch (Throwable $e) {
+            $result['db_check'] = ['ok' => false, 'error' => $e->getMessage()];
+        }
+        json_response($result);
+        break;
+
     // Health
     case $path === '/api/health':
         json_response(['ok' => true, 'service' => 'ganudenu.store', 'ts' => now_iso()]);
