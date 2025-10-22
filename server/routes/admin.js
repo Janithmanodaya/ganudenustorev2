@@ -1077,16 +1077,42 @@ router.get('/metrics', requireAdmin, (req, res) => {
       }
       return count;
     }
+    function listFilesRec(dir, opts = {}) {
+      const st = safeStat(dir);
+      if (!st || !st.isDirectory()) return [];
+      const out = [];
+      for (const entry of fs.readdirSync(dir)) {
+        const p = path.join(dir, entry);
+        const s = safeStat(p);
+        if (!s) continue;
+        if (s.isDirectory()) {
+          if (opts.skip && opts.skip.has(entry)) continue;
+          out.push(...listFilesRec(p, opts));
+        } else if (s.isFile()) {
+          if (opts.filterExt) {
+            const ext = path.extname(entry).toLowerCase();
+            if (!opts.filterExt.has(ext)) continue;
+          }
+          out.push({ path: p, stat: s });
+        }
+      }
+      return out;
+    }
 
     // Count images under uploads (any file considered an image as we store webp/png/jpg)
     let imagesCount = 0;
+    let uploadsDiskUsageBytes = 0;
+    let imageEntries = [];
     try {
       const exts = new Set(['.webp', '.jpg', '.jpeg', '.png', '.gif', '.avif', '.tiff']);
-      imagesCount = countFilesRec(uploadsDir, { filterExt: exts });
+      imageEntries = listFilesRec(uploadsDir, { filterExt: exts });
+      imagesCount = imageEntries.length;
       // Fallback: if ext filtering yields 0 but uploads dir exists, count all files
       if (imagesCount === 0) {
-        imagesCount = countFilesRec(uploadsDir);
+        imageEntries = listFilesRec(uploadsDir);
+        imagesCount = imageEntries.length;
       }
+      uploadsDiskUsageBytes = imageEntries.reduce((acc, f) => acc + (f.stat?.size || 0), 0);
     } catch (_) {}
 
     // Count databases (.sqlite) under data (including tmp_ai)
@@ -1100,6 +1126,13 @@ router.get('/metrics', requireAdmin, (req, res) => {
     let systemFilesCount = 0;
     try {
       systemFilesCount = countFilesRec(dataDir, { skip: new Set(['uploads']) });
+    } catch (_) {}
+
+    // Count all files under project root (exclude common heavy dirs)
+    let allFilesCount = 0;
+    try {
+      const root = process.cwd();
+      allFilesCount = countFilesRec(root, { skip: new Set(['node_modules', '.git']) });
     } catch (_) {}
 
     // Range-limited totals
@@ -1155,6 +1188,31 @@ router.get('/metrics', requireAdmin, (req, res) => {
       return { date: start.toISOString().slice(0, 10), count: c };
     });
 
+    // Visitors per day (distinct IPs)
+    const visitorsPerDay = win.map(({ start, end }) => {
+      let c = 0;
+      try {
+        c = db.prepare(`SELECT COUNT(DISTINCT ip) AS c FROM listing_views WHERE ts >= ? AND ts < ? AND ip IS NOT NULL AND TRIM(ip) <> ''`)
+          .get(start.toISOString(), end.toISOString()).c || 0;
+      } catch (_) { c = 0; }
+      return { date: start.toISOString().slice(0, 10), count: c };
+    });
+
+    // Images added per day (based on file mtime in uploads)
+    const imagesAddedPerDay = (() => {
+      const buckets = new Map(); // key: 'YYYY-MM-DD' -> count
+      for (const { stat } of imageEntries) {
+        if (!stat?.mtime) continue;
+        const d = new Date(stat.mtime);
+        const key = d.toISOString().slice(0, 10);
+        buckets.set(key, (buckets.get(key) || 0) + 1);
+      }
+      return win.map(({ start }) => {
+        const key = start.toISOString().slice(0, 10);
+        return { date: key, count: buckets.get(key) || 0 };
+      });
+    })();
+
     // Top categories among approved/active listings
     const topCategories = db.prepare(`
       SELECT main_category as category, COUNT(*) as cnt
@@ -1181,7 +1239,9 @@ router.get('/metrics', requireAdmin, (req, res) => {
         visitorsTotal,
         imagesCount,
         systemFilesCount,
-        databasesCount
+        databasesCount,
+        uploadsDiskUsageBytes,
+        allFilesCount
       },
       rangeTotals: {
         usersNewInRange,
@@ -1196,7 +1256,9 @@ router.get('/metrics', requireAdmin, (req, res) => {
         listingsCreated,
         approvals,
         rejections,
-        reports
+        reports,
+        visitorsPerDay,
+        imagesAddedPerDay
       },
       topCategories,
       statusBreakdown

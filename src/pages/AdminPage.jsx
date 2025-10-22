@@ -946,20 +946,25 @@ export default function AdminPage() {
 
                 {/* New system/traffic stats */}
                 <div className="grid three" style={{ marginTop: 12 }}>
-                  <div className="card">
+                  <div className="card" style={{ overflowX: 'auto' }}>
                     <div className="h2">Visitors</div>
                     <div className="text-muted">Total (distinct): {metrics.totals.visitorsTotal}</div>
                     <div className="text-muted">New (last {metrics.params?.days}d): {metrics.rangeTotals.visitorsInRange}</div>
+                    <div className="text-muted" style={{ marginTop: 6 }}>Per day</div>
+                    <SparklineBars data={metrics.series.visitorsPerDay} color="#34d399" />
                   </div>
-                  <div className="card">
-                    <div className="h2">System Files</div>
-                    <div className="text-muted">Files in data/: {metrics.totals.systemFilesCount}</div>
-                    <div className="text-muted">Databases: {metrics.totals.databasesCount}</div>
-                  </div>
-                  <div className="card">
+                  <div className="card" style={{ overflowX: 'auto' }}>
                     <div className="h2">Images</div>
                     <div className="text-muted">Total stored: {metrics.totals.imagesCount}</div>
-                    <div className="text-muted">New Users (last {metrics.params?.days}d): {metrics.rangeTotals.usersNewInRange}</div>
+                    <div className="text-muted" style={{ marginTop: 6 }}>Added per day (last {metrics.params?.days}d)</div>
+                    <SparklineBars data={metrics.series.imagesAddedPerDay} color="#f97316" />
+                  </div>
+                  <div className="card">
+                    <div className="h2">Storage & Files</div>
+                    <div className="text-muted">Uploads size: {((Number(metrics.totals.uploadsDiskUsageBytes) || 0) / (1024 * 1024)).toFixed(1)} MB</div>
+                    <div className="text-muted">Databases: {metrics.totals.databasesCount}</div>
+                    <div className="text-muted">Files in data/: {metrics.totals.systemFilesCount}</div>
+                    <div className="text-muted">All files in project: {metrics.totals.allFilesCount}</div>
                   </div>
                 </div>
 
