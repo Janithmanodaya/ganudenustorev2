@@ -56,10 +56,11 @@ if ($LASTEXITCODE -ne 0) {
 # Start PHP backend
 Write-Host ""
 $backendUrl = "http://127.0.0.1:5174"
-Write-Host "Starting PHP built-in server (router: php/index.php) at $backendUrl ..."
-# Use router-only form so current directory is the docroot; router handles routing.
-$phpArgs = @("-S", "127.0.0.1:5174", "$PSScriptRoot\php\index.php")
-$phpProc = Start-Process -FilePath "php" -ArgumentList $phpArgs -WorkingDirectory $PSScriptRoot -PassThru -WindowStyle Normal
+$docroot = Join-Path $PSScriptRoot "php"
+Write-Host "Starting PHP built-in server (docroot: $docroot, router: index.php) at $backendUrl ..."
+# Use working directory = php folder, and router = index.php to avoid path issues with spaces/parens
+$phpArgs = @("-S", "127.0.0.1:5174", "index.php")
+$phpProc = Start-Process -FilePath "php" -ArgumentList $phpArgs -WorkingDirectory $docroot -PassThru -WindowStyle Normal
 Start-Sleep -Milliseconds 500
 
 # Probe backend health up to ~10 seconds
