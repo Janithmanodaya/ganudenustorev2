@@ -41,14 +41,15 @@ if ($DB_DRIVER === 'sqlite') {
 }
 
 // Connect to DB via PDO
-function db(): PDO {
+function db() {
     static $pdo = null;
     global $DB_DRIVER, $DB_HOST, $DB_NAME, $DB_USER, $DB_PASS, $DB_CHARSET;
-    if ($pdo instanceof PDO) return $pdo;
+    if ($pdo) return $pdo;
 
     try {
         if ($DB_DRIVER === 'sqlite') {
-            if (!extension_loaded('pdo_sqlite')) {
+            if (extension_loaded('pdo_sqlite')) {
+                $dsn
                 http_response_code(500);
                 header('Content-Type: application/json');
                 echo json_encode(['error' => 'Database connection failed', 'details' => 'pdo_sqlite extension is not enabled in PHP. Enable pdo_sqlite in php.ini.']);
