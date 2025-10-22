@@ -46,39 +46,33 @@ function db() {
     global $DB_DRIVER, $DB_HOST, $DB_NAME, $DB_USER, $DB_PASS, $DB_CHARSET;
     if ($pdo) return $pdo;
 
-    try {
-        if ($DB_DRIVER === 'sqlite') {
-            if (extension_loaded('pdo_sqlite')) {
-                $dsn = "sqlite:" . $DB_NAME;
-                $pdo = new PDO($dsn);
-                $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-                return $pdo;
-            }
-            // Fallback to SQLite3 wrapper if pdo_sqlite is unavailable
-            if (!extension_loaded('sqlite3')) {
-                http_response_code(500);
-                header('Content-Type: application/json');
-                echo json_encode(['error' => 'Database connection failed', 'details' => 'Neither pdo_sqlite nor sqlite3 extensions are enabled. Enable one of them in php.ini.']);
-                exit;
-            }
-            require_once __DIR__ . '/db_polyfill.php';
-            $pdo = new PdoLikeSqlite($DB_NAME);
+    if ($DB_DRIVER === 'sqlite') {
+        if (extension_loaded('pdo_sqlite')) {
+            $dsn = "sqlite:" . $DB_NAME;
+            $pdo = new PDO($dsn);
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
             return $pdo;
-        } else {
-            $dsn = "mysql:host={$DB_HOST};dbname={$DB_NAME};charset={$DB_CHARSET}";
+        }
+        // Fallback to SQLite3 wrapper if pdo_sqlite is unavailable
+        if (!extension_loaded('sqlite3')) {
+            throw new RuntimeException('Neither pdo_sqlite nor sqlite3 extensions are enabled. Enable one of them in php.ini.');
+        }
+        require_once __DIR__ . '/db_polyfill.php';
+        $pdo = new PdoLikeSqlite($DB_NAME);
+        return $pdo;
+    } else {
+        $dsn = "mysql:host={$DB_HOST};dbname={$DB_NAME};charset={$DB_CHARSET}";
+        try {
             $pdo = new PDO($dsn, $DB_USER, $DB_PASS, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
             return $pdo;
+        } catch (Throwable $e) {
+            throw new RuntimeException('MySQL connection failed: ' . $e->getMessage());
         }
-    } catch (Throwable $e) {
-        http_response_code(500);
-        header('Content-Type: application/json');
-        echo json_encode(['error' => 'Database connection failed', 'details' => $e->getMessage(), 'driver' => $DB_DRIVER, 'db_name' => $DB_NAME]);
-        exit;
     }
 }
 
