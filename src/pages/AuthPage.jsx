@@ -19,6 +19,43 @@ export default function AuthPage() {
   const [loginStep, setLoginStep] = useState('password') // 'password' -> 'otp'
 
   useEffect(() => {
+    // If Google redirected back with token, persist it and fetch user status
+    const url = new URL(window.location.href)
+    const tok = url.searchParams.get('token')
+    const provider = url.searchParams.get('provider')
+    if (tok) {
+      try {
+        localStorage.setItem('auth_token', tok)
+      } catch (_) {}
+      // Clean URL
+      const clean = window.location.pathname
+      window.history.replaceState({}, '', clean)
+
+      // Fetch minimal status and store user object, then redirect home
+      ;(async () => {
+        try {
+          const r = await fetch('/api/auth/status', {
+            headers: { Authorization: 'Bearer ' + tok, Accept: 'application/json' }
+          })
+          if (r.ok) {
+            const s = await r.json().catch(() => ({}))
+            const user = {
+              email: s.email,
+              username: s.username || null,
+              is_admin: !!s.is_admin
+            }
+            try { localStorage.setItem('user', JSON.stringify(user)) } catch (_) {}
+            setResult({ ok: true, message: provider ? `Signed in with ${provider}. Redirecting…` : 'Signed in. Redirecting…' })
+            setTimeout(() => navigate('/'), 600)
+            return
+          }
+        } catch (_) {}
+        setResult({ ok: true, message: 'Signed in. Redirecting…' })
+        setTimeout(() => navigate('/'), 600)
+      })()
+      return
+    }
+
     // If already logged in, go to account page
     try {
       const u = localStorage.getItem('user')
@@ -242,6 +279,20 @@ export default function AuthPage() {
             disabled={submitting}
           >
             Forgot Password
+          </button>
+        </div>
+
+        {/* Google Login */}
+        <div style={{ marginBottom: 16 }}>
+          <button
+            className="btn"
+            onClick={() => {
+              const r = window.location.origin + '/auth'
+              window.location.href = `/api/auth/google/start?r=${encodeURIComponent(r)}`
+            }}
+            disabled={submitting}
+          >
+            Continue with Google
           </button>
         </div>
 

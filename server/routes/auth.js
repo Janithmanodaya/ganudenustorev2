@@ -34,6 +34,134 @@ const upload = multer({
   }
 });
 
+// -------- Google OAuth (Authorization Code flow) --------
+// Start OAuth: redirect user to Google's consent screen
+router.get('/google/start', (req, res) => {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI; // e.g., https://yourdomain.com/api/auth/google/callback
+    if (!clientId || !redirectUri) {
+      return res.status(500).send('Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_REDIRECT_URI.');
+    }
+    const scope = encodeURIComponent('openid email profile');
+    const statePayload = {
+      r: String(req.query.r || ''), // optional return URL
+    };
+    const state = Buffer.from(JSON.stringify(statePayload)).toString('base64url');
+    const url =
+      'https://accounts.google.com/o/oauth2/v2/auth?' +
+      `client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=code&scope=${scope}&prompt=select_account` +
+      `&access_type=offline&state=${state}`;
+    return res.redirect(url);
+  } catch (e) {
+    return res.status(500).send('Failed to start Google OAuth.');
+  }
+});
+
+// OAuth callback: exchange code -> tokens, fetch profile, upsert user, issue JWT and redirect back to app
+router.get('/google/callback', async (req, res) => {
+  try {
+    const code = String(req.query.code || '');
+    const stateRaw = String(req.query.state || '');
+    let state = {};
+    try { state = stateRaw ? JSON.parse(Buffer.from(stateRaw, 'base64url').toString('utf8')) : {}; } catch (_) {}
+
+    if (!code) return res.status(400).send('Missing code');
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    if (!clientId || !clientSecret || !redirectUri) {
+      return res.status(500).send('Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI.');
+    }
+
+    // Token exchange
+    const tokenResp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:
+        `code=${encodeURIComponent(code)}` +
+        `&client_id=${encodeURIComponent(clientId)}` +
+        `&client_secret=${encodeURIComponent(clientSecret)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&grant_type=authorization_code`
+    });
+    const tokenData = await tokenResp.json().catch(() => ({}));
+    if (!tokenResp.ok || !tokenData.id_token) {
+      return res.status(502).send('Failed to exchange code with Google.');
+    }
+
+    // Get user info (decode id_token or call userinfo)
+    // Prefer userinfo endpoint for freshness
+    let g;
+    try {
+      const uResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` }
+      });
+      g = await uResp.json();
+    } catch (_) {
+      g = null;
+    }
+
+    // Fallback: decode id_token (naive, without verifying Google signature because we trust token endpoint)
+    if (!g || !g.email) {
+      try {
+        const parts = String(tokenData.id_token).split('.');
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+        g = { email: payload.email, email_verified: payload.email_verified, sub: payload.sub, name: payload.name };
+      } catch (_) {}
+    }
+    const email = String(g?.email || '').toLowerCase().trim();
+    const name = String(g?.name || '').trim() || email.split('@')[0];
+    const sub = String(g?.sub || '').trim();
+    if (!email) return res.status(400).send('Google profile missing email');
+
+    // Upsert user (passwordless): create if not exists with random password_hash and verified=true
+    let user = db.prepare('SELECT id, email, is_admin, username, user_uid, is_verified FROM users WHERE email = ?').get(email);
+    if (!user) {
+      const randomPass = (await import('crypto')).randomBytes(16).toString('hex');
+      const hash = await bcrypt.hash(randomPass, 12);
+      // Choose a username based on Google profile; ensure uniqueness
+      let unameBase = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || email.split('@')[0];
+      if (unameBase.length < 3) unameBase = (email.split('@')[0] || 'user').slice(0, 24);
+      let uname = unameBase;
+      let tries = 0;
+      while (tries < 5) {
+        const exists = db.prepare('SELECT 1 FROM users WHERE username = ?').get(uname);
+        if (!exists) break;
+        uname = `${unameBase}-${Math.floor(Math.random() * 1000)}`;
+        tries++;
+      }
+      // Generate user_uid
+      let uid = generateUserUID();
+      let utries = 0;
+      while (utries < 3) {
+        const exists = db.prepare('SELECT 1 FROM users WHERE user_uid = ?').get(uid);
+        if (!exists) break;
+        uid = generateUserUID();
+        utries++;
+      }
+      const info = db.prepare('INSERT INTO users (email, password_hash, is_admin, created_at, username, user_uid, is_verified) VALUES (?, ?, 0, ?, ?, ?, 1)')
+        .run(email, hash, new Date().toISOString(), uname, uid);
+      user = { id: info.lastInsertRowid, email, is_admin: 0, username: uname, user_uid: uid, is_verified: 1 };
+    }
+
+    // Issue JWT
+    const token = signToken({ id: user.id, email: user.email, is_admin: !!user.is_admin });
+
+    // Redirect back to app with token (and minimal info). The SPA will store it and fetch /api/auth/status.
+    const returnUrl = state.r && /^https?:\/\//i.test(state.r) ? state.r : (process.env.PUBLIC_ORIGIN || process.env.PUBLIC_DOMAIN || '/auth');
+    const url = new URL(returnUrl, returnUrl.startsWith('http') ? undefined : undefined);
+    url.searchParams.set('token', token);
+    url.searchParams.set('provider', 'google');
+    url.searchParams.set('email', email);
+    return res.redirect(url.toString());
+  } catch (e) {
+    return res.status(500).send('Google OAuth callback failed.');
+  }
+});
+
 // Public endpoint to check if a user exists (used by UI to gate password reset)
 router.get('/user-exists', (req, res) => {
   try {
