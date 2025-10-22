@@ -56,13 +56,14 @@ if ($LASTEXITCODE -ne 0) {
 # Start PHP backend
 Write-Host ""
 $backendUrl = "http://127.0.0.1:5174"
-Write-Host "Starting PHP built-in server (docroot: php, router: php/index.php) at $backendUrl ..."
-$phpArgs = @("-S", "127.0.0.1:5174", "-t", "$PSScriptRoot\php", "$PSScriptRoot\php\index.php")
+Write-Host "Starting PHP built-in server (router: php/index.php) at $backendUrl ..."
+# Use router-only form so current directory is the docroot; router handles routing.
+$phpArgs = @("-S", "127.0.0.1:5174", "$PSScriptRoot\php\index.php")
 $phpProc = Start-Process -FilePath "php" -ArgumentList $phpArgs -WorkingDirectory $PSScriptRoot -PassThru -WindowStyle Normal
-Start-Sleep -Milliseconds 300
+Start-Sleep -Milliseconds 500
 
-# Probe backend health up to ~3 seconds
-$maxTries = 10
+# Probe backend health up to ~10 seconds
+$maxTries = 20
 $started = $false
 for ($i = 0; $i -lt $maxTries; $i++) {
   try {
@@ -72,7 +73,7 @@ for ($i = 0; $i -lt $maxTries; $i++) {
       break
     }
   } catch {
-    Start-Sleep -Milliseconds 300
+    Start-Sleep -Milliseconds 500
   }
 }
 
