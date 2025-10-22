@@ -1284,7 +1284,7 @@ switch (true) {
                 $thumbUrl = null;
                 if (!empty($r['thumbnail_path'])) {
                     $fname = basename($r['thumbnail_path']);
-                    $thumbUrl = $fname ? \"/uploads/$fname\" : null;
+                    $thumbUrl = $fname ? "/uploads/$fname" : null;"/uploads/$fname\" : null;
                 }
                 $results[] = [
                     'id' => (int)$r['id'],
