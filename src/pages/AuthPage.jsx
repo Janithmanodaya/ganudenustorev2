@@ -17,6 +17,7 @@ export default function AuthPage() {
 
   // Admin OTP login flow
   const [loginStep, setLoginStep] = useState('password') // 'password' -> 'otp'
+  const [loginIsAdmin, setLoginIsAdmin] = useState(false)
 
   useEffect(() => {
     // If Google redirected back with token, persist it and fetch user status
@@ -149,7 +150,7 @@ export default function AuthPage() {
           url = '/api/auth/login'
           body = { email, password }
         } else {
-          url = '/api/auth/verify-admin-login-otp'
+          url = loginIsAdmin ? '/api/auth/verify-admin-login-otp' : '/api/auth/verify-login-otp'
           body = { email, password, otp }
         }
       } else if (mode === 'register') {
@@ -199,6 +200,7 @@ export default function AuthPage() {
       // Success flows with concise messages + redirects
       if (mode === 'login' && loginStep === 'password' && data.otp_required) {
         setLoginStep('otp')
+        setLoginIsAdmin(!!data.is_admin)
         setResult({ ok: true, message: data.message || 'OTP sent to your email. Enter it to continue.' })
         setSubmitting(false)
         return

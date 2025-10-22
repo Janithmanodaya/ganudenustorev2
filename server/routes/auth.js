@@ -358,7 +358,7 @@ router.post('/verify-otp-and-register', async (req, res) => {
   }
 });
 
-// Login
+// Login (now requires OTP for all users)
 router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
@@ -367,7 +367,7 @@ router.post('/login', async (req, res) => {
   const match = await bcrypt.compare(password, user.password_hash);
   if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
 
-  // Enforce bans and suspensions for non-admin users
+  // Enforce bans and suspensions for non-admin users before sending OTP
   if (!user.is_admin) {
     if (user.is_banned) {
       return res.status(403).json({ error: 'Your account is banned. Please contact support.' });
@@ -381,36 +381,29 @@ router.post('/login', async (req, res) => {
     }
   }
 
-  // For admin accounts: require OTP after password is verified
-  if (user.is_admin) {
-    try {
-      const otp = generateOtp();
-      const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-      db.prepare('INSERT INTO otps (email, otp, expires_at) VALUES (?, ?, ?)').run(user.email.toLowerCase(), otp, expires);
+  // Require OTP for all users
+  try {
+    const otp = generateOtp();
+    const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    db.prepare('INSERT INTO otps (email, otp, expires_at) VALUES (?, ?, ?)').run(user.email.toLowerCase(), otp, expires);
 
-      const DEV_MODE = String(process.env.EMAIL_DEV_MODE || '').toLowerCase() === 'true';
-      if (DEV_MODE) {
-        console.log(`[otp:dev] Admin login OTP for ${email}: ${otp}`);
-        return res.json({ ok: true, otp_required: true, message: 'OTP required for admin login (dev mode).', otp });
-      }
-
-      const sent = await sendEmail(user.email, 'Admin Login OTP', `<p>Your admin login OTP is: <strong>${otp}</strong></p>`);
-      if (!sent?.ok) {
-        // cleanup
-        try { db.prepare('DELETE FROM otps WHERE email = ? AND otp = ?').run(user.email.toLowerCase(), otp); } catch (_) {}
-        return res.status(502).json({ error: 'Failed to send admin OTP email.' });
-      }
-
-      return res.json({ ok: true, otp_required: true, message: 'OTP sent to your email.' });
-    } catch (e) {
-      return res.status(500).json({ error: 'Failed to initiate admin OTP.' });
+    const DEV_MODE = String(process.env.EMAIL_DEV_MODE || '').toLowerCase() === 'true';
+    if (DEV_MODE) {
+      console.log(`[otp:dev] Login OTP for ${email}: ${otp}`);
+      return res.json({ ok: true, otp_required: true, is_admin: !!user.is_admin, message: 'OTP required for login (dev mode).', otp });
     }
-  }
 
-  // Normal user login (no OTP required)
-  const token = signToken({ id: user.id, email: user.email, is_admin: !!user.is_admin });
-  const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
-  return res.json({ ok: true, token, user: { id: user.id, user_uid: user.user_uid, email: user.email, username: user.username, is_admin: !!user.is_admin, is_verified: !!user.is_verified, photo_url } });
+    const subject = user.is_admin ? 'Admin Login OTP' : 'Login OTP';
+    const sent = await sendEmail(user.email, subject, `<p>Your login OTP is: <strong>${otp}</strong></p>`);
+    if (!sent?.ok) {
+      try { db.prepare('DELETE FROM otps WHERE email = ? AND otp = ?').run(user.email.toLowerCase(), otp); } catch (_) {}
+      return res.status(502).json({ error: 'Failed to send OTP email.' });
+    }
+
+    return res.json({ ok: true, otp_required: true, is_admin: !!user.is_admin, message: 'OTP sent to your email.' });
+  } catch (e) {
+    return res.status(500).json({ error: 'Failed to initiate OTP.' });
+  }
 });
 
 // Verify Admin Login OTP (second step)
@@ -439,6 +432,58 @@ router.post('/verify-admin-login-otp', async (req, res) => {
 
   // Issue admin token with MFA claim
   const token = signToken({ id: user.id, email: user.email, is_admin: true, mfa: true });
+  const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
+  return res.json({
+    ok: true,
+    token,
+    user: {
+      id: user.id,
+      user_uid: user.user_uid,
+      email: user.email,
+      username: user.username,
+      is_admin: !!user.is_admin,
+      is_verified: !!user.is_verified,
+      photo_url
+    }
+  });
+});
+
+// Verify normal user Login OTP (second step)
+router.post('/verify-login-otp', async (req, res) => {
+  const { email, password, otp } = req.body || {};
+  if (!email || !password || !otp) return res.status(400).json({ error: 'Email, password, and OTP are required.' });
+
+  const user = db.prepare('SELECT id, email, password_hash, is_admin, username, profile_photo_path, is_banned, suspended_until, user_uid, is_verified FROM users WHERE email = ?').get(email.toLowerCase());
+  if (!user) return res.status(401).json({ error: 'Invalid credentials.' });
+
+  const match = await bcrypt.compare(password, user.password_hash);
+  if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
+
+  // Enforce bans/suspension for non-admins
+  if (!user.is_admin) {
+    if (user.is_banned) return res.status(403).json({ error: 'Your account is banned. Please contact support.' });
+    if (user.suspended_until) {
+      const now = new Date();
+      const until = new Date(user.suspended_until);
+      if (until > now) return res.status(403).json({ error: `Your account is suspended until ${until.toLocaleString()}.` });
+    }
+  }
+
+  const otpRecord = db.prepare('SELECT * FROM otps WHERE email = ? AND otp = ? ORDER BY expires_at DESC').get(email.toLowerCase(), otp);
+  if (!otpRecord) return res.status(401).json({ error: 'Invalid OTP.' });
+
+  const now = new Date();
+  const expiresAt = new Date(otpRecord.expires_at);
+  if (now > expiresAt) {
+    db.prepare('DELETE FROM otps WHERE id = ?').run(otpRecord.id);
+    return res.status(401).json({ error: 'OTP has expired.' });
+  }
+
+  // OTP valid; consume it and log in
+  try { db.prepare('DELETE FROM otps WHERE id = ?').run(otpRecord.id); } catch (_) {}
+
+  // Issue normal token
+  const token = signToken({ id: user.id, email: user.email, is_admin: !!user.is_admin });
   const photo_url = user.profile_photo_path ? ('/uploads/' + path.basename(user.profile_photo_path)) : null;
   return res.json({
     ok: true,
