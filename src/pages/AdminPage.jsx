@@ -577,7 +577,8 @@ export default function AdminPage() {
       })
       const data = await safeJson(r)
       if (!r.ok) throw new Error(data.error || 'Failed to send notification')
-     age('')
+      setNotifyTitle('')
+      setNotifyMessage('')
       setNotifyTargetType('all')
       setNotifyEmail('')
       loadAdminNotifications()
@@ -940,6 +941,25 @@ export default function AdminPage() {
                     <div className="h2">Reports</div>
                     <div className="text-muted">Pending: {metrics.totals.reportPending}</div>
                     <div className="text-muted">Resolved: {metrics.totals.reportResolved}</div>
+                  </div>
+                </div>
+
+                {/* New system/traffic stats */}
+                <div className="grid three" style={{ marginTop: 12 }}>
+                  <div className="card">
+                    <div className="h2">Visitors</div>
+                    <div className="text-muted">Total (distinct): {metrics.totals.visitorsTotal}</div>
+                    <div className="text-muted">New (last {metrics.params?.days}d): {metrics.rangeTotals.visitorsInRange}</div>
+                  </div>
+                  <div className="card">
+                    <div className="h2">System Files</div>
+                    <div className="text-muted">Files in data/: {metrics.totals.systemFilesCount}</div>
+                    <div className="text-muted">Databases: {metrics.totals.databasesCount}</div>
+                  </div>
+                  <div className="card">
+                    <div className="h2">Images</div>
+                    <div className="text-muted">Total stored: {metrics.totals.imagesCount}</div>
+                    <div className="text-muted">New Users (last {metrics.params?.days}d): {metrics.rangeTotals.usersNewInRange}</div>
                   </div>
                 </div>
 

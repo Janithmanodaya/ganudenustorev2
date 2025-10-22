@@ -1040,6 +1040,68 @@ router.get('/metrics', requireAdmin, (req, res) => {
     const reportPending = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE status = 'pending'`).get().c || 0;
     const reportResolved = db.prepare(`SELECT COUNT(*) as c FROM reports WHERE status = 'resolved'`).get().c || 0;
 
+    // Visitors (distinct IPs)
+    let visitorsTotal = 0;
+    let visitorsInRange = 0;
+    try {
+      visitorsTotal = db.prepare(`SELECT COUNT(DISTINCT ip) AS c FROM listing_views WHERE ip IS NOT NULL AND TRIM(ip) <> ''`).get().c || 0;
+      visitorsInRange = db.prepare(`SELECT COUNT(DISTINCT ip) AS c FROM listing_views WHERE ts >= ? AND ip IS NOT NULL AND TRIM(ip) <> ''`).get(rangeStartIso).c || 0;
+    } catch (_) {}
+
+    // Filesystem stats
+    const dataDir = path.resolve(process.cwd(), 'data');
+    const uploadsDir = path.join(dataDir, 'uploads');
+
+    function safeStat(p) {
+      try { return fs.statSync(p); } catch (_) { return null; }
+    }
+    function countFilesRec(dir, opts = {}) {
+      const st = safeStat(dir);
+      if (!st || !st.isDirectory()) return 0;
+      let count = 0;
+      for (const entry of fs.readdirSync(dir)) {
+        const p = path.join(dir, entry);
+        const s = safeStat(p);
+        if (!s) continue;
+        if (s.isDirectory()) {
+          // Optionally skip certain dirs
+          if (opts.skip && opts.skip.has(entry)) continue;
+          count += countFilesRec(p, opts);
+        } else if (s.isFile()) {
+          if (opts.filterExt) {
+            const ext = path.extname(entry).toLowerCase();
+            if (!opts.filterExt.has(ext)) continue;
+          }
+          count += 1;
+        }
+      }
+      return count;
+    }
+
+    // Count images under uploads (any file considered an image as we store webp/png/jpg)
+    let imagesCount = 0;
+    try {
+      const exts = new Set(['.webp', '.jpg', '.jpeg', '.png', '.gif', '.avif', '.tiff']);
+      imagesCount = countFilesRec(uploadsDir, { filterExt: exts });
+      // Fallback: if ext filtering yields 0 but uploads dir exists, count all files
+      if (imagesCount === 0) {
+        imagesCount = countFilesRec(uploadsDir);
+      }
+    } catch (_) {}
+
+    // Count databases (.sqlite) under data (including tmp_ai)
+    let databasesCount = 0;
+    try {
+      const sqliteExts = new Set(['.sqlite', '.db']);
+      databasesCount = countFilesRec(dataDir, { filterExt: sqliteExts });
+    } catch (_) {}
+
+    // Count system files under data excluding uploads (to avoid double-counting images)
+    let systemFilesCount = 0;
+    try {
+      systemFilesCount = countFilesRec(dataDir, { skip: new Set(['uploads']) });
+    } catch (_) {}
+
     // Range-limited totals
     const usersNewInRange = db.prepare(`SELECT COUNT(*) as c FROM users WHERE created_at >= ?`).get(rangeStartIso).c || 0;
     const listingsNewInRange = db.prepare(`SELECT COUNT(*) as c FROM listings WHERE created_at >= ?`).get(rangeStartIso).c || 0;
@@ -1115,14 +1177,19 @@ router.get('/metrics', requireAdmin, (req, res) => {
       totals: {
         totalUsers, bannedUsers, suspendedUsers,
         totalListings, activeListings, pendingListings, rejectedListings,
-        reportPending, reportResolved
+        reportPending, reportResolved,
+        visitorsTotal,
+        imagesCount,
+        systemFilesCount,
+        databasesCount
       },
       rangeTotals: {
         usersNewInRange,
         listingsNewInRange,
         approvalsInRange,
         rejectionsInRange,
-        reportsInRange
+        reportsInRange,
+        visitorsInRange
       },
       series: {
         signups,
