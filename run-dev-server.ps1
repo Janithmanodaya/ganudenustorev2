@@ -1,11 +1,12 @@
-# Run Dev Server (PowerShell) - starts backend and frontend, stays open and shows full logs
+# Run Dev Server (PowerShell) - starts backend (PHP or Node) and frontend, stays open and shows full logs
 
 # Always run from the directory of this script
 Set-Location -LiteralPath $PSScriptRoot
 
-Write-Host "Checking Node.js and npm..."
+Write-Host "Checking tools..."
 $nodeVersion = node -v 2>$null
 $npmVersion = npm -v 2>$null
+$phpVersion  = php -v 2>$null
 
 if (-not $nodeVersion) {
   Write-Host "ERROR: Node.js not found in PATH. Install from https://nodejs.org"
@@ -20,6 +21,7 @@ if (-not $npmVersion) {
 
 Write-Host "Node: $nodeVersion"
 Write-Host "npm: $npmVersion"
+if ($phpVersion) { Write-Host "PHP: $($phpVersion.Split("`n")[0])" } else { Write-Host "PHP: not found (will use Node backend)" }
 
 # Install dependencies if missing
 if (-not (Test-Path "node_modules")) {
@@ -46,13 +48,21 @@ if ($LASTEXITCODE -ne 0) {
   }
 }
 
-# Start backend server using Node (avoids quoting issues with special characters in paths)
+# Start backend on port 5174
 Write-Host ""
-Write-Host "Starting backend server at http://localhost:5174 ..."
-Start-Process -FilePath "node" -ArgumentList "server/index.js" -WorkingDirectory $PSScriptRoot -WindowStyle Normal | Out-Null
+if ($phpVersion -and (Test-Path "$PSScriptRoot\php\index.php")) {
+  Write-Host "Starting PHP built-in server (router: php/index.php) at http://localhost:5174 ..."
+  # Use PHP built-in server with router script to mimic Apache .htaccess rewrites
+  $phpArgs = @("-S", "localhost:5174", "-t", "$PSScriptRoot\php", "$PSScriptRoot\php\index.php")
+  Start-Process -FilePath "php" -ArgumentList $phpArgs -WorkingDirectory $PSScriptRoot -WindowStyle Normal | Out-Null
+} else {
+  Write-Host "Starting Node backend server at http://localhost:5174 ..."
+  Start-Process -FilePath "node" -ArgumentList "server/index.js" -WorkingDirectory $PSScriptRoot -WindowStyle Normal | Out-Null
+}
 
 Write-Host ""
 Write-Host "Starting Vite dev server (host enabled) at http://localhost:5173 ..."
+Write-Host "Proxy targets: /api and /uploads -> http://localhost:5174"
 Write-Host "Press Ctrl+C to stop the frontend server in this window."
 Write-Host ""
 
