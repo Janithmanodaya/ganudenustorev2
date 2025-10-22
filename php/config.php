@@ -14,6 +14,14 @@ $DB_USER   = getenv('DB_USER')   ?: '';
 $DB_PASS   = getenv('DB_PASS')   ?: '';
 $DB_CHARSET= getenv('DB_CHARSET')?: 'utf8mb4';
 
+// Auth token secret (HMAC), set AUTH_TOKEN_SECRET in environment for production
+$AUTH_TOKEN_SECRET = getenv('AUTH_TOKEN_SECRET') ?: 'dev-secret-change-me';
+
+// Google OAuth config (optional, for real flow)
+$GOOGLE_CLIENT_ID = getenv('GOOGLE_CLIENT_ID') ?: '';
+$GOOGLE_CLIENT_SECRET = getenv('GOOGLE_CLIENT_SECRET') ?: '';
+$GOOGLE_REDIRECT_URI = getenv('GOOGLE_REDIRECT_URI') ?: ''; // e.g., https://your-domain/api/auth/google/callback
+
 // Public domain used for robots/sitemap
 $PUBLIC_DOMAIN = getenv('PUBLIC_DOMAIN') ?: 'https://ganudenu.store';
 
@@ -225,6 +233,16 @@ function ensure_schema(): void {
                 created_at TEXT NOT NULL
             );
         ");
+
+        // request logs for rate limiting
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS request_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT NOT NULL,
+                ts INTEGER NOT NULL
+            );
+        ");
+        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_request_logs_key_ts ON request_logs(key, ts)");
     } catch (Throwable $e) {
         // If schema creation fails, keep going; endpoints may return empty/404
     }
@@ -301,4 +319,78 @@ function banner_url_from_path(string $path): ?string {
     if (!$filename) return null;
     // Publicly serve under /uploads/<filename>
     return "/uploads/{$filename}";
+}
+
+// ---- Auth token (HS256-like minimal JWT) ----
+function base64url_encode($data) { return rtrim(strtr(base64_encode($data), '+/', '-_'), '='); }
+function base64url_decode($data) { return base64_decode(strtr($data, '-_', '+/')); }
+
+function issue_token(array $claims): string {
+    global $AUTH_TOKEN_SECRET;
+    $header = ['alg' => 'HS256', 'typ' => 'JWT'];
+    $payload = $claims + ['iat' => time()];
+    $h = base64url_encode(json_encode($header));
+    $p = base64url_encode(json_encode($payload));
+    $sig = base64url_encode(hash_hmac('sha256', "$h.$p", $AUTH_TOKEN_SECRET, true));
+    return "$h.$p.$sig";
+}
+
+function verify_token(string $token): array {
+    global $AUTH_TOKEN_SECRET;
+    $parts = explode('.', $token);
+    if (count($parts) !== 3) return ['ok' => false, 'error' => 'bad token'];
+    [$h, $p, $s] = $parts;
+    $expected = base64url_encode(hash_hmac('sha256', "$h.$p", $AUTH_TOKEN_SECRET, true));
+    if (!hash_equals($expected, $s)) return ['ok' => false, 'error' => 'sig mismatch'];
+    $claims = json_decode(base64url_decode($p), true);
+    if (!is_array($claims)) return ['ok' => false, 'error' => 'bad payload'];
+    return ['ok' => true, 'claims' => $claims];
+}
+
+function require_admin_token(): array {
+    $hdr = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    $parts = explode(' ', $hdr);
+    if (count($parts) !== 2 || strtolower($parts[0]) !== 'bearer') {
+        json_response(['error' => 'Unauthorized'], 401);
+    }
+    $ver = verify_token($parts[1]);
+    if (!$ver['ok']) json_response(['error' => 'Unauthorized'], 401);
+    $c = $ver['claims'];
+    if (empty($c['is_admin']) || empty($c['email']) || empty($c['user_id'])) json_response(['error' => 'Forbidden'], 403);
+    return $c;
+}
+function require_user_token(): array {
+    $hdr = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    $parts = explode(' ', $hdr);
+    if (count($parts) !== 2 || strtolower($parts[0]) !== 'bearer') {
+        json_response(['error' => 'Unauthorized'], 401);
+    }
+    $ver = verify_token($parts[1]);
+    if (!$ver['ok']) json_response(['error' => 'Unauthorized'], 401);
+    $c = $ver['claims'];
+    if (empty($c['email']) || empty($c['user_id'])) json_response(['error' => 'Forbidden'], 403);
+    return $c;
+}
+
+// ---- Simple SQLite-backed rate limit ----
+function rate_limit(string $key, int $windowSec, int $max): void {
+    try {
+        $pdo = db();
+        $now = time();
+        $windowStart = $now - $windowSec;
+        // Cleanup old
+        $pdo->prepare("DELETE FROM request_logs WHERE ts < ?")->execute([$windowStart - 1]);
+        // Count
+        $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM request_logs WHERE key = ? AND ts >= ?");
+        $stmt->execute([$key, $windowStart]);
+        $row = $stmt->fetch();
+        $count = (int)($row['c'] ?? 0);
+        if ($count >= $max) {
+            json_response(['error' => 'Rate limit exceeded'], 429);
+        }
+        // Insert
+        $pdo->prepare("INSERT INTO request_logs (key, ts) VALUES (?, ?)")->execute([$key, $now]);
+    } catch (Throwable $e) {
+        // On failure, do not block
+    }
 }

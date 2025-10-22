@@ -95,6 +95,10 @@ if ($maint['enabled']) {
     }
 }
 
+// --- Global rate limit (per-IP, per-path) ---
+$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+rate_limit('ip:' . $ip . ':path:' . $path, 60, 120);
+
 // Routing
 switch (true) {
 
@@ -149,7 +153,7 @@ switch (true) {
         break;
     }
 
-    // Auth: login (password-only for now; no OTP unless user is admin)
+    // Auth: login (password-only; admins require OTP step)
     case $path === '/api/auth/login' && $method === 'POST': {
         $b = json_body();
         $email = trim(strtolower($b['email'] ?? ''));
@@ -165,24 +169,24 @@ switch (true) {
                 return json_response(['error' => 'Invalid email or password'], 401);
             }
 
-            // If admin, require OTP (to match front-end flow)
+            // If admin, require OTP
             if ((int)$row['is_admin'] === 1) {
                 $otp = gen_otp(6);
                 $expires = gmdate('c', time() + 600);
-                $ins = $pdo->prepare("INSERT INTO otps (email, otp, expires_at) VALUES (?, ?, ?)");
-                $ins->execute([$email, $otp, $expires]);
+                $pdo->prepare("INSERT INTO otps (email, otp, expires_at) VALUES (?, ?, ?)")->execute([$email, $otp, $expires]);
 
                 $html = "<div style=\"font-family:system-ui\">Your admin login verification code is <b>$otp</b>. It expires in 10 minutes.</div>";
                 $send = send_email($email, 'Your admin login code', $html);
-                $dev = getenv('EMAIL_DEV_MODE') === '1';
                 $payload = ['otp_required' => true, 'is_admin' => true, 'message' => 'OTP sent to your email'];
-                if ($dev) $payload['dev_otp'] = $otp;
+                if (getenv('EMAIL_DEV_MODE') === '1') $payload['dev_otp'] = $otp;
                 return json_response($payload);
             }
 
-            // Regular user login
+            // Regular user login -> issue token
+            $claims = ['email' => $row['email'], 'user_id' => (int)$row['id'], 'is_admin' => false];
+            $token = issue_token($claims);
             $user = ['id' => (int)$row['id'], 'email' => $row['email'], 'username' => $row['username'] ?? null, 'is_admin' => false];
-            return json_response(['user' => $user, 'token' => 'SESSION-' . bin2hex(random_bytes(12))]);
+            return json_response(['user' => $user, 'token' => $token]);
         } catch (Throwable $e) {
             return json_response(['error' => 'Login failed'], 500);
         }
@@ -206,8 +210,11 @@ switch (true) {
             // Delete used OTPs
             $pdo->prepare("DELETE FROM otps WHERE email = ?")->execute([$email]);
 
+            // Issue admin token
+            $claims = ['email' => $email, 'user_id' => (int)$row['uid'], 'is_admin' => true];
+            $token = issue_token($claims);
             $user = ['id' => (int)$row['uid'], 'email' => $email, 'username' => $row['username'] ?? null, 'is_admin' => true];
-            return json_response(['user' => $user, 'token' => 'SESSION-' . bin2hex(random_bytes(12))]);
+            return json_response(['user' => $user, 'token' => $token]);
         } catch (Throwable $e) {
             return json_response(['error' => 'Verification failed'], 500);
         }
@@ -221,7 +228,6 @@ switch (true) {
 
         try {
             $pdo = db();
-            // If user exists, still allow OTP to continue (front-end expects flow)
             $otp = gen_otp(6);
             $expires = gmdate('c', time() + 600);
             $pdo->prepare("INSERT INTO otps (email, otp, expires_at) VALUES (?, ?, ?)")->execute([$email, $otp, $expires]);
@@ -270,8 +276,11 @@ switch (true) {
             // Cleanup OTPs
             $pdo->prepare("DELETE FROM otps WHERE email = ?")->execute([$email]);
 
+            // Issue token
+            $claims = ['email' => $email, 'user_id' => $uid, 'is_admin' => false];
+            $token = issue_token($claims);
             $user = ['id' => $uid, 'email' => $email, 'username' => $username, 'is_admin' => false];
-            return json_response(['user' => $user, 'token' => 'SESSION-' . bin2hex(random_bytes(12))]);
+            return json_response(['user' => $user, 'token' => $token]);
         } catch (Throwable $e) {
             return json_response(['error' => 'Registration failed'], 500);
         }
@@ -328,24 +337,100 @@ switch (true) {
         }
     }
 
-    // Google OAuth (stub): start redirects to callback; callback returns token param
+    // Google OAuth: real flow if configured, otherwise stub
     case $path === '/api/auth/google/start': {
         $returnUrl = (string)qparam('r', '/auth');
-        // In production, you would redirect to Google's OAuth consent screen.
-        // For shared hosting without OAuth setup, we simulate a callback with a dummy token.
-        $dummyToken = 'SESSION-' . bin2hex(random_bytes(12));
-        header('Location: ' . $returnUrl . '?token=' . urlencode($dummyToken) . '&provider=Google');
-        exit;
+        $clientId = getenv('GOOGLE_CLIENT_ID') ?: '';
+        $redirectUri = getenv('GOOGLE_REDIRECT_URI') ?: '';
+        if ($clientId && $redirectUri) {
+            $scope = urlencode('email profile');
+            $state = bin2hex(random_bytes(12));
+            $authUrl = "https://accounts.google.com/o/oauth2/v2/auth?client_id={$clientId}&redirect_uri=" . urlencode($redirectUri) . "&response_type=code&scope={$scope}&access_type=online&state={$state}&include_granted_scopes=true";
+            header('Location: ' . $authUrl);
+            exit;
+        } else {
+            // Fallback stub
+            $dummyToken = issue_token(['email' => 'stub@example.com', 'user_id' => 0, 'is_admin' => false]);
+            header('Location: ' . $returnUrl . '?token=' . urlencode($dummyToken) . '&provider=Google');
+            exit;
+        }
     }
     case $path === '/api/auth/google/callback': {
         $returnUrl = (string)qparam('r', '/auth');
-        $dummyToken = 'SESSION-' . bin2hex(random_bytes(12));
-        header('Location: ' . $returnUrl . '?token=' . urlencode($dummyToken) . '&provider=Google');
-        exit;
+        $code = (string)qparam('code', '');
+        $clientId = getenv('GOOGLE_CLIENT_ID') ?: '';
+        $clientSecret = getenv('GOOGLE_CLIENT_SECRET') ?: '';
+        $redirectUri = getenv('GOOGLE_REDIRECT_URI') ?: '';
+        if ($code && $clientId && $clientSecret && $redirectUri) {
+            // Exchange code for tokens
+            $postData = http_build_query([
+                'code' => $code,
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+                'redirect_uri' => $redirectUri,
+                'grant_type' => 'authorization_code'
+            ]);
+            $opts = ['http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+                'content' => $postData,
+                'timeout' => 10
+            ]];
+            $ctx = stream_context_create($opts);
+            $resp = @file_get_contents('https://oauth2.googleapis.com/token', false, $ctx);
+            $idEmail = null; $name = null;
+            if ($resp) {
+                $tok = json_decode($resp, true);
+                $idToken = $tok['id_token'] ?? '';
+                if ($idToken) {
+                    // Decode JWT payload (without signature verification here)
+                    $parts = explode('.', $idToken);
+                    if (count($parts) === 3) {
+                        $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
+                        $idEmail = $payload['email'] ?? null;
+                        $name = $payload['name'] ?? null;
+                    }
+                }
+            }
+            if ($idEmail) {
+                try {
+                    $pdo = db();
+                    $stmt = $pdo->prepare("SELECT id, username, is_admin FROM users WHERE email = ? LIMIT 1");
+                    $stmt->execute([strtolower($idEmail)]);
+                    $row = $stmt->fetch();
+                    if ($row) {
+                        $claims = ['email' => strtolower($idEmail), 'user_id' => (int)$row['id'], 'is_admin' => ((int)$row['is_admin'] === 1)];
+                        $token = issue_token($claims);
+                        header('Location: ' . $returnUrl . '?token=' . urlencode($token) . '&provider=Google');
+                        exit;
+                    } else {
+                        // Create user with verified flag
+                        $username = $name ?: explode('@', $idEmail)[0];
+                        $pdo->prepare("INSERT INTO users (email, username, is_verified, created_at) VALUES (?, ?, 1, ?)")->execute([strtolower($idEmail), $username, now_iso()]);
+                        $uid = (int)$pdo->lastInsertId();
+                        $token = issue_token(['email' => strtolower($idEmail), 'user_id' => $uid, 'is_admin' => false]);
+                        header('Location: ' . $returnUrl . '?token=' . urlencode($token) . '&provider=Google');
+                        exit;
+                    }
+                } catch (Throwable $e) {
+                    // Fallback to stub
+                }
+            }
+            // Fallback: stub token
+            $dummyToken = issue_token(['email' => 'stub@example.com', 'user_id' => 0, 'is_admin' => false]);
+            header('Location: ' . $returnUrl . '?token=' . urlencode($dummyToken) . '&provider=Google');
+            exit;
+        } else {
+            // Missing config; fallback stub
+            $dummyToken = issue_token(['email' => 'stub@example.com', 'user_id' => 0, 'is_admin' => false]);
+            header('Location: ' . $returnUrl . '?token=' . urlencode($dummyToken) . '&provider=Google');
+            exit;
+        }
     }
 
-    // Admin: maintenance toggle
+    // Admin: maintenance toggle (admin auth required)
     case $path === '/api/admin/maintenance' && in_array($method, ['POST','PUT','PATCH']): {
+        $claims = require_admin_token();
         $b = json_body();
         $enabled = !!($b['enabled'] ?? false);
         $message = (string)($b['message'] ?? '');
@@ -359,8 +444,41 @@ switch (true) {
         break;
     }
 
-    // Admin: payment rules list/update
+    // Admin: config get/update (admin auth required)
+    case $path === '/api/admin/config' && $method === 'GET': {
+        $claims = require_admin_token();
+        try {
+            $pdo = db();
+            $row = $pdo->query("SELECT gemini_api_key, bank_details, whatsapp_number, email_on_approve, maintenance_mode, maintenance_message, bank_account_number, bank_account_name, bank_name FROM admin_config WHERE id = 1")->fetch();
+            json_response($row ?: []);
+        } catch (Throwable $e) { json_response(['error' => 'Failed to load config'], 500); }
+        break;
+    }
+    case $path === '/api/admin/config' && in_array($method, ['POST','PUT','PATCH']): {
+        $claims = require_admin_token();
+        $b = json_body();
+        try {
+            $pdo = db();
+            $fields = [
+                'gemini_api_key','bank_details','whatsapp_number','email_on_approve',
+                'maintenance_mode','maintenance_message','bank_account_number','bank_account_name','bank_name'
+            ];
+            $set = []; $params = [];
+            foreach ($fields as $f) {
+                if (array_key_exists($f, $b)) { $set[] = "$f = ?"; $params[] = $b[$f]; }
+            }
+            if ($set) {
+                $params[] = 1;
+                $pdo->prepare("UPDATE admin_config SET " . implode(', ', $set) . " WHERE id = ?")->execute($params);
+            }
+            json_response(['ok' => true]);
+        } catch (Throwable $e) { json_response(['error' => 'Failed to update config'], 500); }
+        break;
+    }
+
+    // Admin: payment rules list/update (admin auth required)
     case $path === '/api/admin/payment-rules' && $method === 'GET': {
+        $claims = require_admin_token();
         try {
             $pdo = db();
             $rows = $pdo->query("SELECT category, amount, enabled FROM payment_rules ORDER BY category ASC")->fetchAll();
@@ -371,6 +489,7 @@ switch (true) {
         break;
     }
     case $path === '/api/admin/payment-rules' && in_array($method, ['POST','PUT','PATCH']): {
+        $claims = require_admin_token();
         $b = json_body();
         $cat = (string)($b['category'] ?? '');
         $amount = (int)($b['amount'] ?? 0);
@@ -386,8 +505,9 @@ switch (true) {
         break;
     }
 
-    // Listings: create (JSON)
+    // Listings: create (user token required)
     case $path === '/api/listings' && $method === 'POST': {
+        $claims = require_user_token();
         $b = json_body();
         $title = trim($b['title'] ?? '');
         if ($title === '') return json_response(['error' => 'title required'], 400);
@@ -413,8 +533,9 @@ switch (true) {
         break;
     }
 
-    // Listings: update
+    // Listings: update (user token required)
     case preg_match('#^/api/listings/(\d+)$#', $path, $m) && in_array($method, ['PUT','PATCH']): {
+        $claims = require_user_token();
         $id = (int)$m[1];
         $b = json_body();
         $fields = ['title','price','currency','category','location','sub_category','model','year','status','structured_json'];
@@ -438,8 +559,9 @@ switch (true) {
         break;
     }
 
-    // Listings: delete
+    // Listings: delete (admin token required or future owner check)
     case preg_match('#^/api/listings/(\d+)$#', $path, $m) && $method === 'DELETE': {
+        $claims = require_admin_token();
         $id = (int)$m[1];
         try {
             $pdo = db();
@@ -452,8 +574,9 @@ switch (true) {
         break;
     }
 
-    // Listings: upload image (multipart/form-data)
+    // Listings: upload image (multipart/form-data, user token required)
     case preg_match('#^/api/listings/(\d+)/upload-image$#', $path, $m) && $method === 'POST': {
+        $claims = require_user_token();
         $id = (int)$m[1];
         $uploadsDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'uploads';
         if (!is_dir($uploadsDir)) @mkdir($uploadsDir, 0775, true);
@@ -467,29 +590,40 @@ switch (true) {
         $dest = $uploadsDir . DIRECTORY_SEPARATOR . $safeName;
         if (!move_uploaded_file($f['tmp_name'], $dest)) return json_response(['error' => 'failed to store file'], 500);
 
-        // Generate thumbnail (simple GD resize to max 480 width)
+        // Generate sizes: thumb (480w), medium (960w), og (1200w)
         try {
             $img = null;
-            if ($ext === 'png') $img = imagecreatefrompng($dest);
-            else if ($ext === 'gif') $img = imagecreatefromgif($dest);
-            else $img = imagecreatefromjpeg($dest);
+            if ($ext === 'png') $img = @imagecreatefrompng($dest);
+            else if ($ext === 'gif') $img = @imagecreatefromgif($dest);
+            else $img = @imagecreatefromjpeg($dest);
             if ($img) {
                 $w = imagesx($img); $h = imagesy($img);
-                $maxW = 480;
-                $newW = min($w, $maxW);
-                $newH = intval($h * ($newW / $w));
-                $thumb = imagecreatetruecolor($newW, $newH);
-                imagecopyresampled($thumb, $img, 0,0,0,0, $newW,$newH, $w,$h);
-                $thumbName = 'T' . $safeName;
-                $thumbPath = $uploadsDir . DIRECTORY_SEPARATOR . $thumbName;
-                imagejpeg($thumb, $thumbPath, 80);
-                imagedestroy($thumb);
+                $sizes = [
+                    ['name' => 'T' . $safeName, 'w' => 480, 'q' => 80],
+                    ['name' => 'M' . $safeName, 'w' => 960, 'q' => 82],
+                    ['name' => 'O' . $safeName, 'w' => 1200, 'q' => 85],
+                ];
+                $paths = [];
+                foreach ($sizes as $s) {
+                    $newW = min($w, $s['w']);
+                    $newH = intval($h * ($newW / $w));
+                    $canvas = imagecreatetruecolor($newW, $newH);
+                    imagecopyresampled($canvas, $img, 0,0,0,0, $newW,$newH, $w,$h);
+                    $outPath = $uploadsDir . DIRECTORY_SEPARATOR . $s['name'];
+                    imagejpeg($canvas, $outPath, $s['q']);
+                    imagedestroy($canvas);
+                    $paths[] = $outPath;
+                }
                 imagedestroy($img);
 
-                // Save paths
+                $thumbPath = $paths[0] ?? null;
+                $mediumPath = $paths[1] ?? null;
+                $ogPath = $paths[2] ?? null;
+
+                // Save image rows and listing paths
                 $pdo = db();
                 $pdo->prepare("INSERT INTO listing_images (listing_id, path) VALUES (?, ?)")->execute([$id, $dest]);
-                $pdo->prepare("UPDATE listings SET thumbnail_path = ?, medium_path = ?, og_image_path = ? WHERE id = ?")->execute([$thumbPath, $dest, $dest, $id]);
+                $pdo->prepare("UPDATE listings SET thumbnail_path = ?, medium_path = ?, og_image_path = ? WHERE id = ?")->execute([$thumbPath, $mediumPath, $ogPath, $id]);
 
                 $url = '/uploads/' . basename($thumbPath);
                 json_response(['ok' => true, 'thumbnail_url' => $url]);
@@ -513,6 +647,23 @@ switch (true) {
         break;
     }
 
+    // Notifications: create (user token required)
+    case $path === '/api/notifications' && $method === 'POST': {
+        $claims = require_user_token();
+        $b = json_body();
+        $type = (string)($b['type'] ?? '');
+        $message = (string)($b['message'] ?? '');
+        $target_email = (string)($b['target_email'] ?? $claims['email']);
+        $listing_id = isset($b['listing_id']) ? (int)$b['listing_id'] : null;
+        if ($type === '' || $message === '') return json_response(['error' => 'type and message required'], 400);
+        try {
+            $pdo = db();
+            $pdo->prepare("INSERT INTO notifications (type, message, target_email, listing_id, created_at) VALUES (?, ?, ?, ?, ?)")->execute([$type, $message, $target_email, $listing_id, now_iso()]);
+            json_response(['ok' => true]);
+        } catch (Throwable $e) { json_response(['error' => 'Failed to create notification'], 500); }
+        break;
+    }
+
     // Notifications: unread count for user email
     case $path === '/api/notifications/unread-count': {
         $email = (string)qparam('user_email', '');
@@ -520,7 +671,6 @@ switch (true) {
         if ($email) {
             try {
                 $pdo = db();
-                // Count notifications not emailed and created in last 7 days
                 $since = gmdate('c', time() - 7*24*60*60);
                 $stmt = $pdo->prepare("SELECT COUNT(*) AS c FROM notifications WHERE target_email = ? AND created_at >= ?");
                 $stmt->execute([$email, $since]);
@@ -768,6 +918,7 @@ Sitemap: {$domain}/sitemap.xml";
 
     // Wanted requests
     case $path === '/api/wanted' && $method === 'POST': {
+        $claims = require_user_token();
         $b = json_body();
         $title = trim($b['title'] ?? '');
         $description = trim($b['description'] ?? '');
